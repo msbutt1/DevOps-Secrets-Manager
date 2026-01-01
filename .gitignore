@@ -1,0 +1,91 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Rust build artifacts
+**/target/
+
+# Compiled binaries
+/server
+apps/api/server
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Configuration files (keep example)
+config.yaml
+config.yml
+config.json
+
+# IDE and tooling
+.idea/
+.vscode/
+.claude/
+*_no_members*
+*.bak
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+bin/
+dist/
+build/
+
+# Log files
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Markdown – exclude all except README-style (README.md, apps/*/README.md, QUICKSTART)
+DEVELOPMENT_LOG.md
+README.init.md
+DEPLOY.md
+DOCKER_SETUP.md
+PROJECT_COMPLETION_SUMMARY.md
+PRIORITY_TASK_BREAKDOWN.md
+COMPREHENSIVE_ANALYSIS_AND_PLAN.md
+INTEGRATION_FINAL_ASSESSMENT.md
+AUTH_INTEGRATION_REPORT.md
+NEXT_TASK_INTEGRATION_CLEANUP.md
+BACKEND_SETUP.md
+docs/FRONTEND_PLANNING.md
+docs/GETTING_STARTED.md
+docs/PROJECT_STATUS.md
+
+# Stub scripts (not committed)
+docker-start.sh
+docker-validate.sh
+start.sh
+
+# History build script (meta, not part of project history)
+build-history.sh
+
+# Nested git (CLI has its own repo)
+apps/cli/.git/
