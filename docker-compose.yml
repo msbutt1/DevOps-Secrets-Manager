@@ -1,0 +1,67 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: devops-secrets-db
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-secrets_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-secrets_password}
+      POSTGRES_DB: ${DATABASE_NAME:-secrets_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - secrets-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-secrets_user} -d ${DATABASE_NAME:-secrets_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: devops-secrets-api
+    environment:
+      APP_DATABASE_HOST: db
+      APP_DATABASE_PORT: 5432
+      APP_DATABASE_USER: ${DATABASE_USER:-secrets_user}
+      APP_DATABASE_PASSWORD: ${DATABASE_PASSWORD:-secrets_password}
+      APP_DATABASE_NAME: ${DATABASE_NAME:-secrets_db}
+      APP_DATABASE_SSLMODE: disable
+      APP_JWT_SECRET: ${JWT_SECRET}
+      MASTER_KEK: ${MASTER_KEK}
+      APP_SERVER_PORT: 8080
+      APP_DATABASE_MIGRATIONS_PATH: /app/migrations
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - secrets-network
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: devops-secrets-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - secrets-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  secrets-network:
+    driver: bridge
