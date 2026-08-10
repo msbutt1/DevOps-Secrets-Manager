@@ -84,10 +84,11 @@ func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Enviro
 // ListByVaultID retrieves all non-deleted environments for a vault
 func (r *postgresRepository) ListByVaultID(ctx context.Context, vaultID uuid.UUID) ([]*Environment, error) {
 	query := `
-		SELECT id, vault_id, name, description, created_at, updated_at, deleted_at
-		FROM environments
-		WHERE vault_id = $1 AND deleted_at IS NULL
-		ORDER BY created_at DESC
+		SELECT e.id, e.vault_id, e.name, e.description, e.created_at, e.updated_at, e.deleted_at,
+			(SELECT COUNT(*) FROM secrets s WHERE s.environment_id = e.id AND s.deleted_at IS NULL)
+		FROM environments e
+		WHERE e.vault_id = $1 AND e.deleted_at IS NULL
+		ORDER BY e.created_at DESC
 	`
 
 	rows, err := r.pool.Query(ctx, query, vaultID)
@@ -107,6 +108,7 @@ func (r *postgresRepository) ListByVaultID(ctx context.Context, vaultID uuid.UUI
 			&environment.CreatedAt,
 			&environment.UpdatedAt,
 			&environment.DeletedAt,
+			&environment.SecretCount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan environment: %w", err)

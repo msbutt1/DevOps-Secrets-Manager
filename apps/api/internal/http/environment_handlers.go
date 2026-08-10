@@ -36,6 +36,7 @@ type EnvironmentResponse struct {
 	Description *string   `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	SecretCount int       `json:"secret_count"`
 }
 
 // EnvironmentHandlers handles environment-related HTTP requests
@@ -367,6 +368,7 @@ func (h *EnvironmentHandlers) toEnvironmentResponse(environment *environments.En
 		Description: environment.Description,
 		CreatedAt:   environment.CreatedAt,
 		UpdatedAt:   environment.UpdatedAt,
+		SecretCount: environment.SecretCount,
 	}
 }
 

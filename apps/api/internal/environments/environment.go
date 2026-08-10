@@ -23,6 +23,8 @@ type Environment struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	DeletedAt   *time.Time
+	// SecretCount is the number of live secrets; only populated by ListByVaultID.
+	SecretCount int
 }
 
 // Repository defines the interface for environment data access
