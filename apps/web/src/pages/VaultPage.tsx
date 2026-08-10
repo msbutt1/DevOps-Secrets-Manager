@@ -407,7 +407,7 @@ export const VaultPage = () => {
                               )}
                             </td>
                             <td className="px-2 py-1 text-win-small">
-                              <div>{formatDateTime(secret.lastUpdatedAt)}</div>
+                              <div>{formatDateTime(secret.lastUpdatedAt ?? secret.updatedAt ?? '')}</div>
                               <div className="text-muted-foreground">{secret.lastUpdatedBy}</div>
                             </td>
                             <td className="px-2 py-1">
@@ -511,7 +511,7 @@ export const VaultPage = () => {
       {/* Reveal Secret Dialog */}
       <RevealSecretDialog
         isOpen={!!revealSecret}
-        secretName={revealSecret?.name || ''}
+        secretName={revealSecret?.keyName || ''}
         secretValue={revealedValue}
         onClose={() => {
           setRevealSecret(null);

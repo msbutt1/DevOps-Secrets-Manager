@@ -117,7 +117,8 @@ export interface Secret {
   environmentId: string;
   keyName: string;
   description?: string;
-  lastUpdatedAt: string;
+  lastUpdatedAt?: string;
+  updatedAt?: string;
   lastUpdatedBy: string;
   createdAt?: string;
   createdBy?: string;
