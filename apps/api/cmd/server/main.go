@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,10 +17,10 @@ import (
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/crypto"
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/email"
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/environments"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/storage"
 	httphandler "github.com/razlafan/devops-secret-manager/apps/api/internal/http"
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/policy"
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/secrets"
+	"github.com/razlafan/devops-secret-manager/apps/api/internal/storage"
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/tokens"
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/users"
 	"github.com/razlafan/devops-secret-manager/apps/api/internal/vaults"
@@ -78,10 +79,9 @@ func main() {
 
 	// Run database migrations
 	migrationsPath := viper.GetString("database.migrations_path")
-		if migrationsPath == "" {
-			migrationsPath = "../../migrations"
+	if migrationsPath == "" {
+		migrationsPath = "../../migrations"
 	}
-
 
 	logger.Info("Running database migrations", zap.String("path", migrationsPath))
 	if err := storage.RunMigrations(pool, migrationsPath); err != nil {
@@ -208,6 +208,8 @@ func loadConfig() error {
 
 	// Bind environment variables
 	viper.SetEnvPrefix("APP")
+	// Map nested keys to env vars: database.host -> APP_DATABASE_HOST (as docker-compose sets them)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	// Optional: load from config file if it exists
