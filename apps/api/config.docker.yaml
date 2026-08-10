@@ -1,0 +1,12 @@
+# Docker runtime defaults. Every value can be overridden with an APP_ environment variable
+# (e.g. database.host -> APP_DATABASE_HOST); docker-compose.yml sets the real values.
+server:
+  port: 8080
+
+database:
+  sslmode: disable
+  migrations_path: /app/migrations
+
+jwt:
+  access_token_ttl: 15m
+  refresh_token_ttl: 168h
