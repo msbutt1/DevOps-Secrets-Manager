@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/http/middleware"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/policy"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/vaults"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
 	"go.uber.org/zap"
 )
 

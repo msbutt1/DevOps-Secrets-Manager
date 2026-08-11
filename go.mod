@@ -1,4 +1,4 @@
-module github.com/razlafan/devops-secret-manager
+module github.com/msbutt1/DevOps-Secrets-Manager
 
 go 1.25.6
 

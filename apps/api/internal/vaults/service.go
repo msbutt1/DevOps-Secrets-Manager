@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/crypto"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 )
 
 // VaultService defines the interface for vault operations

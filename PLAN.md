@@ -52,7 +52,7 @@ Do this first so every later fix can be checked automatically.
   - `.env.example` contains real-looking `MASTER_KEK` and `JWT_SECRET` values. Replace them with `change-me` placeholders.
   - Make the API refuse to start when either key is missing, too short, or still set to a placeholder or the old example value.
   - Commits: `fix: replace example keys with placeholders` + `feat(api): refuse to start with weak or example keys`
-- [ ] **Fix the Go module path.** It is still `github.com/razlafan/devops-secret-manager`. Rename it to `github.com/msbutt1/DevOps-Secrets-Manager` and update every import. Commit: `refactor(api): rename Go module to match repository`
+- [x] **Fix the Go module path.** It is still `github.com/razlafan/devops-secret-manager`. Rename it to `github.com/msbutt1/DevOps-Secrets-Manager` and update every import. Commit: `refactor(api): rename Go module to match repository`
 - [ ] **One-time formatting.** Run `go fmt ./...`, `cargo fmt` and Prettier across the repo. Commit: `style: format codebase`
 - [ ] **Get all checks green.**
   - The web typecheck has 4 existing TypeScript errors. Fix them. Commit: `fix(web): resolve TypeScript errors`

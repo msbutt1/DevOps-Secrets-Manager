@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/auth"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/http/middleware"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/auth"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"go.uber.org/zap"
 )
 

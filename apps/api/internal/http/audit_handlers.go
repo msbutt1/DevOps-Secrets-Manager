@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/audit"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/http/middleware"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/policy"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 )
 
 // AuditHandlers handles audit-related HTTP requests

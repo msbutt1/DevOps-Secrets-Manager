@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/crypto"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 )
 
 // contextKey is a custom type for context keys to avoid collisions

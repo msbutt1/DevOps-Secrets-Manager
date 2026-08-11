@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/crypto"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/email"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/tokens"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/users"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/tokens"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
 
 	"github.com/google/uuid"
 )

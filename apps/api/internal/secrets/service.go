@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/audit"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/crypto"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/environments"
-	"github.com/razlafan/devops-secret-manager/apps/api/internal/vaults"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
 )
 
 // SecretService defines the interface for secret operations

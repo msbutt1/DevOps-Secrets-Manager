@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	authmiddleware "github.com/razlafan/devops-secret-manager/apps/api/internal/http/middleware"
+	authmiddleware "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 )
 
 // NewRouter creates and configures a new chi router
