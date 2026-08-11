@@ -1,6 +1,6 @@
-use anyhow::Result;
 use crate::api::ApiClient;
 use crate::utils::TablePrinter;
+use anyhow::Result;
 
 pub async fn list() -> Result<()> {
     let client = ApiClient::new();

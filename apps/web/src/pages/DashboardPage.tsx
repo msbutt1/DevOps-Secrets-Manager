@@ -10,8 +10,17 @@ import { useAuditLogs } from '@/hooks/use-audit';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import {
-  Database, AlertTriangle, Clock, Activity, ChevronRight,
-  Shield, Server, Key, RefreshCw, Users, Check
+  Database,
+  AlertTriangle,
+  Clock,
+  Activity,
+  ChevronRight,
+  Shield,
+  Server,
+  Key,
+  RefreshCw,
+  Users,
+  Check,
 } from 'lucide-react';
 import type { VaultRole } from '@/types/api';
 
@@ -51,12 +60,12 @@ export const DashboardPage = () => {
   const { data: vaults = [], isLoading: vaultsLoading, error: vaultsError } = useVaults();
   const { data: auditData, isLoading: auditLoading } = useAuditLogs({
     limit: 4,
-    page: 1
+    page: 1,
   });
   const createVaultMutation = useCreateVault();
 
   // Transform audit events to activity format
-  const recentActivity = (auditData?.data || []).map(event => ({
+  const recentActivity = (auditData?.data || []).map((event) => ({
     id: event.id,
     type: event.action,
     user: event.userEmail,
@@ -126,12 +135,16 @@ export const DashboardPage = () => {
           </Panel>
           <Panel className="!p-2 text-center">
             <Clock size={16} className="mx-auto mb-1 text-warning" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold text-warning">{stats.secretsExpiringSoon}</div>
+            <div className="text-win-title font-semibold text-warning">
+              {stats.secretsExpiringSoon}
+            </div>
             <div className="text-win-small text-muted-foreground">Expiring Soon</div>
           </Panel>
           <Panel className="!p-2 text-center">
             <RefreshCw size={16} className="mx-auto mb-1 text-warning" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold text-warning">{stats.secretsNeedingRotation}</div>
+            <div className="text-win-title font-semibold text-warning">
+              {stats.secretsNeedingRotation}
+            </div>
             <div className="text-win-small text-muted-foreground">Need Rotation</div>
           </Panel>
           <Panel className="!p-2 text-center">
@@ -151,7 +164,7 @@ export const DashboardPage = () => {
                   <Database size={14} strokeWidth={1.5} />
                   <h2 className="text-win-section font-semibold">Accessible Vaults</h2>
                 </div>
-                <Button 
+                <Button
                   className="!min-w-0 !px-2 !py-1 text-win-small"
                   onClick={() => setShowCreateVault(true)}
                 >
@@ -217,31 +230,41 @@ export const DashboardPage = () => {
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle size={14} strokeWidth={1.5} className="text-warning" />
                 <h2 className="text-win-section font-semibold">System Alerts</h2>
-                <span className="text-win-small text-warning ml-auto">
-                  {alerts.length} active
-                </span>
+                <span className="text-win-small text-warning ml-auto">{alerts.length} active</span>
               </div>
 
               <div className="win-border-sunken bg-input max-h-[140px] overflow-auto">
                 {alerts.map((alert) => (
-                  <div 
+                  <div
                     key={alert.id}
                     className="px-2 py-1 border-b border-border/50 text-win-body flex items-start gap-2"
                   >
                     {alert.type === 'expiring' ? (
-                      <Clock size={12} className="text-warning mt-[2px] flex-shrink-0" strokeWidth={1.5} />
+                      <Clock
+                        size={12}
+                        className="text-warning mt-[2px] flex-shrink-0"
+                        strokeWidth={1.5}
+                      />
                     ) : (
-                      <RefreshCw size={12} className="text-warning mt-[2px] flex-shrink-0" strokeWidth={1.5} />
+                      <RefreshCw
+                        size={12}
+                        className="text-warning mt-[2px] flex-shrink-0"
+                        strokeWidth={1.5}
+                      />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="truncate">{alert.message}</div>
                       <div className="text-win-small text-muted-foreground">{alert.vault}</div>
                     </div>
-                    <span className={`text-win-small px-1 ${
-                      alert.severity === 'high' ? 'bg-warning/20 text-warning' :
-                      alert.severity === 'medium' ? 'bg-warning/10 text-warning' :
-                      'text-muted-foreground'
-                    }`}>
+                    <span
+                      className={`text-win-small px-1 ${
+                        alert.severity === 'high'
+                          ? 'bg-warning/20 text-warning'
+                          : alert.severity === 'medium'
+                            ? 'bg-warning/10 text-warning'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
                       {alert.severity}
                     </span>
                   </div>
@@ -273,11 +296,17 @@ export const DashboardPage = () => {
                       <div className="flex items-center gap-2">
                         <Icon size={10} strokeWidth={1.5} className="flex-shrink-0" />
                         <span className="font-semibold">{activity.type}</span>
-                        <span className="text-muted-foreground text-win-small ml-auto">{activity.timestamp}</span>
+                        <span className="text-muted-foreground text-win-small ml-auto">
+                          {activity.timestamp}
+                        </span>
                       </div>
                       <div className="text-win-small text-muted-foreground pl-4">
                         {activity.user} in {activity.vault}
-                        {activity.env && <span className={activity.env === 'prod' ? 'text-warning' : ''}>/{activity.env}</span>}
+                        {activity.env && (
+                          <span className={activity.env === 'prod' ? 'text-warning' : ''}>
+                            /{activity.env}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -302,7 +331,7 @@ export const DashboardPage = () => {
                 <Shield size={14} strokeWidth={1.5} className="text-success" />
                 <h2 className="text-win-section font-semibold">System Status</h2>
               </div>
-              
+
               <div className="space-y-1 text-win-body">
                 <div className="flex justify-between items-center">
                   <span>API Status:</span>

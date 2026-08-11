@@ -1,5 +1,5 @@
-use anyhow::{Result, Context};
 use crate::api::ApiClient;
+use anyhow::{Context, Result};
 use std::fs;
 
 pub async fn execute(vault: &str, env: &str, out: Option<&str>) -> Result<()> {
@@ -13,8 +13,13 @@ pub async fn execute(vault: &str, env: &str, out: Option<&str>) -> Result<()> {
     };
 
     // Resolve environment name to ID
-    let env_obj = client.find_environment_by_name(&vault_id, env).await?
-        .context(format!("Environment '{}' not found in vault '{}'", env, vault))?;
+    let env_obj = client
+        .find_environment_by_name(&vault_id, env)
+        .await?
+        .context(format!(
+            "Environment '{}' not found in vault '{}'",
+            env, vault
+        ))?;
 
     // Get all secrets
     let secrets = client.list_secrets(&env_obj.id).await?;
@@ -27,7 +32,9 @@ pub async fn execute(vault: &str, env: &str, out: Option<&str>) -> Result<()> {
     // Reveal all secret values
     let mut output = String::new();
     for secret in &secrets {
-        let value = client.reveal_secret(&secret.id).await
+        let value = client
+            .reveal_secret(&secret.id)
+            .await
             .context(format!("Failed to reveal secret '{}'", secret.key_name))?;
         output.push_str(&format!("{}={}\n", secret.key_name, value));
     }

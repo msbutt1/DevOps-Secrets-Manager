@@ -7,7 +7,12 @@ interface LoadingStateProps {
   message?: string;
 }
 
-export const LoadingState = ({ type, rows = 5, columns = 4, message = 'Loading...' }: LoadingStateProps) => {
+export const LoadingState = ({
+  type,
+  rows = 5,
+  columns = 4,
+  message = 'Loading...',
+}: LoadingStateProps) => {
   if (type === 'inline') {
     return (
       <div className="flex items-center gap-2">
@@ -39,15 +44,15 @@ export const LoadingState = ({ type, rows = 5, columns = 4, message = 'Loading..
           </div>
         </div>
         {Array.from({ length: rows }).map((_, rowIdx) => (
-          <div 
-            key={rowIdx} 
+          <div
+            key={rowIdx}
             className={`p-2 border-b border-border/50 ${rowIdx % 2 === 1 ? 'bg-background' : ''}`}
           >
             <div className="flex gap-4">
               {Array.from({ length: columns }).map((_, colIdx) => (
-                <Skeleton 
-                  key={colIdx} 
-                  className="h-3 flex-1 bg-border/50" 
+                <Skeleton
+                  key={colIdx}
+                  className="h-3 flex-1 bg-border/50"
                   style={{ width: `${60 + Math.random() * 40}%` }}
                 />
               ))}

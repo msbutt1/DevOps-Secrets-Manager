@@ -71,9 +71,7 @@ export const SettingsPage = () => {
         {/* Page Header */}
         <div className="win-border-raised bg-background p-2">
           <h1 className="text-win-title font-semibold">User Settings</h1>
-          <p className="text-win-body text-muted-foreground">
-            Account information and preferences
-          </p>
+          <p className="text-win-body text-muted-foreground">Account information and preferences</p>
         </div>
 
         <div className="flex gap-win-sm">
@@ -153,9 +151,7 @@ export const SettingsPage = () => {
                       }`}
                     >
                       <div className="text-win-body font-semibold">{org.name}</div>
-                      <div className="text-win-small text-muted-foreground">
-                        Role: {org.role}
-                      </div>
+                      <div className="text-win-small text-muted-foreground">Role: {org.role}</div>
                     </div>
                   ))
                 ) : (
@@ -216,7 +212,11 @@ export const SettingsPage = () => {
                 <form onSubmit={handleChangePassword} className="space-y-3">
                   {error && (
                     <div className="win-border-sunken bg-background p-2 flex items-start gap-2">
-                      <AlertTriangle size={16} className="text-warning flex-shrink-0 mt-[1px]" strokeWidth={1.5} />
+                      <AlertTriangle
+                        size={16}
+                        className="text-warning flex-shrink-0 mt-[1px]"
+                        strokeWidth={1.5}
+                      />
                       <p className="text-win-small text-warning">{error}</p>
                     </div>
                   )}
@@ -271,7 +271,10 @@ export const SettingsPage = () => {
                     <Button type="button" onClick={closeDialog} disabled={isSubmitting}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isSubmitting || !currentPassword || !newPassword}>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || !currentPassword || !newPassword}
+                    >
                       {isSubmitting ? 'Changing...' : 'Change Password'}
                     </Button>
                   </div>

@@ -1,5 +1,5 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
 mod api;
 mod cli;
@@ -138,15 +138,21 @@ async fn main() -> Result<()> {
         },
         Commands::Pull { vault, env, out } => {
             cli::pull::execute(&vault, &env, out.as_deref()).await
-        },
-        Commands::Run { vault, env, command } => {
-            cli::run::execute(&vault, &env, &command).await
-        },
-        Commands::Set { secret, vault, env, description, rotation_days } => {
-            cli::set::execute(&secret, &vault, &env, description.as_deref(), rotation_days).await
-        },
+        }
+        Commands::Run {
+            vault,
+            env,
+            command,
+        } => cli::run::execute(&vault, &env, &command).await,
+        Commands::Set {
+            secret,
+            vault,
+            env,
+            description,
+            rotation_days,
+        } => cli::set::execute(&secret, &vault, &env, description.as_deref(), rotation_days).await,
         Commands::Audit { vault, since } => {
             cli::audit::execute(vault.as_deref(), since.as_deref()).await
-        },
+        }
     }
 }

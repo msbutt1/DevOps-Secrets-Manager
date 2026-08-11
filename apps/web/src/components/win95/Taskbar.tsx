@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Button } from "./Button";
-import { Menu } from "./Menu";
+import { useState, useEffect } from 'react';
+import { Button } from './Button';
+import { Menu } from './Menu';
 
 interface TaskbarItem {
   id: string;
@@ -24,9 +24,9 @@ export const Taskbar = ({ items, onItemClick, onStartClick }: TaskbarProps) => {
   }, []);
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
       hour12: true,
     });
   };
@@ -38,18 +38,18 @@ export const Taskbar = ({ items, onItemClick, onStartClick }: TaskbarProps) => {
         <div className="fixed bottom-[28px] left-0 z-50 animate-win-open">
           <Menu
             items={[
-              { id: "programs", label: "Programs", icon: "📁" },
-              { id: "documents", label: "Documents", icon: "📄" },
-              { id: "settings", label: "Settings", icon: "⚙️" },
-              { id: "find", label: "Find", icon: "🔍" },
-              { id: "help", label: "Help", icon: "❓" },
-              { id: "run", label: "Run...", icon: "▶️" },
-              { type: "separator" },
-              { id: "shutdown", label: "Shut Down...", icon: "🔌" },
+              { id: 'programs', label: 'Programs', icon: '📁' },
+              { id: 'documents', label: 'Documents', icon: '📄' },
+              { id: 'settings', label: 'Settings', icon: '⚙️' },
+              { id: 'find', label: 'Find', icon: '🔍' },
+              { id: 'help', label: 'Help', icon: '❓' },
+              { id: 'run', label: 'Run...', icon: '▶️' },
+              { type: 'separator' },
+              { id: 'shutdown', label: 'Shut Down...', icon: '🔌' },
             ]}
             onSelect={(id) => {
               setShowStartMenu(false);
-              if (id === "programs" || id === "settings") {
+              if (id === 'programs' || id === 'settings') {
                 onStartClick?.();
               }
             }}
@@ -62,7 +62,7 @@ export const Taskbar = ({ items, onItemClick, onStartClick }: TaskbarProps) => {
         <Button
           variant="start"
           onClick={() => setShowStartMenu(!showStartMenu)}
-          className={showStartMenu ? "win-border-sunken" : ""}
+          className={showStartMenu ? 'win-border-sunken' : ''}
         >
           <WindowsLogo />
           <span>Start</span>
@@ -75,7 +75,7 @@ export const Taskbar = ({ items, onItemClick, onStartClick }: TaskbarProps) => {
             <button
               key={item.id}
               className={`win-button min-w-[120px] max-w-[160px] text-left truncate px-2 text-win-body ${
-                item.isActive ? "win-border-sunken" : ""
+                item.isActive ? 'win-border-sunken' : ''
               }`}
               onClick={() => onItemClick(item.id)}
             >

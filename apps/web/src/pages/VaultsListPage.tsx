@@ -30,9 +30,10 @@ export const VaultsListPage = () => {
   // For global permission check (create new vaults)
   const canCreateVault = true; // In real app, check organization role
 
-  const filteredVaults = vaults.filter(vault =>
-    vault.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    vault.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredVaults = vaults.filter(
+    (vault) =>
+      vault.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      vault.description?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleCreate = (data: VaultCreateRequest) => {
@@ -51,7 +52,7 @@ export const VaultsListPage = () => {
         onSuccess: () => {
           setEditVault(null);
         },
-      }
+      },
     );
   };
 
@@ -114,10 +115,7 @@ export const VaultsListPage = () => {
             </p>
           </div>
           {canCreateVault && (
-            <Button 
-              className="flex items-center gap-1"
-              onClick={() => setShowCreateDialog(true)}
-            >
+            <Button className="flex items-center gap-1" onClick={() => setShowCreateDialog(true)}>
               <Plus size={12} strokeWidth={1.5} />
               New Vault
             </Button>
@@ -128,7 +126,10 @@ export const VaultsListPage = () => {
         <Panel>
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-[300px]">
-              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search
+                size={12}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
               <Input
                 placeholder="Search vaults..."
                 value={searchQuery}
@@ -144,9 +145,9 @@ export const VaultsListPage = () => {
 
         {/* Vaults Table */}
         {filteredVaults.length === 0 ? (
-          <EmptyState 
+          <EmptyState
             type="vaults"
-            actionLabel={canCreateVault ? "Create First Vault" : undefined}
+            actionLabel={canCreateVault ? 'Create First Vault' : undefined}
             onAction={canCreateVault ? () => setShowCreateDialog(true) : undefined}
           />
         ) : (
@@ -181,14 +182,14 @@ export const VaultsListPage = () => {
                 </thead>
                 <tbody>
                   {filteredVaults.map((vault, idx) => (
-                    <tr 
+                    <tr
                       key={vault.id}
                       className={`border-b border-border/50 hover:bg-primary/10 ${
                         idx % 2 === 1 ? 'bg-background' : ''
                       }`}
                     >
                       <td className="px-2 py-1">
-                        <Link 
+                        <Link
                           to={`/vaults/${vault.id}`}
                           className="hover:underline text-info font-semibold"
                         >
@@ -211,10 +212,7 @@ export const VaultsListPage = () => {
                       </td>
                       <td className="px-2 py-1">
                         <div className="flex gap-1">
-                          <PermissionGate 
-                            permission="canWrite" 
-                            userRole={vault.userRole}
-                          >
+                          <PermissionGate permission="canWrite" userRole={vault.userRole}>
                             <button
                               onClick={() => setEditVault(vault)}
                               className="win-button !min-w-0 !px-1 !py-[2px]"
@@ -223,10 +221,7 @@ export const VaultsListPage = () => {
                               <Pencil size={12} />
                             </button>
                           </PermissionGate>
-                          <PermissionGate 
-                            permission="canDelete" 
-                            userRole={vault.userRole}
-                          >
+                          <PermissionGate permission="canDelete" userRole={vault.userRole}>
                             <button
                               onClick={() => setDeleteConfirm(vault.id)}
                               className="win-button !min-w-0 !px-1 !py-[2px]"
@@ -235,7 +230,7 @@ export const VaultsListPage = () => {
                               <Trash2 size={12} />
                             </button>
                           </PermissionGate>
-                          <Link 
+                          <Link
                             to={`/vaults/${vault.id}`}
                             className="win-button !min-w-0 !px-2 !py-[2px] flex items-center gap-1"
                           >

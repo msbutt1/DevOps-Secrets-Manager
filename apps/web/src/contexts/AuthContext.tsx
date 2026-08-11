@@ -40,7 +40,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(null);
       }
     });
-    return () => { unsubscribe(); };
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Load user on mount if authenticated

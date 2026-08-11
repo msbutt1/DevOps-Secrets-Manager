@@ -45,7 +45,7 @@ export const onAuthChange = (listener: AuthEventListener) => {
 };
 
 const notifyAuthChange = (isAuthenticated: boolean) => {
-  authListeners.forEach(listener => listener(isAuthenticated));
+  authListeners.forEach((listener) => listener(isAuthenticated));
 };
 
 // Set tokens (called after login/refresh)
@@ -67,11 +67,7 @@ export const clearTokens = () => {
 export const isAuthenticated = () => !!accessToken;
 
 // Base fetch with auth handling
-async function apiFetch<T>(
-  endpoint: string,
-  options: RequestInit = {},
-  retry = true
-): Promise<T> {
+async function apiFetch<T>(endpoint: string, options: RequestInit = {}, retry = true): Promise<T> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -137,18 +133,20 @@ async function refreshAccessToken(): Promise<AuthTokens> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
-  }).then(async (response) => {
-    if (!response.ok) {
-      throw new Error('Refresh failed');
-    }
-    const tokens: AuthTokens = await response.json();
-    setTokens(tokens);
-    refreshPromise = null;
-    return tokens;
-  }).catch((error) => {
-    refreshPromise = null;
-    throw error;
-  });
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error('Refresh failed');
+      }
+      const tokens: AuthTokens = await response.json();
+      setTokens(tokens);
+      refreshPromise = null;
+      return tokens;
+    })
+    .catch((error) => {
+      refreshPromise = null;
+      throw error;
+    });
 
   return refreshPromise;
 }
@@ -222,8 +220,7 @@ export const vaultsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: string): Promise<void> =>
-    apiFetch<void>(`/vaults/${id}`, { method: 'DELETE' }),
+  delete: (id: string): Promise<void> => apiFetch<void>(`/vaults/${id}`, { method: 'DELETE' }),
 };
 
 // ============ ENVIRONMENTS API ============
@@ -231,8 +228,7 @@ export const environmentsApi = {
   list: (vaultId: string): Promise<Environment[]> =>
     apiFetch<Environment[]>(`/vaults/${vaultId}/envs`),
 
-  get: (envId: string): Promise<Environment> =>
-    apiFetch<Environment>(`/envs/${envId}`),
+  get: (envId: string): Promise<Environment> => apiFetch<Environment>(`/envs/${envId}`),
 
   create: (vaultId: string, data: EnvironmentCreateRequest): Promise<Environment> =>
     apiFetch<Environment>(`/vaults/${vaultId}/envs`, {
@@ -246,14 +242,12 @@ export const environmentsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (envId: string): Promise<void> =>
-    apiFetch<void>(`/envs/${envId}`, { method: 'DELETE' }),
+  delete: (envId: string): Promise<void> => apiFetch<void>(`/envs/${envId}`, { method: 'DELETE' }),
 };
 
 // ============ SECRETS API ============
 export const secretsApi = {
-  list: (envId: string): Promise<Secret[]> =>
-    apiFetch<Secret[]>(`/envs/${envId}/secrets`),
+  list: (envId: string): Promise<Secret[]> => apiFetch<Secret[]>(`/envs/${envId}/secrets`),
 
   create: (envId: string, data: SecretCreateRequest): Promise<Secret> =>
     apiFetch<Secret>(`/envs/${envId}/secrets`, {
@@ -287,7 +281,11 @@ export const accessApi = {
       body: JSON.stringify(data),
     }),
 
-  updateMember: (vaultId: string, userId: string, data: UpdateMemberRequest): Promise<VaultMember> =>
+  updateMember: (
+    vaultId: string,
+    userId: string,
+    data: UpdateMemberRequest,
+  ): Promise<VaultMember> =>
     apiFetch<VaultMember>(`/vaults/${vaultId}/members/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),

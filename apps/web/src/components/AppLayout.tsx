@@ -31,19 +31,16 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         <span className="text-win-body font-semibold">Vault Console</span>
         <span className="text-win-body text-muted-foreground">— Secrets Management System</span>
         <div className="flex-1" />
-        {user && (
-          <span className="text-win-body text-muted-foreground">
-            {user.email}
-          </span>
-        )}
+        {user && <span className="text-win-body text-muted-foreground">{user.email}</span>}
       </header>
 
       {/* Menu Bar */}
       <nav className="win-border-raised bg-background border-t-0 flex items-center px-1 py-[2px] gap-0">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || 
+          const isActive =
+            location.pathname === item.path ||
             (item.path !== '/' && location.pathname.startsWith(item.path));
-          
+
           return (
             <Link
               key={item.path}
@@ -58,25 +55,18 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           );
         })}
         <div className="flex-1" />
-        <Button
-          className="!min-w-0 !px-2 !py-1 flex items-center gap-1"
-          onClick={handleLogout}
-        >
+        <Button className="!min-w-0 !px-2 !py-1 flex items-center gap-1" onClick={handleLogout}>
           <LogOut size={12} strokeWidth={1.5} />
           <span>Logout</span>
         </Button>
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 p-win-sm overflow-auto">
-        {children}
-      </main>
+      <main className="flex-1 p-win-sm overflow-auto">{children}</main>
 
       {/* Status Bar */}
       <footer className="win-border-raised bg-background h-[20px] flex items-center px-2 gap-4 border-t-0">
-        <div className="win-border-sunken flex-1 px-2 py-[1px] text-win-small">
-          Ready
-        </div>
+        <div className="win-border-sunken flex-1 px-2 py-[1px] text-win-small">Ready</div>
         <div className="win-border-sunken px-2 py-[1px] text-win-small w-[140px]">
           {new Date().toLocaleDateString()}
         </div>

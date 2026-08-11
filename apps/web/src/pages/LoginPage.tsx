@@ -11,7 +11,7 @@ export const LoginPage = () => {
   const { login, error, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,15 +46,17 @@ export const LoginPage = () => {
             <p className="text-win-body mb-2">
               Enter your credentials to access the secrets management console.
             </p>
-            <p className="text-win-small text-muted-foreground">
-              All access attempts are logged.
-            </p>
+            <p className="text-win-small text-muted-foreground">All access attempts are logged.</p>
           </Panel>
 
           {/* Error Display */}
           {error && (
             <div className="win-border-sunken bg-background mb-3 p-2 flex items-start gap-2">
-              <AlertTriangle size={16} className="text-warning flex-shrink-0 mt-[1px]" strokeWidth={1.5} />
+              <AlertTriangle
+                size={16}
+                className="text-warning flex-shrink-0 mt-[1px]"
+                strokeWidth={1.5}
+              />
               <div>
                 <p className="text-win-body text-warning font-semibold">Authentication Failed</p>
                 <p className="text-win-small">{error}</p>

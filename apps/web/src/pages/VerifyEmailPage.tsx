@@ -60,9 +60,7 @@ export const VerifyEmailPage = () => {
                 <div className="flex items-start gap-3">
                   <Check size={24} className="text-success flex-shrink-0" strokeWidth={1.5} />
                   <div>
-                    <p className="text-win-body font-semibold mb-2">
-                      Email Verified!
-                    </p>
+                    <p className="text-win-body font-semibold mb-2">Email Verified!</p>
                     <p className="text-win-body">
                       Your email has been verified successfully. You can now log in to your account.
                     </p>
@@ -71,9 +69,7 @@ export const VerifyEmailPage = () => {
               </Panel>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button onClick={() => navigate('/login')}>
-                  Go to Login
-                </Button>
+                <Button onClick={() => navigate('/login')}>Go to Login</Button>
               </div>
             </>
           )}
@@ -82,29 +78,27 @@ export const VerifyEmailPage = () => {
             <>
               <Panel className="mb-3">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle size={24} className="text-warning flex-shrink-0" strokeWidth={1.5} />
+                  <AlertTriangle
+                    size={24}
+                    className="text-warning flex-shrink-0"
+                    strokeWidth={1.5}
+                  />
                   <div>
                     <p className="text-win-body text-warning font-semibold mb-2">
                       Verification Failed
                     </p>
-                    <p className="text-win-body mb-2">
-                      {error}
-                    </p>
+                    <p className="text-win-body mb-2">{error}</p>
                     <p className="text-win-small text-muted-foreground">
-                      The verification link may have expired or already been used.
-                      Please try registering again if you haven't verified your email yet.
+                      The verification link may have expired or already been used. Please try
+                      registering again if you haven't verified your email yet.
                     </p>
                   </div>
                 </div>
               </Panel>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <Button onClick={() => navigate('/register')}>
-                  Register Again
-                </Button>
-                <Button onClick={() => navigate('/login')}>
-                  Go to Login
-                </Button>
+                <Button onClick={() => navigate('/register')}>Register Again</Button>
+                <Button onClick={() => navigate('/login')}>Go to Login</Button>
               </div>
             </>
           )}
@@ -113,7 +107,11 @@ export const VerifyEmailPage = () => {
         {/* Status Bar */}
         <div className="win-border-raised bg-background-secondary h-[18px] flex items-center px-2 border-t-0">
           <span className="text-win-small text-muted-foreground">
-            {status === 'loading' ? 'Processing...' : status === 'success' ? 'Verification complete' : 'Error'}
+            {status === 'loading'
+              ? 'Processing...'
+              : status === 'success'
+                ? 'Verification complete'
+                : 'Error'}
           </span>
         </div>
       </div>

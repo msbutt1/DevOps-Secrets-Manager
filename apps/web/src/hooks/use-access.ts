@@ -29,8 +29,15 @@ export function useAddMember() {
 export function useUpdateMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ vaultId, userId, data }: { vaultId: string; userId: string; data: UpdateMemberRequest }) =>
-      accessApi.updateMember(vaultId, userId, data),
+    mutationFn: ({
+      vaultId,
+      userId,
+      data,
+    }: {
+      vaultId: string;
+      userId: string;
+      data: UpdateMemberRequest;
+    }) => accessApi.updateMember(vaultId, userId, data),
     onSuccess: (_, { vaultId }) => {
       queryClient.invalidateQueries({ queryKey: accessKeys.members(vaultId) });
     },

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState } from 'react';
 
 interface DesktopIconProps {
   icon: ReactNode;
@@ -15,15 +15,9 @@ export const DesktopIcon = ({ icon, label, onDoubleClick }: DesktopIconProps) =>
       onClick={() => setIsSelected(!isSelected)}
       onDoubleClick={onDoubleClick}
     >
-      <div
-        className={`p-1 ${isSelected ? "bg-primary/50" : ""}`}
-      >
-        {icon}
-      </div>
+      <div className={`p-1 ${isSelected ? 'bg-primary/50' : ''}`}>{icon}</div>
       <span
-        className={`win-icon-text ${
-          isSelected ? "bg-primary text-primary-foreground px-1" : ""
-        }`}
+        className={`win-icon-text ${isSelected ? 'bg-primary text-primary-foreground px-1' : ''}`}
       >
         {label}
       </span>

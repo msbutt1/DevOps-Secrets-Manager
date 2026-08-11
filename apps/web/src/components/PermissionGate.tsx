@@ -19,11 +19,41 @@ interface PermissionGateProps {
 }
 
 const rolePermissions: Record<VaultRole, VaultPermissions> = {
-  owner: { canRead: true, canWrite: true, canReveal: true, canManageMembers: true, canDelete: true },
-  admin: { canRead: true, canWrite: true, canReveal: true, canManageMembers: true, canDelete: false },
-  developer: { canRead: true, canWrite: true, canReveal: false, canManageMembers: false, canDelete: false },
-  oncall: { canRead: true, canWrite: false, canReveal: true, canManageMembers: false, canDelete: false },
-  viewer: { canRead: true, canWrite: false, canReveal: false, canManageMembers: false, canDelete: false },
+  owner: {
+    canRead: true,
+    canWrite: true,
+    canReveal: true,
+    canManageMembers: true,
+    canDelete: true,
+  },
+  admin: {
+    canRead: true,
+    canWrite: true,
+    canReveal: true,
+    canManageMembers: true,
+    canDelete: false,
+  },
+  developer: {
+    canRead: true,
+    canWrite: true,
+    canReveal: false,
+    canManageMembers: false,
+    canDelete: false,
+  },
+  oncall: {
+    canRead: true,
+    canWrite: false,
+    canReveal: true,
+    canManageMembers: false,
+    canDelete: false,
+  },
+  viewer: {
+    canRead: true,
+    canWrite: false,
+    canReveal: false,
+    canManageMembers: false,
+    canDelete: false,
+  },
 };
 
 export const PermissionGate = ({

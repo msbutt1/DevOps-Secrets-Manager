@@ -11,18 +11,18 @@ type Action string
 
 // Action constants define all possible actions in the system
 const (
-	ActionVaultRead      Action = "vault:read"
-	ActionVaultWrite     Action = "vault:write"
-	ActionVaultDelete    Action = "vault:delete"
-	ActionEnvRead        Action = "env:read"
-	ActionEnvWrite       Action = "env:write"
-	ActionEnvDelete      Action = "env:delete"
-	ActionSecretRead     Action = "secret:read"
-	ActionSecretWrite    Action = "secret:write"
-	ActionSecretDelete   Action = "secret:delete"
-	ActionSecretReveal   Action = "secret:reveal"
-	ActionAuditRead      Action = "audit:read"
-	ActionMemberManage   Action = "member:manage"
+	ActionVaultRead    Action = "vault:read"
+	ActionVaultWrite   Action = "vault:write"
+	ActionVaultDelete  Action = "vault:delete"
+	ActionEnvRead      Action = "env:read"
+	ActionEnvWrite     Action = "env:write"
+	ActionEnvDelete    Action = "env:delete"
+	ActionSecretRead   Action = "secret:read"
+	ActionSecretWrite  Action = "secret:write"
+	ActionSecretDelete Action = "secret:delete"
+	ActionSecretReveal Action = "secret:reveal"
+	ActionAuditRead    Action = "audit:read"
+	ActionMemberManage Action = "member:manage"
 )
 
 // Role constants define all possible roles in the system

@@ -1,21 +1,21 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { queryClient } from "@/lib/query-client";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import VerifyEmailPage from "./pages/VerifyEmailPage";
-import DashboardPage from "./pages/DashboardPage";
-import VaultsListPage from "./pages/VaultsListPage";
-import VaultPage from "./pages/VaultPage";
-import AccessPage from "./pages/AccessPage";
-import AuditPage from "./pages/AuditPage";
-import SettingsPage from "./pages/SettingsPage";
-import NotFound from "./pages/NotFound";
+import { Toaster } from '@/components/ui/toaster';
+import { Toaster as Sonner } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { queryClient } from '@/lib/query-client';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import DashboardPage from './pages/DashboardPage';
+import VaultsListPage from './pages/VaultsListPage';
+import VaultPage from './pages/VaultPage';
+import AccessPage from './pages/AccessPage';
+import AuditPage from './pages/AuditPage';
+import SettingsPage from './pages/SettingsPage';
+import NotFound from './pages/NotFound';
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

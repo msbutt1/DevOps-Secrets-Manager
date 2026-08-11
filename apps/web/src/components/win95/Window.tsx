@@ -1,5 +1,5 @@
-import { ReactNode, useState, useRef, useEffect } from "react";
-import { Minus, Square, X } from "lucide-react";
+import { ReactNode, useState, useRef, useEffect } from 'react';
+import { Minus, Square, X } from 'lucide-react';
 
 interface WindowProps {
   title: string;
@@ -30,7 +30,7 @@ export const Window = ({
   showMinimize = true,
   showMaximize = true,
   showClose = true,
-  className = "",
+  className = '',
   zIndex = 10,
   onFocus,
 }: WindowProps) => {
@@ -58,13 +58,13 @@ export const Window = ({
     };
 
     if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
     }
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, isMaximized]);
 
@@ -107,20 +107,20 @@ export const Window = ({
   };
 
   const windowStyle = isMaximized
-    ? { left: 0, top: 0, width: "100%", height: "calc(100vh - 28px)", zIndex }
+    ? { left: 0, top: 0, width: '100%', height: 'calc(100vh - 28px)', zIndex }
     : { left: position.x, top: position.y, width: size.width, height: size.height, zIndex };
 
   return (
     <div
       className={`fixed win-border-raised bg-background flex flex-col ${className} 
-        ${isClosing ? "animate-win-close" : "animate-win-open"}
-        ${isMinimizing ? "animate-win-minimize" : ""}`}
+        ${isClosing ? 'animate-win-close' : 'animate-win-open'}
+        ${isMinimizing ? 'animate-win-minimize' : ''}`}
       style={windowStyle}
       onMouseDown={onFocus}
     >
       {/* Title Bar */}
       <div
-        className={`win-title-bar ${!isActive ? "win-title-bar-inactive" : ""} cursor-move select-none`}
+        className={`win-title-bar ${!isActive ? 'win-title-bar-inactive' : ''} cursor-move select-none`}
         onMouseDown={handleTitleMouseDown}
         onDoubleClick={handleMaximize}
       >

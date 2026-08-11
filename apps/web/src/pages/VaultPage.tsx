@@ -12,28 +12,51 @@ import { PermissionGate, usePermission } from '@/components/PermissionGate';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { useVault } from '@/hooks/use-vaults';
-import { useEnvironments, useCreateEnvironment, useDeleteEnvironment } from '@/hooks/use-environments';
-import { useSecrets, useCreateSecret, useUpdateSecret, useDeleteSecret, useRevealSecret } from '@/hooks/use-secrets';
 import {
-  Eye, EyeOff, Pencil, Trash2, AlertTriangle, ChevronLeft,
-  Plus, Layers, Users, RefreshCw, Clock, Tag, Copy, Check, Loader2
+  useEnvironments,
+  useCreateEnvironment,
+  useDeleteEnvironment,
+} from '@/hooks/use-environments';
+import {
+  useSecrets,
+  useCreateSecret,
+  useUpdateSecret,
+  useDeleteSecret,
+  useRevealSecret,
+} from '@/hooks/use-secrets';
+import {
+  Eye,
+  EyeOff,
+  Pencil,
+  Trash2,
+  AlertTriangle,
+  ChevronLeft,
+  Plus,
+  Layers,
+  Users,
+  RefreshCw,
+  Clock,
+  Tag,
+  Copy,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import type { Secret, Environment, EnvironmentName } from '@/types/api';
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
     day: 'numeric',
   });
 };
 
 const formatDateTime = (dateStr: string) => {
   const date = new Date(dateStr);
-  return date.toLocaleString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -66,18 +89,20 @@ export const VaultPage = () => {
 
   // Set activeEnv to first available environment when environments load
   useEffect(() => {
-    if (environments.length > 0 && !environments.find(e => e.name === activeEnv)) {
+    if (environments.length > 0 && !environments.find((e) => e.name === activeEnv)) {
       setActiveEnv(environments[0].name);
     }
   }, [environments, activeEnv]);
 
   // Get current environment ID from activeEnv state
-  const currentEnvId = environments.find(e => e.name === activeEnv)?.id;
+  const currentEnvId = environments.find((e) => e.name === activeEnv)?.id;
 
   // Fetch secrets for the current environment
   const { data: allSecrets = [], isLoading: secretsLoading } = useSecrets(currentEnvId || '');
 
-  const { canCreate, canEdit, canDelete, canReveal, canManageMembers } = usePermission(vault?.userRole || 'viewer');
+  const { canCreate, canEdit, canDelete, canReveal, canManageMembers } = usePermission(
+    vault?.userRole || 'viewer',
+  );
 
   // Mutations
   const createEnvMutation = useCreateEnvironment();
@@ -87,12 +112,13 @@ export const VaultPage = () => {
   const updateSecretMutation = useUpdateSecret();
 
   // Filter secrets
-  const secrets = allSecrets.filter(s =>
-    s.keyName.toLowerCase().includes(filter.toLowerCase()) ||
-    s.description?.toLowerCase().includes(filter.toLowerCase())
+  const secrets = allSecrets.filter(
+    (s) =>
+      s.keyName.toLowerCase().includes(filter.toLowerCase()) ||
+      s.description?.toLowerCase().includes(filter.toLowerCase()),
   );
 
-  const existingEnvs = environments.map(e => e.name);
+  const existingEnvs = environments.map((e) => e.name);
 
   const handleReveal = useCallback(async () => {
     if (!revealSecret) return;
@@ -105,39 +131,45 @@ export const VaultPage = () => {
     }
   }, [revealSecret, revealMutation]);
 
-  const handleDelete = useCallback((secretId: string) => {
-    deleteSecretMutation.mutate(secretId, {
-      onSuccess: () => {
-        setDeleteConfirm(null);
-      },
-      onError: (error) => {
-        console.error('Failed to delete secret:', error);
-        setDeleteConfirm(null);
-      },
-    });
-  }, [deleteSecretMutation]);
+  const handleDelete = useCallback(
+    (secretId: string) => {
+      deleteSecretMutation.mutate(secretId, {
+        onSuccess: () => {
+          setDeleteConfirm(null);
+        },
+        onError: (error) => {
+          console.error('Failed to delete secret:', error);
+          setDeleteConfirm(null);
+        },
+      });
+    },
+    [deleteSecretMutation],
+  );
 
   const handleBulkDelete = useCallback(() => {
     console.log('Bulk delete:', Array.from(selectedSecrets));
     setSelectedSecrets(new Set());
   }, [selectedSecrets]);
 
-  const handleCopySecret = useCallback(async (secretId: string) => {
-    setCopyingSecretId(secretId);
-    try {
-      const response = await revealMutation.mutateAsync(secretId);
-      await navigator.clipboard.writeText(response.value);
-      setCopiedSecretId(secretId);
-      setTimeout(() => setCopiedSecretId(null), 2000);
-    } catch (error) {
-      console.error('Failed to copy secret:', error);
-    } finally {
-      setCopyingSecretId(null);
-    }
-  }, [revealMutation]);
+  const handleCopySecret = useCallback(
+    async (secretId: string) => {
+      setCopyingSecretId(secretId);
+      try {
+        const response = await revealMutation.mutateAsync(secretId);
+        await navigator.clipboard.writeText(response.value);
+        setCopiedSecretId(secretId);
+        setTimeout(() => setCopiedSecretId(null), 2000);
+      } catch (error) {
+        console.error('Failed to copy secret:', error);
+      } finally {
+        setCopyingSecretId(null);
+      }
+    },
+    [revealMutation],
+  );
 
   const toggleSecretSelection = (secretId: string) => {
-    setSelectedSecrets(prev => {
+    setSelectedSecrets((prev) => {
       const next = new Set(prev);
       if (next.has(secretId)) {
         next.delete(secretId);
@@ -152,7 +184,7 @@ export const VaultPage = () => {
     if (selectedSecrets.size === secrets.length) {
       setSelectedSecrets(new Set());
     } else {
-      setSelectedSecrets(new Set(secrets.map(s => s.id)));
+      setSelectedSecrets(new Set(secrets.map((s) => s.id)));
     }
   };
 
@@ -163,7 +195,10 @@ export const VaultPage = () => {
         <div className="space-y-win-sm">
           <div className="win-border-raised bg-background p-2">
             <div className="flex items-center gap-2 mb-2">
-              <Link to="/vaults" className="text-info hover:underline text-win-body flex items-center gap-1">
+              <Link
+                to="/vaults"
+                className="text-info hover:underline text-win-body flex items-center gap-1"
+              >
                 <ChevronLeft size={12} strokeWidth={1.5} />
                 Vaults
               </Link>
@@ -184,7 +219,10 @@ export const VaultPage = () => {
       <AppLayout>
         <div className="space-y-win-sm">
           <div className="win-border-raised bg-background p-2">
-            <Link to="/vaults" className="text-info hover:underline text-win-body flex items-center gap-1">
+            <Link
+              to="/vaults"
+              className="text-info hover:underline text-win-body flex items-center gap-1"
+            >
               <ChevronLeft size={12} strokeWidth={1.5} />
               Vaults
             </Link>
@@ -206,7 +244,10 @@ export const VaultPage = () => {
         {/* Breadcrumb & Vault Header */}
         <div className="win-border-raised bg-background p-2">
           <div className="flex items-center gap-2 mb-2">
-            <Link to="/vaults" className="text-info hover:underline text-win-body flex items-center gap-1">
+            <Link
+              to="/vaults"
+              className="text-info hover:underline text-win-body flex items-center gap-1"
+            >
               <ChevronLeft size={12} strokeWidth={1.5} />
               Vaults
             </Link>
@@ -217,11 +258,10 @@ export const VaultPage = () => {
 
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-win-body text-muted-foreground">
-                {vault.description}
-              </p>
+              <p className="text-win-body text-muted-foreground">{vault.description}</p>
               <p className="text-win-small text-muted-foreground mt-1">
-                Created by {vault.createdBy} on {formatDate(vault.createdAt)} — {vault.organizationName}
+                Created by {vault.createdBy} on {formatDate(vault.createdAt)} —{' '}
+                {vault.organizationName}
               </p>
             </div>
             <div className="flex gap-1">
@@ -249,7 +289,7 @@ export const VaultPage = () => {
             <div className="p-2">
               <EmptyState
                 type="environments"
-                actionLabel={canCreate ? "Add First Environment" : undefined}
+                actionLabel={canCreate ? 'Add First Environment' : undefined}
                 onAction={canCreate ? () => setShowCreateEnv(true) : undefined}
               />
             </div>
@@ -289,7 +329,8 @@ export const VaultPage = () => {
                 <div className="bg-warning/10 border-b-2 border-warning px-3 py-2 flex items-center gap-2">
                   <AlertTriangle size={14} className="text-warning" strokeWidth={1.5} />
                   <span className="text-win-body">
-                    <strong>PRODUCTION ENVIRONMENT</strong> — Changes affect live systems. All actions are logged.
+                    <strong>PRODUCTION ENVIRONMENT</strong> — Changes affect live systems. All
+                    actions are logged.
                   </span>
                 </div>
               )}
@@ -344,13 +385,13 @@ export const VaultPage = () => {
                   {currentEnvId ? (
                     <EmptyState
                       type="secrets"
-                      actionLabel={canCreate ? "Add First Secret" : undefined}
+                      actionLabel={canCreate ? 'Add First Secret' : undefined}
                       onAction={canCreate ? () => setShowCreateSecret(true) : undefined}
                     />
                   ) : (
                     <EmptyState
                       type="environments"
-                      actionLabel={canCreate ? "Create Environment First" : undefined}
+                      actionLabel={canCreate ? 'Create Environment First' : undefined}
                       onAction={canCreate ? () => setShowCreateEnv(true) : undefined}
                     />
                   )}
@@ -369,7 +410,9 @@ export const VaultPage = () => {
                           />
                         </th>
                         <th className="text-left px-2 py-1 font-semibold">Name</th>
-                        <th className="text-left px-2 py-1 font-semibold w-[160px]">Last Updated</th>
+                        <th className="text-left px-2 py-1 font-semibold w-[160px]">
+                          Last Updated
+                        </th>
                         <th className="text-left px-2 py-1 font-semibold w-[100px]">Rotation</th>
                         <th className="text-left px-2 py-1 font-semibold w-[100px]">Expires</th>
                         <th className="text-left px-2 py-1 font-semibold w-[80px]">Labels</th>
@@ -378,10 +421,14 @@ export const VaultPage = () => {
                     </thead>
                     <tbody>
                       {secrets.map((secret, idx) => {
-                        const isExpiringSoon = secret.expiresAt &&
-                          new Date(secret.expiresAt) < new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-                        const needsRotation = secret.rotationPolicy?.nextRotationAt &&
-                          new Date(secret.rotationPolicy.nextRotationAt) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                        const isExpiringSoon =
+                          secret.expiresAt &&
+                          new Date(secret.expiresAt) <
+                            new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+                        const needsRotation =
+                          secret.rotationPolicy?.nextRotationAt &&
+                          new Date(secret.rotationPolicy.nextRotationAt) <
+                            new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
                         return (
                           <tr
@@ -407,12 +454,16 @@ export const VaultPage = () => {
                               )}
                             </td>
                             <td className="px-2 py-1 text-win-small">
-                              <div>{formatDateTime(secret.lastUpdatedAt ?? secret.updatedAt ?? '')}</div>
+                              <div>
+                                {formatDateTime(secret.lastUpdatedAt ?? secret.updatedAt ?? '')}
+                              </div>
                               <div className="text-muted-foreground">{secret.lastUpdatedBy}</div>
                             </td>
                             <td className="px-2 py-1">
                               {secret.rotationPolicy ? (
-                                <div className={`flex items-center gap-1 ${needsRotation ? 'text-warning' : ''}`}>
+                                <div
+                                  className={`flex items-center gap-1 ${needsRotation ? 'text-warning' : ''}`}
+                                >
                                   <RefreshCw size={10} strokeWidth={1.5} />
                                   <span>{secret.rotationPolicy.intervalDays}d</span>
                                 </div>
@@ -420,7 +471,9 @@ export const VaultPage = () => {
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </td>
-                            <td className={`px-2 py-1 ${isExpiringSoon ? 'text-warning font-semibold' : ''}`}>
+                            <td
+                              className={`px-2 py-1 ${isExpiringSoon ? 'text-warning font-semibold' : ''}`}
+                            >
                               {secret.expiresAt ? (
                                 <div className="flex items-center gap-1">
                                   <Clock size={10} strokeWidth={1.5} />
@@ -442,7 +495,10 @@ export const VaultPage = () => {
                             </td>
                             <td className="px-2 py-1">
                               <div className="flex gap-1">
-                                <PermissionGate permission="canReveal" userRole={vault?.userRole || 'viewer'}>
+                                <PermissionGate
+                                  permission="canReveal"
+                                  userRole={vault?.userRole || 'viewer'}
+                                >
                                   <button
                                     onClick={() => {
                                       setRevealSecret(secret);
@@ -454,12 +510,17 @@ export const VaultPage = () => {
                                     <Eye size={12} />
                                   </button>
                                 </PermissionGate>
-                                <PermissionGate permission="canReveal" userRole={vault?.userRole || 'viewer'}>
+                                <PermissionGate
+                                  permission="canReveal"
+                                  userRole={vault?.userRole || 'viewer'}
+                                >
                                   <button
                                     onClick={() => handleCopySecret(secret.id)}
                                     disabled={copyingSecretId === secret.id}
                                     className="win-button !min-w-0 !px-1 !py-[2px]"
-                                    title={copiedSecretId === secret.id ? 'Copied!' : 'Copy to clipboard'}
+                                    title={
+                                      copiedSecretId === secret.id ? 'Copied!' : 'Copy to clipboard'
+                                    }
                                   >
                                     {copyingSecretId === secret.id ? (
                                       <Loader2 size={12} className="animate-spin" />
@@ -470,7 +531,10 @@ export const VaultPage = () => {
                                     )}
                                   </button>
                                 </PermissionGate>
-                                <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
+                                <PermissionGate
+                                  permission="canWrite"
+                                  userRole={vault?.userRole || 'viewer'}
+                                >
                                   <button
                                     onClick={() => setEditSecret(secret)}
                                     className="win-button !min-w-0 !px-1 !py-[2px]"
@@ -479,7 +543,10 @@ export const VaultPage = () => {
                                     <Pencil size={12} />
                                   </button>
                                 </PermissionGate>
-                                <PermissionGate permission="canDelete" userRole={vault?.userRole || 'viewer'}>
+                                <PermissionGate
+                                  permission="canDelete"
+                                  userRole={vault?.userRole || 'viewer'}
+                                >
                                   <button
                                     onClick={() => setDeleteConfirm(secret.id)}
                                     className="win-button !min-w-0 !px-1 !py-[2px]"
@@ -500,7 +567,9 @@ export const VaultPage = () => {
 
               {/* Status Bar */}
               <div className="px-2 py-1 border-t border-border text-win-small text-muted-foreground flex justify-between">
-                <span>{secrets.length} secret(s) in {activeEnv} environment</span>
+                <span>
+                  {secrets.length} secret(s) in {activeEnv} environment
+                </span>
                 <span>Last sync: just now</span>
               </div>
             </>
@@ -553,7 +622,7 @@ export const VaultPage = () => {
                 onError: (error) => {
                   console.error('Failed to update secret:', error);
                 },
-              }
+              },
             );
           } else {
             // Create new secret
@@ -566,7 +635,7 @@ export const VaultPage = () => {
                 onError: (error) => {
                   console.error('Failed to create secret:', error);
                 },
-              }
+              },
             );
           }
         }}
@@ -588,7 +657,7 @@ export const VaultPage = () => {
               onError: (error) => {
                 console.error('Failed to create environment:', error);
               },
-            }
+            },
           );
         }}
       />

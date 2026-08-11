@@ -1,6 +1,6 @@
-use anyhow::Result;
 use crate::api::ApiClient;
 use crate::config::TokenStore;
+use anyhow::Result;
 
 pub async fn execute(email_arg: Option<String>, password_arg: Option<String>) -> Result<()> {
     println!("DevOps Secrets Manager - Login");

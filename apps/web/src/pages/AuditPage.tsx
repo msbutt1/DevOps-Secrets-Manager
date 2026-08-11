@@ -22,7 +22,6 @@ const actionOptions: { value: string; label: string }[] = [
   { value: 'vault.deleted', label: 'Vault Deleted' },
 ];
 
-
 const formatTimestamp = (ts: string) => {
   const date = new Date(ts);
   return date.toLocaleString('en-US', {
@@ -105,11 +104,11 @@ export const AuditPage = () => {
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+  const hasActiveFilters = Object.values(filters).some((v) => v !== '');
 
   const exportToCSV = useCallback(() => {
     const headers = ['Timestamp', 'Action', 'User', 'Vault', 'Environment', 'Target', 'IP Address'];
-    const rows = events.map(e => [
+    const rows = events.map((e) => [
       formatTimestamp(e.timestamp),
       e.action,
       e.userEmail,
@@ -121,7 +120,7 @@ export const AuditPage = () => {
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -136,7 +135,7 @@ export const AuditPage = () => {
   // Build vault options from fetched data
   const vaultOptions: { value: string; label: string }[] = [
     { value: '', label: 'All Vaults' },
-    ...(vaults?.map(v => ({ value: v.id, label: v.name })) || []),
+    ...(vaults?.map((v) => ({ value: v.id, label: v.name })) || []),
   ];
 
   return (
@@ -251,21 +250,25 @@ export const AuditPage = () => {
                   </thead>
                   <tbody>
                     {events.map((event, idx) => (
-                      <tr 
+                      <tr
                         key={event.id}
                         onClick={() => setSelectedEvent(event)}
                         className={`border-b border-border/50 cursor-pointer ${
-                          selectedEvent?.id === event.id 
-                            ? 'bg-primary text-primary-foreground' 
-                            : idx % 2 === 1 ? 'bg-background hover:bg-primary/10' : 'hover:bg-primary/10'
+                          selectedEvent?.id === event.id
+                            ? 'bg-primary text-primary-foreground'
+                            : idx % 2 === 1
+                              ? 'bg-background hover:bg-primary/10'
+                              : 'hover:bg-primary/10'
                         }`}
                       >
                         <td className="px-2 py-1 text-win-small font-mono">
                           {formatTimestamp(event.timestamp)}
                         </td>
-                        <td className={`px-2 py-1 ${
-                          selectedEvent?.id === event.id ? '' : actionColors[event.action] || ''
-                        }`}>
+                        <td
+                          className={`px-2 py-1 ${
+                            selectedEvent?.id === event.id ? '' : actionColors[event.action] || ''
+                          }`}
+                        >
                           <span className="font-semibold text-win-small">
                             {actionIcons[event.action] || 'ACTION'}
                           </span>
@@ -273,18 +276,16 @@ export const AuditPage = () => {
                             {event.action.split('.')[0]}
                           </div>
                         </td>
-                        <td className="px-2 py-1 font-mono">
-                          {event.targetName || '—'}
-                        </td>
-                        <td className="px-2 py-1">
-                          {event.userEmail}
-                        </td>
-                        <td className="px-2 py-1">
-                          {event.vaultName}
-                        </td>
-                        <td className={`px-2 py-1 ${
-                          event.environmentName === 'prod' && selectedEvent?.id !== event.id ? 'text-warning font-semibold' : ''
-                        }`}>
+                        <td className="px-2 py-1 font-mono">{event.targetName || '—'}</td>
+                        <td className="px-2 py-1">{event.userEmail}</td>
+                        <td className="px-2 py-1">{event.vaultName}</td>
+                        <td
+                          className={`px-2 py-1 ${
+                            event.environmentName === 'prod' && selectedEvent?.id !== event.id
+                              ? 'text-warning font-semibold'
+                              : ''
+                          }`}
+                        >
                           {event.environmentName || '—'}
                         </td>
                       </tr>
@@ -297,13 +298,14 @@ export const AuditPage = () => {
             {/* Pagination */}
             <div className="win-border-raised bg-background p-1 flex items-center justify-between mt-1">
               <span className="text-win-small text-muted-foreground">
-                Showing {total > 0 ? ((currentPage - 1) * pageSize) + 1 : 0}-{Math.min(currentPage * pageSize, total)} of {total} events
+                Showing {total > 0 ? (currentPage - 1) * pageSize + 1 : 0}-
+                {Math.min(currentPage * pageSize, total)} of {total} events
               </span>
               <div className="flex gap-1 items-center">
                 <Button
                   className="!min-w-0 !px-2"
                   disabled={currentPage === 1 || isLoading}
-                  onClick={() => setCurrentPage(p => p - 1)}
+                  onClick={() => setCurrentPage((p) => p - 1)}
                 >
                   <ChevronLeft size={12} />
                 </Button>
@@ -313,7 +315,7 @@ export const AuditPage = () => {
                 <Button
                   className="!min-w-0 !px-2"
                   disabled={currentPage >= totalPages || isLoading}
-                  onClick={() => setCurrentPage(p => p + 1)}
+                  onClick={() => setCurrentPage((p) => p + 1)}
                 >
                   <ChevronRight size={12} />
                 </Button>
@@ -328,7 +330,7 @@ export const AuditPage = () => {
                 <FileText size={14} strokeWidth={1.5} />
                 <h2 className="text-win-section font-semibold">Event Details</h2>
               </div>
-              
+
               {selectedEvent ? (
                 <div className="space-y-2 text-win-body">
                   <div className="win-border-groove p-2">
@@ -371,8 +373,11 @@ export const AuditPage = () => {
                     <div>
                       {selectedEvent.vaultName}
                       {selectedEvent.environmentName && (
-                        <span className={selectedEvent.environmentName === 'prod' ? 'text-warning' : ''}>
-                          {' / '}{selectedEvent.environmentName}
+                        <span
+                          className={selectedEvent.environmentName === 'prod' ? 'text-warning' : ''}
+                        >
+                          {' / '}
+                          {selectedEvent.environmentName}
                         </span>
                       )}
                     </div>

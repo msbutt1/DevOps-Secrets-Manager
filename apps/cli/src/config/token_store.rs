@@ -23,7 +23,10 @@ impl TokenStore {
         match Self::save_to_keyring(tokens) {
             Ok(_) => return Ok(()),
             Err(e) => {
-                eprintln!("Warning: Could not save to keyring ({}), falling back to encrypted file", e);
+                eprintln!(
+                    "Warning: Could not save to keyring ({}), falling back to encrypted file",
+                    e
+                );
                 Self::save_to_file(tokens)?;
             }
         }
@@ -84,8 +87,7 @@ impl TokenStore {
     }
 
     fn get_token_file_path() -> Result<PathBuf> {
-        let config_dir = dirs::config_dir()
-            .context("Could not determine config directory")?;
+        let config_dir = dirs::config_dir().context("Could not determine config directory")?;
         let app_dir = config_dir.join("devops-secrets-manager");
         fs::create_dir_all(&app_dir)?;
         Ok(app_dir.join("tokens.json"))
@@ -105,8 +107,7 @@ impl TokenStore {
 
     fn load_from_file() -> Result<Tokens> {
         let path = Self::get_token_file_path()?;
-        let encoded = fs::read_to_string(path)
-            .context("No tokens found. Please login first.")?;
+        let encoded = fs::read_to_string(path).context("No tokens found. Please login first.")?;
 
         use base64::Engine;
         let decoded = base64::engine::general_purpose::STANDARD.decode(encoded.trim())?;

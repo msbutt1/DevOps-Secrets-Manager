@@ -64,15 +64,15 @@ type AuthService interface {
 }
 
 type authService struct {
-	userRepo                 users.Repository
-	refreshTokenRepo         tokens.RefreshTokenRepository
-	verificationTokenRepo    email.VerificationTokenRepository
-	emailService             email.EmailService
-	pool                     *pgxpool.Pool
-	jwtSecret                string
-	accessTokenTTL           time.Duration
-	refreshTokenTTL          time.Duration
-	verificationTokenTTL     time.Duration
+	userRepo              users.Repository
+	refreshTokenRepo      tokens.RefreshTokenRepository
+	verificationTokenRepo email.VerificationTokenRepository
+	emailService          email.EmailService
+	pool                  *pgxpool.Pool
+	jwtSecret             string
+	accessTokenTTL        time.Duration
+	refreshTokenTTL       time.Duration
+	verificationTokenTTL  time.Duration
 }
 
 // NewAuthService creates a new authentication service

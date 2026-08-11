@@ -1,5 +1,5 @@
-use anyhow::{Result, Context, bail};
-use crate::api::{ApiClient, client::CreateSecretRequest};
+use crate::api::{client::CreateSecretRequest, ApiClient};
+use anyhow::{bail, Context, Result};
 
 pub async fn execute(
     secret: &str,
@@ -31,8 +31,13 @@ pub async fn execute(
     };
 
     // Resolve environment name to ID
-    let env_obj = client.find_environment_by_name(&vault_id, env_name).await?
-        .context(format!("Environment '{}' not found in vault '{}'", env_name, vault))?;
+    let env_obj = client
+        .find_environment_by_name(&vault_id, env_name)
+        .await?
+        .context(format!(
+            "Environment '{}' not found in vault '{}'",
+            env_name, vault
+        ))?;
 
     // Create secret
     let request = CreateSecretRequest {

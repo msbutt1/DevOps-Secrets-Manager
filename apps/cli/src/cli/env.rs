@@ -1,6 +1,6 @@
-use anyhow::{Result, Context};
 use crate::api::ApiClient;
 use crate::utils::TablePrinter;
+use anyhow::{Context, Result};
 
 pub async fn list(vault: &str) -> Result<()> {
     let client = ApiClient::new();
@@ -12,7 +12,9 @@ pub async fn list(vault: &str) -> Result<()> {
         vault.to_string()
     };
 
-    let environments = client.list_environments(&vault_id).await
+    let environments = client
+        .list_environments(&vault_id)
+        .await
         .context(format!("Failed to list environments for vault '{}'", vault))?;
 
     if environments.is_empty() {

@@ -14,12 +14,14 @@ interface EmptyStateProps {
 const defaultContent: Record<string, { title: string; message: string; Icon: typeof Inbox }> = {
   vaults: {
     title: 'No Vaults Found',
-    message: 'You don\'t have access to any vaults yet. Create a new vault or request access from an administrator.',
+    message:
+      "You don't have access to any vaults yet. Create a new vault or request access from an administrator.",
     Icon: Database,
   },
   secrets: {
     title: 'No Secrets',
-    message: 'This environment doesn\'t contain any secrets yet. Add your first secret to get started.',
+    message:
+      "This environment doesn't contain any secrets yet. Add your first secret to get started.",
     Icon: Key,
   },
   members: {
@@ -52,20 +54,12 @@ export const EmptyState = ({
 
   return (
     <div className="win-border-sunken bg-input p-8 text-center">
-      <Icon 
-        size={32} 
-        className="mx-auto text-muted-foreground mb-2" 
-        strokeWidth={1} 
-      />
-      <h3 className="text-win-section font-semibold mb-1">
-        {title || content.title}
-      </h3>
+      <Icon size={32} className="mx-auto text-muted-foreground mb-2" strokeWidth={1} />
+      <h3 className="text-win-section font-semibold mb-1">{title || content.title}</h3>
       <p className="text-win-body text-muted-foreground mb-4 max-w-md mx-auto">
         {message || content.message}
       </p>
-      {actionLabel && onAction && (
-        <Button onClick={onAction}>{actionLabel}</Button>
-      )}
+      {actionLabel && onAction && <Button onClick={onAction}>{actionLabel}</Button>}
       {children}
     </div>
   );

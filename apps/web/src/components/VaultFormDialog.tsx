@@ -10,12 +10,7 @@ interface VaultFormDialogProps {
   onSave: (data: VaultCreateRequest | VaultUpdateRequest) => void;
 }
 
-export const VaultFormDialog = ({
-  isOpen,
-  vault,
-  onClose,
-  onSave,
-}: VaultFormDialogProps) => {
+export const VaultFormDialog = ({ isOpen, vault, onClose, onSave }: VaultFormDialogProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +63,7 @@ export const VaultFormDialog = ({
         <form onSubmit={handleSubmit} className="p-3 space-y-3">
           <Panel className="!p-2">
             <p className="text-win-small">
-              {isEditing 
+              {isEditing
                 ? 'Update vault configuration. Changes will be applied immediately.'
                 : 'Create a new vault to organize your secrets. After creation, you can add environments (dev, staging, prod) and secrets.'}
             </p>
@@ -93,9 +88,7 @@ export const VaultFormDialog = ({
 
           {/* Description Field */}
           <div>
-            <label className="block text-win-body mb-1">
-              Description:
-            </label>
+            <label className="block text-win-body mb-1">Description:</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}

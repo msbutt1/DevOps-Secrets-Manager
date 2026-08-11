@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 use crate::config::{TokenStore, Tokens};
 use tokio::sync::MutexGuard;
@@ -364,7 +364,10 @@ impl ApiClient {
         request: CreateSecretRequest,
     ) -> Result<Secret, ApiError> {
         let response = self
-            .post_with_auth(&format!("{}/envs/{}/secrets", API_BASE_URL, env_id), &request)
+            .post_with_auth(
+                &format!("{}/envs/{}/secrets", API_BASE_URL, env_id),
+                &request,
+            )
             .await?;
 
         if !response.status().is_success() {

@@ -25,7 +25,7 @@ export const EnvironmentFormDialog = ({
   const [selectedEnv, setSelectedEnv] = useState<EnvironmentName | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const availableEnvs = ENV_OPTIONS.filter(env => !existingEnvs.includes(env.value));
+  const availableEnvs = ENV_OPTIONS.filter((env) => !existingEnvs.includes(env.value));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +61,11 @@ export const EnvironmentFormDialog = ({
         <form onSubmit={handleSubmit} className="p-3 space-y-3">
           {availableEnvs.length === 0 ? (
             <Panel className="flex items-start gap-2 !p-2">
-              <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-[2px]" strokeWidth={1.5} />
+              <AlertTriangle
+                size={14}
+                className="text-warning flex-shrink-0 mt-[2px]"
+                strokeWidth={1.5}
+              />
               <div className="text-win-body">
                 All environment types have been created for this vault.
               </div>
@@ -70,7 +74,8 @@ export const EnvironmentFormDialog = ({
             <>
               <Panel className="!p-2">
                 <p className="text-win-small">
-                  Select an environment type to add to this vault. Each vault can have one of each environment type.
+                  Select an environment type to add to this vault. Each vault can have one of each
+                  environment type.
                 </p>
               </Panel>
 
@@ -92,9 +97,11 @@ export const EnvironmentFormDialog = ({
                         className="win-checkbox mt-1"
                       />
                       <div>
-                        <div className={`text-win-body font-semibold ${
-                          env.value === 'prod' ? 'text-warning' : ''
-                        }`}>
+                        <div
+                          className={`text-win-body font-semibold ${
+                            env.value === 'prod' ? 'text-warning' : ''
+                          }`}
+                        >
                           {env.label}
                           {env.value === 'prod' && (
                             <span className="ml-2 text-win-small">(CRITICAL)</span>

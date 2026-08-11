@@ -35,7 +35,7 @@ export const RevealSecretDialog = ({
   // Countdown timer when secret is revealed
   useEffect(() => {
     if (!secretValue || !isOpen) return;
-    
+
     setHasRevealed(true);
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -53,7 +53,7 @@ export const RevealSecretDialog = ({
 
   const handleCopy = useCallback(async () => {
     if (!secretValue) return;
-    
+
     try {
       await navigator.clipboard.writeText(secretValue);
       setCopied(true);
@@ -88,9 +88,14 @@ export const RevealSecretDialog = ({
         <div className="p-3 space-y-3">
           {/* Warning Panel */}
           <Panel className="flex items-start gap-2 !p-2 border-warning">
-            <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-[2px]" strokeWidth={1.5} />
+            <AlertTriangle
+              size={14}
+              className="text-warning flex-shrink-0 mt-[2px]"
+              strokeWidth={1.5}
+            />
             <div className="text-win-small">
-              <strong>Security Notice:</strong> This action is logged for audit purposes. The secret value will be hidden automatically after 30 seconds.
+              <strong>Security Notice:</strong> This action is logged for audit purposes. The secret
+              value will be hidden automatically after 30 seconds.
             </div>
           </Panel>
 
@@ -130,7 +135,8 @@ export const RevealSecretDialog = ({
 
               {/* Countdown */}
               <div className="text-center text-win-small text-muted-foreground">
-                Value will be hidden in <span className="font-semibold text-warning">{countdown}</span> seconds
+                Value will be hidden in{' '}
+                <span className="font-semibold text-warning">{countdown}</span> seconds
               </div>
             </>
           ) : (

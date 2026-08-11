@@ -10,12 +10,7 @@ interface SecretFormDialogProps {
   onSave: (data: SecretCreateRequest) => void;
 }
 
-export const SecretFormDialog = ({
-  isOpen,
-  secret,
-  onClose,
-  onSave,
-}: SecretFormDialogProps) => {
+export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretFormDialogProps) => {
   const [name, setName] = useState('');
   const [value, setValue] = useState('');
   const [description, setDescription] = useState('');
@@ -49,13 +44,16 @@ export const SecretFormDialog = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    const labelsObj = labels.reduce((acc, { key, value }) => {
-      if (key.trim()) {
-        acc[key.trim()] = value;
-      }
-      return acc;
-    }, {} as Record<string, string>);
+
+    const labelsObj = labels.reduce(
+      (acc, { key, value }) => {
+        if (key.trim()) {
+          acc[key.trim()] = value;
+        }
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
 
     try {
       // Convert date to RFC3339 format for Go backend
@@ -83,9 +81,7 @@ export const SecretFormDialog = ({
   };
 
   const updateLabel = (index: number, field: 'key' | 'value', newValue: string) => {
-    setLabels(labels.map((label, i) => 
-      i === index ? { ...label, [field]: newValue } : label
-    ));
+    setLabels(labels.map((label, i) => (i === index ? { ...label, [field]: newValue } : label)));
   };
 
   if (!isOpen) return null;
@@ -109,10 +105,15 @@ export const SecretFormDialog = ({
         <form onSubmit={handleSubmit} className="p-3 space-y-3 max-h-[80vh] overflow-auto">
           {/* Warning Panel */}
           <Panel className="flex items-start gap-2 !p-2">
-            <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-[2px]" strokeWidth={1.5} />
+            <AlertTriangle
+              size={14}
+              className="text-warning flex-shrink-0 mt-[2px]"
+              strokeWidth={1.5}
+            />
             <div className="text-win-small">
-              <strong>Security Notice:</strong> Secret values are encrypted at rest using AES-256-GCM. 
-              Values cannot be recovered without explicit reveal action. All access is logged for audit purposes.
+              <strong>Security Notice:</strong> Secret values are encrypted at rest using
+              AES-256-GCM. Values cannot be recovered without explicit reveal action. All access is
+              logged for audit purposes.
             </div>
           </Panel>
 
@@ -135,9 +136,7 @@ export const SecretFormDialog = ({
 
           {/* Description Field */}
           <div>
-            <label className="block text-win-body mb-1">
-              Description:
-            </label>
+            <label className="block text-win-body mb-1">Description:</label>
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -160,9 +159,11 @@ export const SecretFormDialog = ({
                 placeholder={isEditing ? '(enter new value to update)' : 'Enter secret value...'}
                 required={!isEditing}
                 disabled={isSubmitting}
-                style={{ 
-                  WebkitTextSecurity: showValue ? 'none' : 'disc',
-                } as React.CSSProperties}
+                style={
+                  {
+                    WebkitTextSecurity: showValue ? 'none' : 'disc',
+                  } as React.CSSProperties
+                }
               />
               <button
                 type="button"
@@ -182,12 +183,10 @@ export const SecretFormDialog = ({
           {/* Advanced Options */}
           <div className="border-t border-border pt-3">
             <div className="text-win-body font-semibold mb-2">Advanced Options</div>
-            
+
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-win-body mb-1">
-                  Rotation Interval (days):
-                </label>
+                <label className="block text-win-body mb-1">Rotation Interval (days):</label>
                 <Input
                   type="number"
                   value={rotationInterval}
@@ -203,9 +202,7 @@ export const SecretFormDialog = ({
               </div>
 
               <div className="flex-1">
-                <label className="block text-win-body mb-1">
-                  Expiration Date:
-                </label>
+                <label className="block text-win-body mb-1">Expiration Date:</label>
                 <Input
                   type="date"
                   value={expiresAt}
@@ -233,7 +230,7 @@ export const SecretFormDialog = ({
                 <Plus size={10} /> Add Label
               </button>
             </div>
-            
+
             {labels.length > 0 ? (
               <div className="win-border-sunken bg-input p-1 space-y-1">
                 {labels.map((label, index) => (

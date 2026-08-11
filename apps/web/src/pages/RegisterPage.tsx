@@ -56,24 +56,20 @@ export const RegisterPage = () => {
               <div className="flex items-start gap-3">
                 <Check size={24} className="text-success flex-shrink-0" strokeWidth={1.5} />
                 <div>
-                  <p className="text-win-body font-semibold mb-2">
-                    Registration Successful!
-                  </p>
+                  <p className="text-win-body font-semibold mb-2">Registration Successful!</p>
                   <p className="text-win-body mb-2">
                     We've sent a verification email to <strong>{email}</strong>.
                   </p>
                   <p className="text-win-small text-muted-foreground">
-                    Please check your inbox and click the verification link to activate your account.
-                    The link expires in 24 hours.
+                    Please check your inbox and click the verification link to activate your
+                    account. The link expires in 24 hours.
                   </p>
                 </div>
               </div>
             </Panel>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <Button onClick={() => navigate('/login')}>
-                Go to Login
-              </Button>
+              <Button onClick={() => navigate('/login')}>Go to Login</Button>
             </div>
           </div>
 
@@ -104,15 +100,17 @@ export const RegisterPage = () => {
             <p className="text-win-body mb-2">
               Create an account to access the secrets management console.
             </p>
-            <p className="text-win-small text-muted-foreground">
-              Email verification is required.
-            </p>
+            <p className="text-win-small text-muted-foreground">Email verification is required.</p>
           </Panel>
 
           {/* Error Display */}
           {error && (
             <div className="win-border-sunken bg-background mb-3 p-2 flex items-start gap-2">
-              <AlertTriangle size={16} className="text-warning flex-shrink-0 mt-[1px]" strokeWidth={1.5} />
+              <AlertTriangle
+                size={16}
+                className="text-warning flex-shrink-0 mt-[1px]"
+                strokeWidth={1.5}
+              />
               <div>
                 <p className="text-win-body text-warning font-semibold">Registration Failed</p>
                 <p className="text-win-small">{error}</p>
@@ -166,9 +164,7 @@ export const RegisterPage = () => {
                 disabled={isSubmitting}
                 minLength={8}
               />
-              <p className="text-win-small text-muted-foreground mt-1">
-                Minimum 8 characters
-              </p>
+              <p className="text-win-small text-muted-foreground mt-1">Minimum 8 characters</p>
             </div>
 
             <div>

@@ -10,9 +10,9 @@ interface CopyButtonProps {
   onCopy?: () => void;
 }
 
-export const CopyButton = ({ 
-  value, 
-  label = 'Copy', 
+export const CopyButton = ({
+  value,
+  label = 'Copy',
   size = 'sm',
   variant = 'icon',
   onCopy,
@@ -32,7 +32,7 @@ export const CopyButton = ({
 
   if (variant === 'button') {
     return (
-      <Button 
+      <Button
         onClick={handleCopy}
         className={`flex items-center gap-1 ${size === 'sm' ? '!min-w-0 !px-2 !py-1' : ''}`}
       >

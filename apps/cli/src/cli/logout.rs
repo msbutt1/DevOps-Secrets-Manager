@@ -1,6 +1,6 @@
-use anyhow::Result;
 use crate::api::ApiClient;
 use crate::config::TokenStore;
+use anyhow::Result;
 
 pub async fn execute() -> Result<()> {
     // Try to call logout endpoint

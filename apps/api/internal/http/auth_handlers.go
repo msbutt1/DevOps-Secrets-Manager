@@ -63,10 +63,10 @@ type ChangePasswordResponseDTO struct {
 }
 
 type UserProfileDTO struct {
-	ID            uuid.UUID              `json:"id"`
-	Email         string                 `json:"email"`
-	Name          string                 `json:"name"`
-	Organizations []UserOrganizationDTO  `json:"organizations"`
+	ID            uuid.UUID             `json:"id"`
+	Email         string                `json:"email"`
+	Name          string                `json:"name"`
+	Organizations []UserOrganizationDTO `json:"organizations"`
 }
 
 type UserOrganizationDTO struct {

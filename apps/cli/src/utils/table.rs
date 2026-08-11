@@ -1,4 +1,4 @@
-use comfy_table::{Table, Cell, Color, Attribute, ContentArrangement};
+use comfy_table::{Attribute, Cell, Color, ContentArrangement, Table};
 
 pub struct TablePrinter;
 
@@ -8,10 +8,18 @@ impl TablePrinter {
         table.set_content_arrangement(ContentArrangement::Dynamic);
 
         table.set_header(vec![
-            Cell::new("ID").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Name").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Description").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Created At").fg(Color::Green).add_attribute(Attribute::Bold),
+            Cell::new("ID")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Name")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Description")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Created At")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
         ]);
 
         for vault in vaults {
@@ -31,10 +39,18 @@ impl TablePrinter {
         table.set_content_arrangement(ContentArrangement::Dynamic);
 
         table.set_header(vec![
-            Cell::new("ID").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Name").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Description").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Vault ID").fg(Color::Green).add_attribute(Attribute::Bold),
+            Cell::new("ID")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Name")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Description")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Vault ID")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
         ]);
 
         for env in environments {
@@ -54,11 +70,21 @@ impl TablePrinter {
         table.set_content_arrangement(ContentArrangement::Dynamic);
 
         table.set_header(vec![
-            Cell::new("ID").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Key Name").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Description").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Rotation Days").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Expires At").fg(Color::Green).add_attribute(Attribute::Bold),
+            Cell::new("ID")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Key Name")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Description")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Rotation Days")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Expires At")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
         ]);
 
         for secret in secrets {
@@ -66,7 +92,8 @@ impl TablePrinter {
                 &secret.id,
                 &secret.key_name,
                 secret.description.as_deref().unwrap_or("-"),
-                &secret.rotation_interval_days
+                &secret
+                    .rotation_interval_days
                     .map(|d| d.to_string())
                     .unwrap_or_else(|| "-".to_string()),
                 secret.expires_at.as_deref().unwrap_or("-"),
@@ -81,11 +108,21 @@ impl TablePrinter {
         table.set_content_arrangement(ContentArrangement::Dynamic);
 
         table.set_header(vec![
-            Cell::new("Timestamp").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Action").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("User ID").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("Vault ID").fg(Color::Green).add_attribute(Attribute::Bold),
-            Cell::new("IP Address").fg(Color::Green).add_attribute(Attribute::Bold),
+            Cell::new("Timestamp")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Action")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("User ID")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("Vault ID")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
+            Cell::new("IP Address")
+                .fg(Color::Green)
+                .add_attribute(Attribute::Bold),
         ]);
 
         for log in logs {

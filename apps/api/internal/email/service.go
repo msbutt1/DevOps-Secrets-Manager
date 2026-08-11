@@ -25,8 +25,8 @@ type SMTPConfig struct {
 }
 
 type emailService struct {
-	config *SMTPConfig
-	logger *slog.Logger
+	config  *SMTPConfig
+	logger  *slog.Logger
 	devMode bool
 }
 

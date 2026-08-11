@@ -5,7 +5,12 @@ import { Panel, Button, Input, Select } from '@/components/win95';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useVaultMembers, useAddMember, useUpdateMember, useRemoveMember } from '@/hooks/use-access';
+import {
+  useVaultMembers,
+  useAddMember,
+  useUpdateMember,
+  useRemoveMember,
+} from '@/hooks/use-access';
 import { useVault } from '@/hooks/use-vaults';
 import type { VaultMember, VaultRole } from '@/types/api';
 
@@ -127,7 +132,7 @@ export const AccessPage = () => {
             <Panel>
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-win-section font-semibold">Vault Members</h2>
-                <Button 
+                <Button
                   className="!min-w-0 flex items-center gap-1"
                   onClick={() => setShowAddForm(!showAddForm)}
                 >
@@ -163,7 +168,11 @@ export const AccessPage = () => {
                     <Button type="submit" disabled={addMemberMutation.isPending}>
                       {addMemberMutation.isPending ? 'Adding...' : 'Add'}
                     </Button>
-                    <Button type="button" onClick={() => setShowAddForm(false)} disabled={addMemberMutation.isPending}>
+                    <Button
+                      type="button"
+                      onClick={() => setShowAddForm(false)}
+                      disabled={addMemberMutation.isPending}
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -173,9 +182,7 @@ export const AccessPage = () => {
               {/* Members Table */}
               <div className="win-border-sunken bg-input">
                 {isLoading ? (
-                  <div className="p-4 text-center text-muted-foreground">
-                    Loading members...
-                  </div>
+                  <div className="p-4 text-center text-muted-foreground">Loading members...</div>
                 ) : members.length === 0 ? (
                   <div className="p-4 text-center text-muted-foreground">
                     No members found. Add a member to get started.
@@ -200,7 +207,9 @@ export const AccessPage = () => {
                         >
                           <td className="px-2 py-1">
                             <div>{member.email}</div>
-                            <div className="text-win-small text-muted-foreground">{member.name}</div>
+                            <div className="text-win-small text-muted-foreground">
+                              {member.name}
+                            </div>
                           </td>
                           <td className="px-2 py-1">
                             {member.role === 'owner' ? (
@@ -208,7 +217,9 @@ export const AccessPage = () => {
                             ) : (
                               <Select
                                 value={member.role}
-                                onChange={(e) => handleRoleChange(member.userId, e.target.value as VaultRole)}
+                                onChange={(e) =>
+                                  handleRoleChange(member.userId, e.target.value as VaultRole)
+                                }
                                 options={roleOptions}
                                 className="!py-0"
                                 disabled={updateMemberMutation.isPending}
@@ -224,7 +235,8 @@ export const AccessPage = () => {
                                     value ? 'bg-success/10 text-success' : 'text-muted-foreground'
                                   }`}
                                 >
-                                  {value ? '✓' : '—'} {permissionLabels[key as keyof VaultMember['permissions']]}
+                                  {value ? '✓' : '—'}{' '}
+                                  {permissionLabels[key as keyof VaultMember['permissions']]}
                                 </span>
                               ))}
                             </div>
@@ -254,7 +266,7 @@ export const AccessPage = () => {
           <div className="w-[280px]">
             <Panel>
               <h2 className="text-win-section font-semibold mb-2">Role Permissions Reference</h2>
-              
+
               <div className="space-y-2 text-win-body">
                 <div className="border-b border-border pb-2">
                   <strong>Owner</strong>
