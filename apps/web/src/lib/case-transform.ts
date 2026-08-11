@@ -24,10 +24,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Convert object keys from snake_case to camelCase (for API responses)
  */
-export function toCamelCase<T>(obj: any): T {
+export function toCamelCase<T>(obj: unknown): T {
   // Handle null/undefined
   if (obj === null || obj === undefined) {
-    return obj;
+    return obj as T;
   }
 
   // Handle arrays - recursively transform each element
@@ -48,16 +48,16 @@ export function toCamelCase<T>(obj: any): T {
   }
 
   // Primitive values - pass through unchanged
-  return obj;
+  return obj as T;
 }
 
 /**
  * Convert object keys from camelCase to snake_case (for API requests)
  */
-export function toSnakeCase<T>(obj: any): T {
+export function toSnakeCase<T>(obj: unknown): T {
   // Handle null/undefined
   if (obj === null || obj === undefined) {
-    return obj;
+    return obj as T;
   }
 
   // Handle arrays - recursively transform each element
@@ -78,5 +78,5 @@ export function toSnakeCase<T>(obj: any): T {
   }
 
   // Primitive values - pass through unchanged
-  return obj;
+  return obj as T;
 }

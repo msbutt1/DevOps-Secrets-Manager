@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input, Select } from '@/components/win95';
 import { EmptyState } from '@/components/EmptyState';
@@ -89,7 +89,7 @@ export const AuditPage = () => {
   // Fetch audit logs
   const { data, isLoading, error } = useAuditLogs(apiFilters);
 
-  const events = data?.data || [];
+  const events = useMemo(() => data?.data ?? [], [data]);
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / pageSize);
 
