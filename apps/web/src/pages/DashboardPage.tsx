@@ -22,7 +22,7 @@ import {
   Users,
   Check,
 } from 'lucide-react';
-import type { VaultRole } from '@/types/api';
+import type { VaultCreateRequest, VaultRole } from '@/types/api';
 
 // Alerts will show real data once backend supports expiration/rotation tracking
 const alerts: { id: string; type: string; message: string; vault: string; severity: string }[] = [];
@@ -368,8 +368,8 @@ export const DashboardPage = () => {
         onClose={() => setShowCreateVault(false)}
         onSave={async (data) => {
           await createVaultMutation.mutateAsync({
-            organizationId: user?.organizations?.[0]?.id || '',
-            ...data,
+            ...(data as VaultCreateRequest),
+            organizationId: user?.organizations?.[0]?.id,
           });
           setShowCreateVault(false);
         }}

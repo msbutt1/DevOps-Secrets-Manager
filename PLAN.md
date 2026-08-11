@@ -55,7 +55,7 @@ Do this first so every later fix can be checked automatically.
 - [x] **Fix the Go module path.** It is still `github.com/razlafan/devops-secret-manager`. Rename it to `github.com/msbutt1/DevOps-Secrets-Manager` and update every import. Commit: `refactor(api): rename Go module to match repository`
 - [x] **One-time formatting.** Run `go fmt ./...`, `cargo fmt` and Prettier across the repo. Commit: `style: format codebase`
 - [ ] **Get all checks green.**
-  - The web typecheck has 4 existing TypeScript errors. Fix them. Commit: `fix(web): resolve TypeScript errors`
+  - [x] The web typecheck has 4 existing TypeScript errors. Fix them. Commit: `fix(web): resolve TypeScript errors`
   - Fix any `go vet` or ESLint findings, one commit per area.
 - [ ] **CI.** Add a GitHub Actions workflow that runs, on every push and PR:
   - Go build, vet, test (with a Postgres service container)

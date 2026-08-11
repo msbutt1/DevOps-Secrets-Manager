@@ -1,9 +1,9 @@
 import { ReactNode } from 'react';
 import { Button } from '@/components/win95';
-import { Inbox, Database, Key, Users, FileText } from 'lucide-react';
+import { Inbox, Database, Key, Users, FileText, Layers } from 'lucide-react';
 
 interface EmptyStateProps {
-  type: 'vaults' | 'secrets' | 'members' | 'audit' | 'generic';
+  type: 'vaults' | 'environments' | 'secrets' | 'members' | 'audit' | 'generic';
   title?: string;
   message?: string;
   actionLabel?: string;
@@ -17,6 +17,12 @@ const defaultContent: Record<string, { title: string; message: string; Icon: typ
     message:
       "You don't have access to any vaults yet. Create a new vault or request access from an administrator.",
     Icon: Database,
+  },
+  environments: {
+    title: 'No Environments',
+    message:
+      "This vault doesn't have any environments yet. Add one (for example dev, staging or prod) to start storing secrets.",
+    Icon: Layers,
   },
   secrets: {
     title: 'No Secrets',
