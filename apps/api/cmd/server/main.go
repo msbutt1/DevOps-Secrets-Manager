@@ -7,13 +7,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/auth"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/config"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
@@ -29,14 +28,6 @@ import (
 )
 
 func main() {
-	// Load .env file if it exists (before logger so env vars are available)
-	if err := godotenv.Load(); err != nil {
-		// .env file is optional, only log if it's not "file not found"
-		if !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Warning: error loading .env file: %v\n", err)
-		}
-	}
-
 	// Initialize logger
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -46,7 +37,7 @@ func main() {
 	defer logger.Sync()
 
 	// Load configuration
-	if err := loadConfig(); err != nil {
+	if err := config.Load(); err != nil {
 		logger.Fatal("Failed to load configuration", zap.Error(err))
 	}
 
@@ -59,15 +50,7 @@ func main() {
 
 	// Connect to PostgreSQL
 	ctx := context.Background()
-	dbConfig := storage.PostgresConfig{
-		URL:      os.Getenv("DATABASE_URL"), // For Neon, Railway, Fly.io, etc.
-		Host:     viper.GetString("database.host"),
-		Port:     viper.GetInt("database.port"),
-		User:     viper.GetString("database.user"),
-		Password: viper.GetString("database.password"),
-		Database: viper.GetString("database.name"),
-		SSLMode:  viper.GetString("database.sslmode"),
-	}
+	dbConfig := config.Database()
 
 	pool, err := storage.NewPostgresPool(ctx, dbConfig)
 	if err != nil {
@@ -78,10 +61,7 @@ func main() {
 	logger.Info("Successfully connected to database")
 
 	// Run database migrations
-	migrationsPath := viper.GetString("database.migrations_path")
-	if migrationsPath == "" {
-		migrationsPath = "../../migrations"
-	}
+	migrationsPath := config.MigrationsPath()
 
 	logger.Info("Running database migrations", zap.String("path", migrationsPath))
 	if err := storage.RunMigrations(pool, migrationsPath); err != nil {
@@ -196,34 +176,4 @@ func main() {
 	}
 
 	logger.Info("Server exited gracefully")
-}
-
-// loadConfig loads configuration from environment variables and optional config file
-func loadConfig() error {
-	// Set default values
-	viper.SetDefault("server.port", 8080)
-	viper.SetDefault("database.host", "localhost")
-	viper.SetDefault("database.port", 5432)
-	viper.SetDefault("database.sslmode", "disable")
-
-	// Bind environment variables
-	viper.SetEnvPrefix("APP")
-	// Map nested keys to env vars: database.host -> APP_DATABASE_HOST (as docker-compose sets them)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
-
-	// Optional: load from config file if it exists
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("./config")
-
-	if err := viper.ReadInConfig(); err != nil {
-		// Config file is optional, only return error if it's not "file not found"
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return fmt.Errorf("error reading config file: %w", err)
-		}
-	}
-
-	return nil
 }
