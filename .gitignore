@@ -89,3 +89,6 @@ build-history.sh
 
 # Nested git (CLI has its own repo)
 apps/cli/.git/
+
+# Machine-specific Makefile overrides
+local.mk

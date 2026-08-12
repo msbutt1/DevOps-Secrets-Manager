@@ -41,7 +41,7 @@ Status: `[ ]` to do · `[x]` done · `[~]` in progress · `[-]` dropped (say why
 
 Do this first so every later fix can be checked automatically.
 
-- [ ] **Local run without Docker, in one command.** Add a root `Makefile` (or `justfile`):
+- [x] **Local run without Docker, in one command.** Add a root `Makefile` (or `justfile`):
   - `make db` starts Postgres
   - `make api` / `make web` / `make cli` start or build each app
   - `make dev` starts everything
