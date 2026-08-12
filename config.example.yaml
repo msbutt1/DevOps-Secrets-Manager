@@ -10,6 +10,6 @@ database:
   sslmode: disable
 
 jwt:
-  secret: your-secret-key-change-this-in-production
+  secret: change-me  # generate with: openssl rand -hex 32
   access_token_ttl: 15m
   refresh_token_ttl: 168h  # 7 days

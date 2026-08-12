@@ -49,7 +49,7 @@ Do this first so every later fix can be checked automatically.
   - Commit: `build: add Makefile for local development`
 - [ ] **Seed script.** Commit `scripts/seed.sh` (or `go run ./cmd/seed`). It creates a demo user, an organization, vaults, environments, secrets and members through the API, so it works against any deployment. Commit: `chore: add demo data seed script`
 - [ ] **Clean up the example env file.**
-  - `.env.example` contains real-looking `MASTER_KEK` and `JWT_SECRET` values. Replace them with `change-me` placeholders.
+  - [x] `.env.example` contains real-looking `MASTER_KEK` and `JWT_SECRET` values. Replace them with `change-me` placeholders.
   - Make the API refuse to start when either key is missing, too short, or still set to a placeholder or the old example value.
   - Commits: `fix: replace example keys with placeholders` + `feat(api): refuse to start with weak or example keys`
 - [x] **Fix the Go module path.** It is still `github.com/razlafan/devops-secret-manager`. Rename it to `github.com/msbutt1/DevOps-Secrets-Manager` and update every import. Commit: `refactor(api): rename Go module to match repository`
