@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,7 +45,7 @@ func main() {
 	// Load and validate Master KEK
 	masterKEK, err := crypto.LoadKEKFromEnv()
 	if err != nil {
-		logger.Fatal("Failed to load Master KEK", zap.Error(err))
+		logger.Fatal("Refusing to start with an invalid master key", zap.Error(err))
 	}
 	logger.Info("Master KEK loaded successfully")
 
@@ -86,8 +87,11 @@ func main() {
 
 	// Read JWT configuration
 	jwtSecret := viper.GetString("jwt.secret")
-	if jwtSecret == "" {
-		logger.Fatal("JWT secret is required")
+	if err := crypto.ValidateJWTSecret(jwtSecret); err != nil {
+		logger.Fatal("Refusing to start with an insecure JWT secret", zap.Error(err))
+	}
+	if strings.EqualFold(jwtSecret, os.Getenv("MASTER_KEK")) {
+		logger.Fatal("Refusing to start: APP_JWT_SECRET must differ from MASTER_KEK")
 	}
 
 	accessTokenTTL := viper.GetDuration("jwt.access_token_ttl")

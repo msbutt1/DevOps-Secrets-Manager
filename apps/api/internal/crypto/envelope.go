@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -77,21 +76,7 @@ func DecryptDEK(encryptedDEK, kek []byte) ([]byte, error) {
 }
 
 // LoadKEKFromEnv reads the Master Key Encryption Key from the MASTER_KEK environment variable
-// Expects a hex-encoded 32-byte key
+// Expects a hex-encoded 32-byte key; see ParseKEK for the checks applied.
 func LoadKEKFromEnv() ([]byte, error) {
-	hexKEK := os.Getenv("MASTER_KEK")
-	if hexKEK == "" {
-		return nil, fmt.Errorf("MASTER_KEK environment variable is not set")
-	}
-
-	kek, err := hex.DecodeString(hexKEK)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode MASTER_KEK: %w", err)
-	}
-
-	if len(kek) != 32 {
-		return nil, fmt.Errorf("MASTER_KEK must be 32 bytes, got %d bytes", len(kek))
-	}
-
-	return kek, nil
+	return ParseKEK(os.Getenv("MASTER_KEK"))
 }
