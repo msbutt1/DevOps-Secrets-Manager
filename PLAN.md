@@ -47,7 +47,8 @@ Do this first so every later fix can be checked automatically.
   - `make dev` starts everything
   - `make test` / `make lint` run all checks
   - Commit: `build: add Makefile for local development`
-- [ ] **Seed script.** Commit `scripts/seed.sh` (or `go run ./cmd/seed`). It creates a demo user, an organization, vaults, environments, secrets and members through the API, so it works against any deployment. Commit: `chore: add demo data seed script`
+- [~] **Seed script.** Commit `scripts/seed.sh` (or `go run ./cmd/seed`). It creates a demo user, an organization, vaults, environments, secrets and members through the API, so it works against any deployment. Commit: `chore: add demo data seed script`
+  - Users, vaults, environments and secrets are seeded. Vault members need the teammates to be in the owner's organization, which is only possible through the API once organization invites exist (Phase 2); the seed adds them then.
 - [x] **Clean up the example env file.**
   - [x] `.env.example` contains real-looking `MASTER_KEK` and `JWT_SECRET` values. Replace them with `change-me` placeholders.
   - [x] Make the API refuse to start when either key is missing, too short, or still set to a placeholder or the old example value.

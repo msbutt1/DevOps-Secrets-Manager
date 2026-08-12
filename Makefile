@@ -1,6 +1,6 @@
 # Local development without Docker.
 #
-#   make db && make migrate-up && make dev
+#   make db && make migrate-up && make seed && make dev
 #
 # Every variable below can be overridden on the command line (make db PGPORT=5432)
 # or in a gitignored local.mk, e.g. to put a specific Go or PostgreSQL on PATH.
@@ -22,9 +22,10 @@ TEST_DATABASE_URL ?= postgres://$(PGSUPERUSER)@$(PGHOST):$(PGPORT)/$(TEST_DB_NAM
 
 API_URL ?= http://localhost:8080
 API_ENV := apps/api/.env
+API_LOG ?= $(DEV_DIR)/api.log
 PSQL    := psql -h $(PGHOST) -p $(PGPORT) -U $(PGSUPERUSER) -d postgres -v ON_ERROR_STOP=1 -qtA
 
-export PGHOST PGPORT DB_USER DB_PASSWORD DB_NAME
+export PGHOST PGPORT DB_USER DB_PASSWORD DB_NAME DEV_DIR API_URL API_LOG
 
 .PHONY: help
 help: ## Show available targets
@@ -65,6 +66,10 @@ env: ## Create apps/api/.env with generated keys (never overwrites)
 migrate-up: env ## Apply all database migrations
 	cd apps/api && go run ./cmd/migrate up
 
+.PHONY: seed
+seed: env ## Create demo users, vaults, environments and secrets through the API
+	./scripts/seed.sh
+
 .PHONY: migrate-down
 migrate-down: env ## Roll back migrations: N=1 (default), N=3 or N=all
 	cd apps/api && go run ./cmd/migrate down $(or $(N),1)
@@ -81,8 +86,9 @@ apps/web/node_modules: apps/web/package-lock.json
 web-deps: apps/web/node_modules
 
 .PHONY: api
-api: env ## Run the API on :8080
-	cd apps/api && go run ./cmd/server
+api: env ## Run the API on :8080 (output is also appended to API_LOG)
+	@mkdir -p $(DEV_DIR)
+	set -o pipefail; cd apps/api && go run ./cmd/server 2>&1 | tee -a $(API_LOG)
 
 .PHONY: web
 web: web-deps ## Run the web app on :5173 (proxies /api to :8080)
