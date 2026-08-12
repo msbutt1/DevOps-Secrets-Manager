@@ -3,12 +3,18 @@ package email
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/smtp"
+	"net/url"
 	"os"
+	"strings"
 	"text/template"
 )
+
+// ErrNotConfigured is returned when SMTP is not configured outside development.
+var ErrNotConfigured = errors.New("email delivery is not configured (set SMTP_HOST and SMTP_PORT)")
 
 // EmailService defines the interface for sending emails
 type EmailService interface {
@@ -24,26 +30,33 @@ type SMTPConfig struct {
 	From     string
 }
 
+// Options controls how links in emails are built and what happens without SMTP.
+type Options struct {
+	// PublicURL is the web app's base URL, used to build links (e.g. http://localhost:5173).
+	PublicURL string
+	// Development enables the fallback that logs links instead of sending mail when SMTP
+	// is not configured. It must be off in production, where the links are credentials.
+	Development bool
+}
+
 type emailService struct {
 	config  *SMTPConfig
+	options Options
 	logger  *slog.Logger
-	devMode bool
 }
 
 // NewEmailService creates a new email service
-func NewEmailService(config *SMTPConfig, logger *slog.Logger) EmailService {
-	// Check if SMTP is configured
-	devMode := config.Host == "" || config.Port == ""
-
+func NewEmailService(config *SMTPConfig, options Options, logger *slog.Logger) EmailService {
+	options.PublicURL = strings.TrimRight(options.PublicURL, "/")
 	return &emailService{
 		config:  config,
+		options: options,
 		logger:  logger,
-		devMode: devMode,
 	}
 }
 
-// NewEmailServiceFromEnv creates an email service from environment variables
-func NewEmailServiceFromEnv(logger *slog.Logger) EmailService {
+// NewEmailServiceFromEnv creates an email service from SMTP_* environment variables
+func NewEmailServiceFromEnv(options Options, logger *slog.Logger) EmailService {
 	config := &SMTPConfig{
 		Host:     os.Getenv("SMTP_HOST"),
 		Port:     os.Getenv("SMTP_PORT"),
@@ -57,43 +70,55 @@ func NewEmailServiceFromEnv(logger *slog.Logger) EmailService {
 		config.From = "noreply@devops-secrets.local"
 	}
 
-	return NewEmailService(config, logger)
+	return NewEmailService(config, options, logger)
+}
+
+// Configured reports whether SMTP delivery is set up.
+func (c *SMTPConfig) Configured() bool {
+	return c.Host != "" && c.Port != ""
 }
 
 // SendVerificationEmail sends an email verification link to the user
 func (s *emailService) SendVerificationEmail(ctx context.Context, to, name, token string) error {
-	subject := "Verify your email address"
-
-	// Create email body from template
-	body, err := s.renderVerificationTemplate(name, token)
+	link := s.link("/verify-email", token)
+	body, err := render(verificationTemplate, map[string]string{"Name": name, "Link": link})
 	if err != nil {
 		return fmt.Errorf("failed to render email template: %w", err)
 	}
-
-	// In dev mode, just log the email
-	if s.devMode {
-		s.logger.Info("Email sending (DEV MODE - logging only)",
-			slog.String("to", to),
-			slog.String("subject", subject),
-			slog.String("verification_token", token),
-		)
-		s.logger.Info("Email body", slog.String("body", body))
-		return nil
-	}
-
-	// Send actual email via SMTP
-	return s.sendSMTP(to, subject, body)
+	return s.deliver(to, "Verify your email address", body, link)
 }
 
-// renderVerificationTemplate renders the email verification template
-func (s *emailService) renderVerificationTemplate(name, token string) (string, error) {
-	tmpl := `Hello {{.Name}},
+// link builds an absolute web app URL carrying a token query parameter.
+func (s *emailService) link(path, token string) string {
+	return s.options.PublicURL + path + "?token=" + url.QueryEscape(token)
+}
+
+// deliver sends the message over SMTP, or in development without SMTP logs the link.
+func (s *emailService) deliver(to, subject, body, link string) error {
+	if s.config.Configured() {
+		return s.sendSMTP(to, subject, body)
+	}
+
+	if !s.options.Development {
+		return ErrNotConfigured
+	}
+
+	// Development fallback: the link is a one-time credential, so this only runs with APP_ENV=development.
+	s.logger.Warn("SMTP is not configured; email not sent. Development fallback: open the link below",
+		slog.String("to", to),
+		slog.String("subject", subject),
+		slog.String("link", link),
+	)
+	return nil
+}
+
+const verificationTemplate = `Hello {{.Name}},
 
 Thank you for registering with DevOps Secrets Manager!
 
-Please verify your email address by clicking the link below:
+Please verify your email address by opening the link below:
 
-http://localhost:3000/verify-email?token={{.Token}}
+{{.Link}}
 
 This link will expire in 24 hours.
 
@@ -103,20 +128,13 @@ Best regards,
 DevOps Secrets Manager Team
 `
 
-	t, err := template.New("verification").Parse(tmpl)
+func render(tmpl string, data map[string]string) (string, error) {
+	t, err := template.New("email").Parse(tmpl)
 	if err != nil {
 		return "", err
 	}
 
 	var buf bytes.Buffer
-	data := struct {
-		Name  string
-		Token string
-	}{
-		Name:  name,
-		Token: token,
-	}
-
 	if err := t.Execute(&buf, data); err != nil {
 		return "", err
 	}
@@ -129,8 +147,11 @@ func (s *emailService) sendSMTP(to, subject, body string) error {
 	// Build email message
 	msg := s.buildMessage(s.config.From, to, subject, body)
 
-	// Setup authentication
-	auth := smtp.PlainAuth("", s.config.User, s.config.Password, s.config.Host)
+	// Only authenticate when credentials are provided (local relays often need none)
+	var auth smtp.Auth
+	if s.config.User != "" {
+		auth = smtp.PlainAuth("", s.config.User, s.config.Password, s.config.Host)
+	}
 
 	// Send email
 	addr := fmt.Sprintf("%s:%s", s.config.Host, s.config.Port)
@@ -148,5 +169,5 @@ func (s *emailService) sendSMTP(to, subject, body string) error {
 
 // buildMessage constructs the email message
 func (s *emailService) buildMessage(from, to, subject, body string) string {
-	return fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", from, to, subject, body)
+	return fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s", from, to, subject, body)
 }

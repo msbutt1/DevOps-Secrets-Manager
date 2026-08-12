@@ -83,7 +83,11 @@ func main() {
 	auditRepo := audit.NewPostgresRepository(pool)
 
 	// Create email service
-	emailService := email.NewEmailServiceFromEnv(slogger)
+	emailService := email.NewEmailServiceFromEnv(email.Options{
+		PublicURL:   config.PublicURL(),
+		Development: config.IsDevelopment(),
+	}, slogger)
+	logger.Info("Environment", zap.String("app_env", config.Environment()), zap.String("public_url", config.PublicURL()))
 
 	// Read JWT configuration
 	jwtSecret := viper.GetString("jwt.secret")
@@ -114,6 +118,7 @@ func main() {
 		jwtSecret,
 		accessTokenTTL,
 		refreshTokenTTL,
+		slogger,
 	)
 
 	// Create vault service

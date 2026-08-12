@@ -155,7 +155,7 @@ These are half-built or missing, but a team would need them.
 ### Account
 - [ ] **Change password.** The route and page exist. Test the whole flow end to end, and revoke all refresh tokens after a change. Commit: `fix(api): revoke sessions after password change`
 - [ ] **Forgot password.** Emailed reset token, then a reset page. Commit: `feat: password reset by email`
-- [ ] **Email verification in development.** Login is blocked until the email is verified, but local setups have no SMTP. Add a dev mode that logs the verification link (or a `APP_EMAIL_DISABLED=true` auto-verify switch that is off by default). Document it. Commit: `feat(api): log verification links when SMTP is not configured`
+- [x] **Email verification in development.** Login is blocked until the email is verified, but local setups have no SMTP. Add a dev mode that logs the verification link (or a `APP_EMAIL_DISABLED=true` auto-verify switch that is off by default). Document it. Commit: `feat(api): log verification links when SMTP is not configured`
 - [ ] **Resend verification email.** Commit: `feat: resend verification email`
 - [ ] **Sessions.** List active sessions (refresh tokens) in Settings and allow "sign out everywhere". Commit: `feat: view and revoke active sessions`
 

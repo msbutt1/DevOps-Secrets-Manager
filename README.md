@@ -228,6 +228,16 @@ APP_ENCRYPTION_MASTER_KEY=32-byte-hex-encoded-key
 SERVER_PORT=8080
 ```
 
+### Email in Development
+
+Registration sends a verification link, and login is blocked until the address is verified.
+When `SMTP_HOST` is not set and `APP_ENV=development`, the API does not send mail; it logs
+the link instead (look for `SMTP is not configured; email not sent` in the API output) so you
+can open it locally. `APP_PUBLIC_URL` sets the web app address used in the link. The fallback
+only runs when `APP_ENV=development` (set by `make env` and `.env.example`; the server
+defaults to `production`). Without SMTP, a production server reports an error instead of
+logging the link, because the link is a one-time credential.
+
 ### Generate Encryption Key
 
 ```bash

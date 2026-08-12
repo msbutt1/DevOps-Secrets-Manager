@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -73,6 +74,7 @@ type authService struct {
 	accessTokenTTL        time.Duration
 	refreshTokenTTL       time.Duration
 	verificationTokenTTL  time.Duration
+	logger                *slog.Logger
 }
 
 // NewAuthService creates a new authentication service
@@ -85,6 +87,7 @@ func NewAuthService(
 	jwtSecret string,
 	accessTokenTTL time.Duration,
 	refreshTokenTTL time.Duration,
+	logger *slog.Logger,
 ) AuthService {
 	return &authService{
 		userRepo:              userRepo,
@@ -96,6 +99,7 @@ func NewAuthService(
 		accessTokenTTL:        accessTokenTTL,
 		refreshTokenTTL:       refreshTokenTTL,
 		verificationTokenTTL:  24 * time.Hour, // 24 hours
+		logger:                logger,
 	}
 }
 
@@ -371,7 +375,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 	go func() {
 		if err := s.emailService.SendVerificationEmail(context.Background(), req.Email, req.Name, verificationToken); err != nil {
 			// Log error but don't fail registration
-			// In production, you might want to use a proper logger here
+			s.logger.Error("failed to send verification email", slog.String("user_id", userID.String()), slog.Any("error", err))
 		}
 	}()
 

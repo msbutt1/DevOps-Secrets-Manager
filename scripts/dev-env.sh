@@ -30,5 +30,8 @@ APP_DATABASE_NAME=${DB_NAME:-secrets_db}
 APP_DATABASE_SSLMODE=disable
 APP_DATABASE_MIGRATIONS_PATH=./migrations
 APP_SERVER_PORT=8080
+# development logs emailed links (verification, invites, resets) when SMTP is not configured
+APP_ENV=development
+APP_PUBLIC_URL=http://localhost:5173
 ENV
 echo "Wrote $target with new MASTER_KEK and APP_JWT_SECRET"

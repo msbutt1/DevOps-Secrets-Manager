@@ -25,6 +25,7 @@ func Load() error {
 	viper.SetDefault("database.port", 5432)
 	viper.SetDefault("database.sslmode", "disable")
 	viper.SetDefault("database.migrations_path", "migrations")
+	viper.SetDefault("public_url", "http://localhost:5173")
 
 	// Bind environment variables
 	viper.SetEnvPrefix("APP")
@@ -64,4 +65,24 @@ func Database() storage.PostgresConfig {
 // MigrationsPath returns the directory containing the SQL migrations.
 func MigrationsPath() string {
 	return viper.GetString("database.migrations_path")
+}
+
+// Environment returns APP_ENV ("development" or "production"). It defaults to
+// production so that development-only fallbacks are never enabled by accident.
+func Environment() string {
+	env := strings.ToLower(strings.TrimSpace(viper.GetString("env")))
+	if env == "" {
+		return "production"
+	}
+	return env
+}
+
+// IsDevelopment reports whether APP_ENV is set to development.
+func IsDevelopment() bool {
+	return Environment() == "development"
+}
+
+// PublicURL returns APP_PUBLIC_URL, the web app's base URL used in emailed links.
+func PublicURL() string {
+	return viper.GetString("public_url")
 }
