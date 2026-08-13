@@ -64,7 +64,7 @@ Do this first so every later fix can be checked automatically.
   - CLI fmt, clippy, test
   - `docker compose build`
   - Commit: `ci: add build and test workflow`
-- [ ] **Licence.** Add a `LICENSE` file (MIT, unless you want something else). Commit: `docs: add MIT license`
+- [x] **Licence.** Add a `LICENSE` file (MIT, unless you want something else). Commit: `docs: add MIT license`
 
 ---
 
