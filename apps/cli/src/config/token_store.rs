@@ -37,11 +37,9 @@ impl TokenStore {
     pub fn load() -> Result<Tokens> {
         // Try keyring first
         match Self::load_from_keyring() {
-            Ok(tokens) => return Ok(tokens),
-            Err(_) => {
-                // Try file fallback
-                return Self::load_from_file();
-            }
+            Ok(tokens) => Ok(tokens),
+            // Try file fallback
+            Err(_) => Self::load_from_file(),
         }
     }
 

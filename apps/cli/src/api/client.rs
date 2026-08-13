@@ -15,11 +15,8 @@ pub enum ApiError {
     #[error("Authentication failed: {0}")]
     AuthError(String),
 
-    #[error("Not found: {0}")]
-    NotFound(String),
-
     #[error("API error: {0}")]
-    ApiError(String),
+    Request(String),
 
     #[error("Network error: {0}")]
     NetworkError(#[from] reqwest::Error),
@@ -72,12 +69,6 @@ pub struct Environment {
 pub struct Secret {
     pub id: String,
     pub key_name: String,
-    pub description: Option<String>,
-    pub environment_id: String,
-    pub rotation_interval_days: Option<i32>,
-    pub last_rotated_at: Option<String>,
-    pub expires_at: Option<String>,
-    pub created_at: String,
 }
 
 #[derive(Serialize)]
@@ -97,14 +88,10 @@ pub struct RevealSecretResponse {
 
 #[derive(Deserialize, Debug)]
 pub struct AuditLog {
-    pub id: String,
     pub action: String,
     pub user_id: String,
     pub vault_id: Option<String>,
-    pub environment_id: Option<String>,
-    pub secret_id: Option<String>,
     pub ip_address: Option<String>,
-    pub user_agent: Option<String>,
     pub timestamp: String,
 }
 
@@ -291,7 +278,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::ApiError(format!(
+            return Err(ApiError::Request(format!(
                 "Failed to list vaults: {} - {}",
                 status, body
             )));
@@ -309,7 +296,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::ApiError(format!(
+            return Err(ApiError::Request(format!(
                 "Failed to list environments: {} - {}",
                 status, body
             )));
@@ -327,7 +314,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::ApiError(format!(
+            return Err(ApiError::Request(format!(
                 "Failed to list secrets: {} - {}",
                 status, body
             )));
@@ -348,7 +335,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::ApiError(format!(
+            return Err(ApiError::Request(format!(
                 "Failed to reveal secret: {} - {}",
                 status, body
             )));
@@ -373,7 +360,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::ApiError(format!(
+            return Err(ApiError::Request(format!(
                 "Failed to create secret: {} - {}",
                 status, body
             )));
@@ -394,7 +381,7 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::ApiError(format!(
+            return Err(ApiError::Request(format!(
                 "Failed to get audit logs: {} - {}",
                 status, body
             )));
