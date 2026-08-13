@@ -58,7 +58,7 @@ Do this first so every later fix can be checked automatically.
 - [x] **Get all checks green.**
   - [x] The web typecheck has 4 existing TypeScript errors. Fix them. Commit: `fix(web): resolve TypeScript errors`
   - [x] Fix any `go vet` or ESLint findings, one commit per area. (`go vet` was already clean; ESLint had 5 errors.)
-- [ ] **CI.** Add a GitHub Actions workflow that runs, on every push and PR:
+- [x] **CI.** Add a GitHub Actions workflow that runs, on every push and PR:
   - Go build, vet, test (with a Postgres service container)
   - Web lint, typecheck, test, build
   - CLI fmt, clippy, test
