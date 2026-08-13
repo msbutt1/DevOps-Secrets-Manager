@@ -193,7 +193,7 @@ These are half-built or missing, but a team would need them.
   Commit: `test(api): cover tampering and key rotation`
 
 ### CLI
-- [ ] **Build and install.** Rust isn't installed on this machine, so the CLI has never been built here. Install rustup, build, and fix whatever fails. Commit per fix.
+- [x] **Build and install.** Rust isn't installed on this machine, so the CLI has never been built here. Install rustup, build, and fix whatever fails. Commit per fix. (It compiled as-is; clippy needed fixes and `Cargo.lock` was gitignored.)
 - [ ] **Configurable server address.** The API URL is hard-coded to `http://localhost:8080` in `api/client.rs`. Add `--api-url`, the `SECRETS_API_URL` variable, and a saved setting from `secrets login --api-url`. Commit: `feat(cli): configurable API URL`
 - [ ] **Update existing secrets.** `secrets set` only creates. Make it update an existing key (with `--create-only` / `--update-only` flags). Commit: `feat(cli): update existing secrets with set`
 - [ ] **Missing commands.**
