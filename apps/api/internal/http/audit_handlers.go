@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -81,7 +82,11 @@ func (h *AuditHandlers) HandleQueryAuditLogs(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionAuditRead, orgID)
+	allowed, err := h.policyService.CanOnOrg(r.Context(), claims.UserID, orgID, policy.ActionOrgAuditRead)
+	if errors.Is(err, policy.ErrNoRole) {
+		h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this organization")
+		return
+	}
 	if err != nil {
 		h.logger.Error("failed to check audit read permission", "error", err)
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to check permissions")

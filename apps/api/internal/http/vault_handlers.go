@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
@@ -88,16 +87,19 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 		orgID = orgIDs[0]
 	}
 
-	// Verify organization membership
-	if !h.checkOrganizationMembership(r.Context(), claims.UserID, orgID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this organization")
+	// Organization owners, admins and developers may create vaults; the creator becomes the vault owner
+	allowed, err := h.policyService.CanOnOrg(r.Context(), claims.UserID, orgID, policy.ActionOrgVaultCreate)
+	if err != nil {
+		if errors.Is(err, policy.ErrNoRole) {
+			h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this organization")
+			return
+		}
+		h.logPolicyError(err)
+		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to check permissions")
 		return
 	}
-
-	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionVaultWrite, orgID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions")
+	if !allowed {
+		h.respondError(w, http.StatusForbidden, "forbidden", "Your organization role does not allow creating vaults")
 		return
 	}
 
@@ -130,11 +132,14 @@ func (h *VaultHandlers) HandleListVaults(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get vaults where user is a member via vault_members table
+	// Vaults the user is a member of, plus every vault in organizations they own or administer.
+	// Vault membership only counts while the user is still in the vault's organization.
 	query := `
 		SELECT v.id FROM vaults v
-		JOIN vault_members vm ON v.id = vm.vault_id
-		WHERE vm.user_id = $1 AND v.deleted_at IS NULL
+		JOIN user_organizations uo ON uo.organization_id = v.organization_id AND uo.user_id = $1
+		WHERE v.deleted_at IS NULL
+		  AND (uo.role IN ('owner', 'admin')
+		       OR EXISTS (SELECT 1 FROM vault_members vm WHERE vm.vault_id = v.id AND vm.user_id = $1))
 		ORDER BY v.created_at DESC
 	`
 	rows, err := h.db.Query(r.Context(), query, claims.UserID)
@@ -182,9 +187,7 @@ func (h *VaultHandlers) HandleGetVault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check vault membership
-	if !h.checkVaultMembership(r.Context(), claims.UserID, vaultID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this vault")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionVaultRead, "Vault", h.logPolicyError); !ok {
 		return
 	}
 
@@ -196,14 +199,6 @@ func (h *VaultHandlers) HandleGetVault(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.respondJSON(w, http.StatusOK, h.toVaultResponse(r.Context(), vault, claims.UserID))
-}
-
-// checkVaultMembership verifies if a user is a member of a vault
-func (h *VaultHandlers) checkVaultMembership(ctx context.Context, userID, vaultID uuid.UUID) bool {
-	query := `SELECT 1 FROM vault_members WHERE user_id = $1 AND vault_id = $2`
-	var exists int
-	err := h.db.QueryRow(ctx, query, userID, vaultID).Scan(&exists)
-	return err == nil
 }
 
 // HandleUpdateVault handles vault update requests
@@ -230,23 +225,7 @@ func (h *VaultHandlers) HandleUpdateVault(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get vault to verify membership
-	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
-	if err != nil {
-		h.handleVaultError(w, err)
-		return
-	}
-
-	// Verify organization membership
-	if !h.checkOrganizationMembership(r.Context(), claims.UserID, vault.OrganizationID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this organization")
-		return
-	}
-
-	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionVaultWrite, vault.OrganizationID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionVaultWrite, "Vault", h.logPolicyError); !ok {
 		return
 	}
 
@@ -277,28 +256,7 @@ func (h *VaultHandlers) HandleDeleteVault(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get vault to verify membership
-	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
-	if err != nil {
-		h.handleVaultError(w, err)
-		return
-	}
-
-	// Verify organization membership
-	if !h.checkOrganizationMembership(r.Context(), claims.UserID, vault.OrganizationID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this organization")
-		return
-	}
-
-	// Check RBAC permission
-	canDelete, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionVaultDelete, vault.OrganizationID)
-	if err != nil {
-		h.logger.Error("Failed to check vault delete permission", zap.Error(err))
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to check permissions")
-		return
-	}
-	if !canDelete {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions to delete vault")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionVaultDelete, "Vault", h.logPolicyError); !ok {
 		return
 	}
 
@@ -309,21 +267,6 @@ func (h *VaultHandlers) HandleDeleteVault(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// checkOrganizationMembership verifies if a user is a member of an organization
-func (h *VaultHandlers) checkOrganizationMembership(ctx context.Context, userID, organizationID uuid.UUID) bool {
-	query := `SELECT 1 FROM user_organizations WHERE user_id = $1 AND organization_id = $2`
-	var exists int
-	err := h.db.QueryRow(ctx, query, userID, organizationID).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false
-		}
-		h.logger.Error("Failed to check organization membership", zap.Error(err))
-		return false
-	}
-	return true
 }
 
 // getUserOrganizations returns all organization IDs the user belongs to
@@ -381,14 +324,22 @@ func (h *VaultHandlers) getOrgName(ctx context.Context, orgID uuid.UUID) string 
 	return orgName
 }
 
-// getVaultUserRole gets user's role for a specific vault
+// getVaultUserRole gets the user's effective role on a vault (vault membership or inherited
+// organization owner/admin role)
 func (h *VaultHandlers) getVaultUserRole(ctx context.Context, vaultID, userID uuid.UUID) string {
-	var role string
-	h.db.QueryRow(ctx, "SELECT role FROM vault_members WHERE vault_id = $1 AND user_id = $2", vaultID, userID).Scan(&role)
-	if role == "" {
-		return "viewer"
+	role, err := h.policyService.VaultRole(ctx, userID, vaultID)
+	if err != nil {
+		if !errors.Is(err, policy.ErrVaultNotFound) {
+			h.logPolicyError(err)
+		}
+		return ""
 	}
 	return role
+}
+
+// logPolicyError logs a failed permission lookup
+func (h *VaultHandlers) logPolicyError(err error) {
+	h.logger.Error("Failed to check permissions", zap.Error(err))
 }
 
 // getVaultCounts returns environment and secret counts for a vault

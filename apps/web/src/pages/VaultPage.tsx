@@ -100,7 +100,7 @@ export const VaultPage = () => {
   // Fetch secrets for the current environment
   const { data: allSecrets = [], isLoading: secretsLoading } = useSecrets(currentEnvId || '');
 
-  const { canCreate, canEdit, canDelete, canReveal, canManageMembers } = usePermission(
+  const { canCreate, canEdit, canReveal, canManageMembers } = usePermission(
     vault?.userRole || 'viewer',
   );
 
@@ -349,7 +349,7 @@ export const VaultPage = () => {
                     <span className="text-win-small text-muted-foreground">
                       {selectedSecrets.size} selected
                     </span>
-                    <PermissionGate permission="canDelete" userRole={vault?.userRole || 'viewer'}>
+                    <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
                       <Button
                         className="!min-w-0 flex items-center gap-1 text-warning"
                         onClick={handleBulkDelete}
@@ -544,7 +544,7 @@ export const VaultPage = () => {
                                   </button>
                                 </PermissionGate>
                                 <PermissionGate
-                                  permission="canDelete"
+                                  permission="canWrite"
                                   userRole={vault?.userRole || 'viewer'}
                                 >
                                   <button

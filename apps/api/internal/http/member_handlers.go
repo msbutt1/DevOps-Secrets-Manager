@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -64,6 +65,8 @@ func NewMemberHandlers(vaultService vaults.VaultService, policyService policy.Po
 	}
 }
 
+const invalidRoleMessage = "Invalid role. Must be one of: owner, admin, developer, oncall, viewer"
+
 // HandleListMembers lists all members of a vault
 func (h *MemberHandlers) HandleListMembers(w http.ResponseWriter, r *http.Request) {
 	claims, err := middleware.GetUserClaims(r.Context())
@@ -72,20 +75,16 @@ func (h *MemberHandlers) HandleListMembers(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	vaultIDStr := chi.URLParam(r, "id")
-	vaultID, err := uuid.Parse(vaultIDStr)
+	vaultID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid vault ID format")
 		return
 	}
 
-	// Check if user has permission to view members (must be member of vault)
-	if !h.checkVaultMembership(r.Context(), claims.UserID, vaultID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this vault")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionMemberRead, "Vault", h.logPolicyError); !ok {
 		return
 	}
 
-	// Get all members of the vault
 	members, err := h.getVaultMembers(r.Context(), vaultID)
 	if err != nil {
 		h.logger.Error("Failed to get vault members", zap.Error(err))
@@ -104,8 +103,7 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	vaultIDStr := chi.URLParam(r, "id")
-	vaultID, err := uuid.Parse(vaultIDStr)
+	vaultID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid vault ID format")
 		return
@@ -116,15 +114,24 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
 		return
 	}
+	req.Email = strings.TrimSpace(req.Email)
 
-	// Validate role
-	validRoles := map[string]bool{"owner": true, "admin": true, "developer": true, "oncall": true, "viewer": true}
-	if !validRoles[req.Role] {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid role. Must be one of: owner, admin, developer, oncall, viewer")
+	if !policy.IsValidRole(req.Role) {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", invalidRoleMessage)
 		return
 	}
 
-	// Get vault to get organization ID
+	callerRole, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionMemberManage, "Vault", h.logPolicyError)
+	if !ok {
+		return
+	}
+
+	// Only owners may grant the owner role, since owners can delete the vault
+	if req.Role == policy.RoleOwner && callerRole != policy.RoleOwner {
+		h.respondError(w, http.StatusForbidden, "forbidden", "Only vault owners can add another owner")
+		return
+	}
+
 	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
 	if err != nil {
 		if errors.Is(err, vaults.ErrNotFound) {
@@ -136,14 +143,6 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Check if user has permission to manage members
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionMemberManage, vault.OrganizationID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions to manage members")
-		return
-	}
-
-	// Find user by email
 	targetUser, err := h.getUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -155,37 +154,27 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Verify user is in the organization
 	if !h.checkOrganizationMembership(r.Context(), targetUser.ID, vault.OrganizationID) {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "User must be a member of the organization first")
 		return
 	}
 
-	// Check if user is already a member of this vault
-	if h.checkVaultMembership(r.Context(), targetUser.ID, vaultID) {
+	if _, err := h.getVaultMemberRole(r.Context(), targetUser.ID, vaultID); err == nil {
 		h.respondError(w, http.StatusConflict, "conflict", "User is already a member of this vault")
 		return
 	}
 
-	// Add user to vault
-	err = h.addUserToVault(r.Context(), targetUser.ID, vaultID, req.Role)
-	if err != nil {
+	if err := h.addUserToVault(r.Context(), targetUser.ID, vaultID, req.Role); err != nil {
 		h.logger.Error("Failed to add user to vault", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to add member")
 		return
 	}
 
-	// Get the adder's name
-	adderName := h.getUserName(r.Context(), claims.UserID)
-
-	member := MemberResponse{
-		UserID:      targetUser.ID,
-		Email:       targetUser.Email,
-		Name:        targetUser.Name,
-		Role:        req.Role,
-		Permissions: h.getRolePermissions(req.Role),
-		AddedAt:     time.Now(),
-		AddedBy:     adderName,
+	member, err := h.getVaultMember(r.Context(), vaultID, targetUser.ID)
+	if err != nil {
+		h.logger.Error("Failed to load added member", zap.Error(err))
+		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to load member")
+		return
 	}
 
 	h.respondJSON(w, http.StatusCreated, member)
@@ -199,15 +188,13 @@ func (h *MemberHandlers) HandleUpdateMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	vaultIDStr := chi.URLParam(r, "id")
-	vaultID, err := uuid.Parse(vaultIDStr)
+	vaultID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid vault ID format")
 		return
 	}
 
-	userIDStr := chi.URLParam(r, "userId")
-	targetUserID, err := uuid.Parse(userIDStr)
+	targetUserID, err := uuid.Parse(chi.URLParam(r, "userId"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid user ID format")
 		return
@@ -219,52 +206,48 @@ func (h *MemberHandlers) HandleUpdateMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Validate role
-	validRoles := map[string]bool{"owner": true, "admin": true, "developer": true, "oncall": true, "viewer": true}
-	if !validRoles[req.Role] {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid role")
+	if !policy.IsValidRole(req.Role) {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", invalidRoleMessage)
 		return
 	}
 
-	// Get vault to get organization ID
-	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
+	callerRole, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionMemberManage, "Vault", h.logPolicyError)
+	if !ok {
+		return
+	}
+
+	currentRole, err := h.getVaultMemberRole(r.Context(), targetUserID, vaultID)
 	if err != nil {
-		if errors.Is(err, vaults.ErrNotFound) {
-			h.respondError(w, http.StatusNotFound, "not_found", "Vault not found")
+		if errors.Is(err, pgx.ErrNoRows) {
+			h.respondError(w, http.StatusNotFound, "not_found", "Member not found in this vault")
 			return
 		}
-		h.logger.Error("Failed to get vault", zap.Error(err))
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
+		h.logger.Error("Failed to get member role", zap.Error(err))
+		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to update member role")
 		return
 	}
 
-	// Check if user has permission to manage members
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionMemberManage, vault.OrganizationID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions to manage members")
+	if (req.Role == policy.RoleOwner || currentRole == policy.RoleOwner) && callerRole != policy.RoleOwner {
+		h.respondError(w, http.StatusForbidden, "forbidden", "Only vault owners can grant or change the owner role")
 		return
 	}
 
-	// Update user's role in vault
-	err = h.updateVaultMemberRole(r.Context(), targetUserID, vaultID, req.Role)
-	if err != nil {
+	if currentRole == policy.RoleOwner && req.Role != policy.RoleOwner && h.countVaultOwners(r.Context(), vaultID) <= 1 {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "A vault must keep at least one owner")
+		return
+	}
+
+	if err := h.updateVaultMemberRole(r.Context(), targetUserID, vaultID, req.Role); err != nil {
 		h.logger.Error("Failed to update user role", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to update member role")
 		return
 	}
 
-	// Get updated member info
-	targetUser, _ := h.getUserByID(r.Context(), targetUserID)
-	adderName := h.getUserName(r.Context(), claims.UserID)
-
-	member := MemberResponse{
-		UserID:      targetUserID,
-		Email:       targetUser.Email,
-		Name:        targetUser.Name,
-		Role:        req.Role,
-		Permissions: h.getRolePermissions(req.Role),
-		AddedAt:     time.Now(),
-		AddedBy:     adderName,
+	member, err := h.getVaultMember(r.Context(), vaultID, targetUserID)
+	if err != nil {
+		h.logger.Error("Failed to load updated member", zap.Error(err))
+		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to load member")
+		return
 	}
 
 	h.respondJSON(w, http.StatusOK, member)
@@ -278,36 +261,20 @@ func (h *MemberHandlers) HandleRemoveMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	vaultIDStr := chi.URLParam(r, "id")
-	vaultID, err := uuid.Parse(vaultIDStr)
+	vaultID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid vault ID format")
 		return
 	}
 
-	userIDStr := chi.URLParam(r, "userId")
-	targetUserID, err := uuid.Parse(userIDStr)
+	targetUserID, err := uuid.Parse(chi.URLParam(r, "userId"))
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid user ID format")
 		return
 	}
 
-	// Get vault to get organization ID
-	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
-	if err != nil {
-		if errors.Is(err, vaults.ErrNotFound) {
-			h.respondError(w, http.StatusNotFound, "not_found", "Vault not found")
-			return
-		}
-		h.logger.Error("Failed to get vault", zap.Error(err))
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
-		return
-	}
-
-	// Check if user has permission to manage members
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionMemberManage, vault.OrganizationID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions to manage members")
+	callerRole, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionMemberManage, "Vault", h.logPolicyError)
+	if !ok {
 		return
 	}
 
@@ -317,9 +284,29 @@ func (h *MemberHandlers) HandleRemoveMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Remove user from vault
-	err = h.removeUserFromVault(r.Context(), targetUserID, vaultID)
+	currentRole, err := h.getVaultMemberRole(r.Context(), targetUserID, vaultID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			h.respondError(w, http.StatusNotFound, "not_found", "Member not found in this vault")
+			return
+		}
+		h.logger.Error("Failed to get member role", zap.Error(err))
+		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to remove member")
+		return
+	}
+
+	if currentRole == policy.RoleOwner {
+		if callerRole != policy.RoleOwner {
+			h.respondError(w, http.StatusForbidden, "forbidden", "Only vault owners can remove an owner")
+			return
+		}
+		if h.countVaultOwners(r.Context(), vaultID) <= 1 {
+			h.respondError(w, http.StatusBadRequest, "invalid_request", "A vault must keep at least one owner")
+			return
+		}
+	}
+
+	if err := h.removeUserFromVault(r.Context(), targetUserID, vaultID); err != nil {
 		h.logger.Error("Failed to remove user from vault", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to remove member")
 		return
@@ -336,6 +323,10 @@ type userInfo struct {
 	Name  string
 }
 
+func (h *MemberHandlers) logPolicyError(err error) {
+	h.logger.Error("Failed to check vault permissions", zap.Error(err))
+}
+
 func (h *MemberHandlers) checkOrganizationMembership(ctx context.Context, userID, organizationID uuid.UUID) bool {
 	query := `SELECT 1 FROM user_organizations WHERE user_id = $1 AND organization_id = $2`
 	var exists int
@@ -343,62 +334,53 @@ func (h *MemberHandlers) checkOrganizationMembership(ctx context.Context, userID
 	return err == nil
 }
 
+const memberSelect = `
+	SELECT u.id, u.email, u.name, vm.role, vm.created_at
+	FROM users u
+	JOIN vault_members vm ON u.id = vm.user_id
+	WHERE vm.vault_id = $1
+`
+
+func (h *MemberHandlers) scanMember(row pgx.Row) (MemberResponse, error) {
+	var m MemberResponse
+	if err := row.Scan(&m.UserID, &m.Email, &m.Name, &m.Role, &m.AddedAt); err != nil {
+		return m, err
+	}
+	m.AddedBy = "System"
+	m.Permissions = h.getRolePermissions(m.Role)
+	return m, nil
+}
+
 func (h *MemberHandlers) getVaultMembers(ctx context.Context, vaultID uuid.UUID) ([]MemberResponse, error) {
-	query := `
-		SELECT u.id, u.email, u.name, vm.role, vm.created_at
-		FROM users u
-		JOIN vault_members vm ON u.id = vm.user_id
-		WHERE vm.vault_id = $1
-		ORDER BY vm.created_at
-	`
-	rows, err := h.db.Query(ctx, query, vaultID)
+	rows, err := h.db.Query(ctx, memberSelect+` ORDER BY vm.created_at`, vaultID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var members []MemberResponse
+	members := make([]MemberResponse, 0)
 	for rows.Next() {
-		var m MemberResponse
-		var addedAt time.Time
-		if err := rows.Scan(&m.UserID, &m.Email, &m.Name, &m.Role, &addedAt); err != nil {
+		m, err := h.scanMember(rows)
+		if err != nil {
 			return nil, err
 		}
-		m.AddedAt = addedAt
-		m.AddedBy = "System"
-		m.Permissions = h.getRolePermissions(m.Role)
 		members = append(members, m)
 	}
 	return members, rows.Err()
 }
 
+func (h *MemberHandlers) getVaultMember(ctx context.Context, vaultID, userID uuid.UUID) (MemberResponse, error) {
+	return h.scanMember(h.db.QueryRow(ctx, memberSelect+` AND vm.user_id = $2`, vaultID, userID))
+}
+
 func (h *MemberHandlers) getUserByEmail(ctx context.Context, email string) (*userInfo, error) {
-	query := `SELECT id, email, name FROM users WHERE email = $1`
+	query := `SELECT id, email, name FROM users WHERE lower(email) = lower($1) AND deleted_at IS NULL`
 	var u userInfo
 	err := h.db.QueryRow(ctx, query, email).Scan(&u.ID, &u.Email, &u.Name)
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
-}
-
-func (h *MemberHandlers) getUserByID(ctx context.Context, id uuid.UUID) (*userInfo, error) {
-	query := `SELECT id, email, name FROM users WHERE id = $1`
-	var u userInfo
-	err := h.db.QueryRow(ctx, query, id).Scan(&u.ID, &u.Email, &u.Name)
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
-}
-
-func (h *MemberHandlers) getUserName(ctx context.Context, userID uuid.UUID) string {
-	var name string
-	h.db.QueryRow(ctx, "SELECT name FROM users WHERE id = $1", userID).Scan(&name)
-	if name == "" {
-		return "Unknown"
-	}
-	return name
 }
 
 func (h *MemberHandlers) addUserToVault(ctx context.Context, userID, vaultID uuid.UUID, role string) error {
@@ -419,13 +401,6 @@ func (h *MemberHandlers) removeUserFromVault(ctx context.Context, userID, vaultI
 	return err
 }
 
-func (h *MemberHandlers) checkVaultMembership(ctx context.Context, userID, vaultID uuid.UUID) bool {
-	query := `SELECT 1 FROM vault_members WHERE vault_id = $1 AND user_id = $2`
-	var exists int
-	err := h.db.QueryRow(ctx, query, vaultID, userID).Scan(&exists)
-	return err == nil
-}
-
 func (h *MemberHandlers) getVaultMemberRole(ctx context.Context, userID, vaultID uuid.UUID) (string, error) {
 	query := `SELECT role FROM vault_members WHERE vault_id = $1 AND user_id = $2`
 	var role string
@@ -433,18 +408,23 @@ func (h *MemberHandlers) getVaultMemberRole(ctx context.Context, userID, vaultID
 	return role, err
 }
 
+func (h *MemberHandlers) countVaultOwners(ctx context.Context, vaultID uuid.UUID) int {
+	var count int
+	if err := h.db.QueryRow(ctx, `SELECT COUNT(*) FROM vault_members WHERE vault_id = $1 AND role = 'owner'`, vaultID).Scan(&count); err != nil {
+		h.logger.Error("Failed to count vault owners", zap.Error(err))
+		return 0
+	}
+	return count
+}
+
 func (h *MemberHandlers) getRolePermissions(role string) MemberPermissions {
-	switch role {
-	case "owner":
-		return MemberPermissions{CanRead: true, CanWrite: true, CanReveal: true, CanManageMembers: true, CanDelete: true}
-	case "admin":
-		return MemberPermissions{CanRead: true, CanWrite: true, CanReveal: true, CanManageMembers: true, CanDelete: false}
-	case "developer":
-		return MemberPermissions{CanRead: true, CanWrite: true, CanReveal: true, CanManageMembers: false, CanDelete: false}
-	case "oncall":
-		return MemberPermissions{CanRead: true, CanWrite: false, CanReveal: true, CanManageMembers: false, CanDelete: false}
-	default: // viewer
-		return MemberPermissions{CanRead: true, CanWrite: false, CanReveal: false, CanManageMembers: false, CanDelete: false}
+	p := policy.PermissionsFor(role)
+	return MemberPermissions{
+		CanRead:          p.CanRead,
+		CanWrite:         p.CanWrite,
+		CanReveal:        p.CanReveal,
+		CanManageMembers: p.CanManageMembers,
+		CanDelete:        p.CanDelete,
 	}
 }
 

@@ -9,11 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var (
-	// ErrNoRole is returned when the user has no role in the organization
-	ErrNoRole = errors.New("user has no role in this organization")
-)
-
 // policyService implements the PolicyService interface
 type policyService struct {
 	pool *pgxpool.Pool
@@ -40,83 +35,44 @@ func (s *policyService) GetUserRole(ctx context.Context, userID, orgID uuid.UUID
 	return role, nil
 }
 
-// Can checks if a user has permission to perform an action within an organization
-func (s *policyService) Can(ctx context.Context, userID uuid.UUID, action Action, orgID uuid.UUID) (bool, error) {
-	// Get the user's role
+// CanOnOrg checks an organization-scoped action; users outside the organization get ErrNoRole.
+func (s *policyService) CanOnOrg(ctx context.Context, userID, orgID uuid.UUID, action Action) (bool, error) {
 	role, err := s.GetUserRole(ctx, userID, orgID)
 	if err != nil {
 		return false, err
 	}
-
-	// Check permission based on role and action
-	return s.hasPermission(role, action), nil
+	return OrgRoleAllows(role, action), nil
 }
 
-// hasPermission checks if a role has permission to perform an action
-func (s *policyService) hasPermission(role string, action Action) bool {
-	// Permission matrix
-	switch role {
-	case RoleOwner:
-		// Owner has ALL permissions
-		return true
-
-	case RoleAdmin:
-		// Admin has ALL permissions
-		return true
-
-	case RoleDeveloper:
-		// Developer: vault/env/secret read+write+reveal, NO delete, NO member manage
-		switch action {
-		case ActionVaultRead, ActionVaultWrite:
-			return true
-		case ActionEnvRead, ActionEnvWrite:
-			return true
-		case ActionSecretRead, ActionSecretWrite, ActionSecretReveal:
-			return true
-		case ActionVaultDelete, ActionEnvDelete, ActionSecretDelete:
-			return false
-		case ActionAuditRead, ActionMemberManage:
-			return false
-		default:
-			return false
+// VaultRole returns the caller's effective role on a live vault.
+func (s *policyService) VaultRole(ctx context.Context, userID, vaultID uuid.UUID) (string, error) {
+	query := `
+		SELECT COALESCE(vm.role, ''), COALESCE(uo.role, '')
+		FROM vaults v
+		LEFT JOIN vault_members vm ON vm.vault_id = v.id AND vm.user_id = $1
+		LEFT JOIN user_organizations uo ON uo.organization_id = v.organization_id AND uo.user_id = $1
+		WHERE v.id = $2 AND v.deleted_at IS NULL
+	`
+	var vaultRole, orgRole string
+	if err := s.pool.QueryRow(ctx, query, userID, vaultID).Scan(&vaultRole, &orgRole); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrVaultNotFound
 		}
-
-	case RoleOncall:
-		// Oncall: read ALL, reveal secrets, NO write, NO delete, NO member manage
-		switch action {
-		case ActionVaultRead, ActionEnvRead, ActionSecretRead, ActionSecretReveal:
-			return true
-		case ActionVaultWrite, ActionVaultDelete:
-			return false
-		case ActionEnvWrite, ActionEnvDelete:
-			return false
-		case ActionSecretWrite, ActionSecretDelete:
-			return false
-		case ActionAuditRead, ActionMemberManage:
-			return false
-		default:
-			return false
-		}
-
-	case RoleViewer:
-		// Viewer: read-only (no reveal, no write, no delete, no member manage)
-		switch action {
-		case ActionVaultRead, ActionEnvRead, ActionSecretRead:
-			return true
-		case ActionVaultWrite, ActionVaultDelete:
-			return false
-		case ActionEnvWrite, ActionEnvDelete:
-			return false
-		case ActionSecretWrite, ActionSecretDelete, ActionSecretReveal:
-			return false
-		case ActionAuditRead, ActionMemberManage:
-			return false
-		default:
-			return false
-		}
-
-	default:
-		// Unknown role: deny all
-		return false
+		return "", err
 	}
+
+	role := EffectiveVaultRole(vaultRole, orgRole)
+	if role == "" {
+		return "", ErrVaultNotFound
+	}
+	return role, nil
+}
+
+// CanOnVault checks a vault-scoped action against the caller's effective vault role.
+func (s *policyService) CanOnVault(ctx context.Context, userID, vaultID uuid.UUID, action Action) (bool, error) {
+	role, err := s.VaultRole(ctx, userID, vaultID)
+	if err != nil {
+		return false, err
+	}
+	return RoleAllows(role, action), nil
 }

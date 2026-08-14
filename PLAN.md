@@ -73,7 +73,7 @@ Do this first so every later fix can be checked automatically.
 These are things that exist in the UI or README but don't work.
 
 ### Authorization (highest priority: security)
-- [ ] **Vault roles aren't enforced.**
+- [x] **Vault roles aren't enforced.**
   - `policy.Can` looks up the user's role in `user_organizations`, so every permission check uses the organization role.
   - Roles set per vault on the Members page (`vault_members`) are only partly used by some handlers.
   - Result: making someone a "viewer" on one vault may not stop them revealing secrets there.

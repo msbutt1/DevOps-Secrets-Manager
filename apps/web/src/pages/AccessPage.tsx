@@ -26,7 +26,7 @@ const permissionLabels: Record<keyof VaultMember['permissions'], string> = {
   canWrite: 'Write',
   canReveal: 'Reveal',
   canManageMembers: 'Members',
-  canDelete: 'Delete',
+  canDelete: 'Delete vault',
 };
 
 export const AccessPage = () => {

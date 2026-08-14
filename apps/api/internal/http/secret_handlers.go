@@ -1,7 +1,6 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
@@ -94,30 +92,14 @@ func (h *SecretHandlers) HandleListSecrets(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Get environment to verify membership via vault
+	// Resolve the environment, then check the caller's role on the vault that owns it
 	environment, err := h.envService.GetEnvironment(r.Context(), envID)
 	if err != nil {
 		h.handleEnvironmentError(w, err)
 		return
 	}
 
-	// Verify vault membership via environment's vault
-	if !h.checkVaultMembership(r.Context(), claims.UserID, environment.VaultID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User does not have access to this vault")
-		return
-	}
-
-	// Get organization ID for RBAC check
-	orgID, err := h.getOrgIDFromEnvironment(r.Context(), envID)
-	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to verify permissions")
-		return
-	}
-
-	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionSecretRead, orgID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, environment.VaultID, policy.ActionSecretRead, "Environment", h.logPolicyError); !ok {
 		return
 	}
 
@@ -154,30 +136,14 @@ func (h *SecretHandlers) HandleCreateSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get environment to verify membership via vault
+	// Resolve the environment, then check the caller's role on the vault that owns it
 	environment, err := h.envService.GetEnvironment(r.Context(), envID)
 	if err != nil {
 		h.handleEnvironmentError(w, err)
 		return
 	}
 
-	// Verify vault membership via environment's vault
-	if !h.checkVaultMembership(r.Context(), claims.UserID, environment.VaultID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User does not have access to this vault")
-		return
-	}
-
-	// Get organization ID for RBAC check
-	orgID, err := h.getOrgIDFromEnvironment(r.Context(), envID)
-	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to verify permissions")
-		return
-	}
-
-	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionSecretWrite, orgID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, environment.VaultID, policy.ActionSecretWrite, "Environment", h.logPolicyError); !ok {
 		return
 	}
 
@@ -232,30 +198,18 @@ func (h *SecretHandlers) HandleUpdateSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get environment to verify membership via vault
+	// Resolve the environment, then check the caller's role on the vault that owns it
 	environment, err := h.envService.GetEnvironment(r.Context(), secret.EnvironmentID)
 	if err != nil {
+		if errors.Is(err, environments.ErrNotFound) {
+			h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
+			return
+		}
 		h.handleEnvironmentError(w, err)
 		return
 	}
 
-	// Verify vault membership via environment's vault
-	if !h.checkVaultMembership(r.Context(), claims.UserID, environment.VaultID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User does not have access to this vault")
-		return
-	}
-
-	// Get organization ID for RBAC check
-	orgID, err := h.getOrgIDFromEnvironment(r.Context(), secret.EnvironmentID)
-	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to verify permissions")
-		return
-	}
-
-	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionSecretWrite, orgID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, environment.VaultID, policy.ActionSecretWrite, "Secret", h.logPolicyError); !ok {
 		return
 	}
 
@@ -308,30 +262,18 @@ func (h *SecretHandlers) HandleDeleteSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get environment to verify membership via vault
+	// Resolve the environment, then check the caller's role on the vault that owns it
 	environment, err := h.envService.GetEnvironment(r.Context(), secret.EnvironmentID)
 	if err != nil {
+		if errors.Is(err, environments.ErrNotFound) {
+			h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
+			return
+		}
 		h.handleEnvironmentError(w, err)
 		return
 	}
 
-	// Verify vault membership via environment's vault
-	if !h.checkVaultMembership(r.Context(), claims.UserID, environment.VaultID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User does not have access to this vault")
-		return
-	}
-
-	// Get organization ID for RBAC check
-	orgID, err := h.getOrgIDFromEnvironment(r.Context(), secret.EnvironmentID)
-	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to verify permissions")
-		return
-	}
-
-	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionSecretDelete, orgID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, environment.VaultID, policy.ActionSecretDelete, "Secret", h.logPolicyError); !ok {
 		return
 	}
 
@@ -368,30 +310,18 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get environment to verify membership via vault
+	// Resolve the environment, then check the caller's role on the vault that owns it
 	environment, err := h.envService.GetEnvironment(r.Context(), secret.EnvironmentID)
 	if err != nil {
+		if errors.Is(err, environments.ErrNotFound) {
+			h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
+			return
+		}
 		h.handleEnvironmentError(w, err)
 		return
 	}
 
-	// Verify vault membership via environment's vault
-	if !h.checkVaultMembership(r.Context(), claims.UserID, environment.VaultID) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User does not have access to this vault")
-		return
-	}
-
-	// Get organization ID for RBAC check
-	orgID, err := h.getOrgIDFromEnvironment(r.Context(), secret.EnvironmentID)
-	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to verify permissions")
-		return
-	}
-
-	// Check RBAC permission
-	allowed, err := h.policyService.Can(r.Context(), claims.UserID, policy.ActionSecretReveal, orgID)
-	if err != nil || !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions")
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, environment.VaultID, policy.ActionSecretReveal, "Secret", h.logPolicyError); !ok {
 		return
 	}
 
@@ -411,31 +341,9 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 	h.respondJSON(w, http.StatusOK, response)
 }
 
-// checkVaultMembership verifies if a user has access to a vault via vault_members table
-func (h *SecretHandlers) checkVaultMembership(ctx context.Context, userID, vaultID uuid.UUID) bool {
-	query := `SELECT 1 FROM vault_members WHERE vault_id = $1 AND user_id = $2`
-	var exists int
-	err := h.db.QueryRow(ctx, query, vaultID, userID).Scan(&exists)
-	return err == nil
-}
-
-// getOrgIDFromEnvironment retrieves the organization ID via environment→vault chain
-func (h *SecretHandlers) getOrgIDFromEnvironment(ctx context.Context, envID uuid.UUID) (uuid.UUID, error) {
-	query := `
-		SELECT v.organization_id
-		FROM environments e
-		JOIN vaults v ON e.vault_id = v.id
-		WHERE e.id = $1 AND e.deleted_at IS NULL AND v.deleted_at IS NULL
-	`
-	var orgID uuid.UUID
-	err := h.db.QueryRow(ctx, query, envID).Scan(&orgID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return uuid.Nil, errors.New("environment or vault not found")
-		}
-		return uuid.Nil, err
-	}
-	return orgID, nil
+// logPolicyError logs a failed permission lookup
+func (h *SecretHandlers) logPolicyError(err error) {
+	h.logger.Error("Failed to check vault permissions", zap.Error(err))
 }
 
 // toSecretMetadataResponse converts a Secret domain model to SecretMetadataResponse DTO
