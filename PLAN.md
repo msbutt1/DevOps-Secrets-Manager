@@ -80,7 +80,8 @@ These are things that exist in the UI or README but don't work.
   - Fix: route every vault, environment, secret and member check through a single `policy.CanOnVault(user, vault, action)` that reads `vault_members`, with organization owners and admins inheriting access.
   - Commit: `fix(api): enforce per-vault roles in policy checks`
 - [x] **Test the permission matrix.** Add table-driven tests covering 5 roles × every action, run against a real database. They must match `ROLE_PERMISSIONS` in `apps/web/src/types/api.ts`. Commit: `test(api): cover role permission matrix`
-- [ ] **Stop cross-vault access.** Every `/envs/{id}` and `/secrets/{id}` route must check that the resource belongs to a vault the caller can access, not just that the ID exists. Add tests where user A uses user B's IDs. Commit: `fix(api): scope environment and secret lookups to caller's vaults`
+- [x] **Stop cross-vault access.** Every `/envs/{id}` and `/secrets/{id}` route must check that the resource belongs to a vault the caller can access, not just that the ID exists. Add tests where user A uses user B's IDs. Commit: `fix(api): scope environment and secret lookups to caller's vaults`
+  - The scoping itself landed with the per-vault role fix (every lookup resolves the owning vault and answers 404 without access); this item added the cross-tenant tests.
 
 ### Audit log (empty in the UI)
 - [ ] **Response shape mismatch.** The web app expects `PaginatedResponse<AuditEvent>` with these fields:
