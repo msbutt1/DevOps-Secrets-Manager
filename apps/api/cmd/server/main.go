@@ -11,19 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/auth"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/app"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/config"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
-	httphandler "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http"
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/secrets"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/storage"
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/tokens"
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
-	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -73,15 +65,6 @@ func main() {
 	// Create slog logger for components that need it
 	slogger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	// Create repositories
-	userRepo := users.NewPostgresRepository(pool)
-	refreshTokenRepo := tokens.NewPostgresRepository(pool)
-	verificationTokenRepo := email.NewVerificationTokenRepository(pool)
-	vaultRepo := vaults.NewPostgresRepository(pool)
-	environmentRepo := environments.NewPostgresRepository(pool)
-	secretRepo := secrets.NewPostgresRepository(pool)
-	auditRepo := audit.NewPostgresRepository(pool)
-
 	// Create email service
 	emailService := email.NewEmailServiceFromEnv(email.Options{
 		PublicURL:   config.PublicURL(),
@@ -98,54 +81,15 @@ func main() {
 		logger.Fatal("Refusing to start: APP_JWT_SECRET must differ from MASTER_KEK")
 	}
 
-	accessTokenTTL := viper.GetDuration("jwt.access_token_ttl")
-	if accessTokenTTL == 0 {
-		accessTokenTTL = 15 * time.Minute
-	}
-
-	refreshTokenTTL := viper.GetDuration("jwt.refresh_token_ttl")
-	if refreshTokenTTL == 0 {
-		refreshTokenTTL = 7 * 24 * time.Hour // 7 days
-	}
-
-	// Create auth service
-	authService := auth.NewAuthService(
-		userRepo,
-		refreshTokenRepo,
-		verificationTokenRepo,
-		emailService,
-		pool,
-		jwtSecret,
-		accessTokenTTL,
-		refreshTokenTTL,
-		slogger,
-	)
-
-	// Create vault service
-	vaultService := vaults.NewVaultService(vaultRepo, masterKEK)
-
-	// Create environment service
-	environmentService := environments.NewEnvironmentService(environmentRepo)
-
-	// Create audit service
-	auditService := audit.NewAuditService(auditRepo, slogger)
-
-	// Create secret service
-	secretService := secrets.NewSecretService(secretRepo, environmentRepo, vaultRepo, auditService, masterKEK)
-
-	// Create policy service
-	policyService := policy.NewPolicyService(pool)
-
-	// Create handlers
-	authHandlers := httphandler.NewAuthHandlers(authService, pool, logger)
-	vaultHandlers := httphandler.NewVaultHandlers(vaultService, policyService, pool, logger)
-	environmentHandlers := httphandler.NewEnvironmentHandlers(environmentService, policyService, pool, logger)
-	secretHandlers := httphandler.NewSecretHandlers(secretService, environmentService, policyService, pool, logger)
-	auditHandlers := httphandler.NewAuditHandlers(auditService, policyService, pool, slogger)
-	memberHandlers := httphandler.NewMemberHandlers(vaultService, policyService, pool, logger)
-
-	// Create HTTP router
-	router := httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, jwtSecret)
+	router := app.New(pool, app.Config{
+		MasterKEK:       masterKEK,
+		JWTSecret:       jwtSecret,
+		AccessTokenTTL:  viper.GetDuration("jwt.access_token_ttl"),
+		RefreshTokenTTL: viper.GetDuration("jwt.refresh_token_ttl"),
+		Email:           emailService,
+		Logger:          logger,
+		SLogger:         slogger,
+	})
 
 	// Configure HTTP server
 	port := viper.GetInt("server.port")
