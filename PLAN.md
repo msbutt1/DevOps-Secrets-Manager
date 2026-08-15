@@ -97,7 +97,7 @@ These are things that exist in the UI or README but don't work.
   - `login.failure`
 
   Commit: `feat(api): audit environment, member and vault update events`
-- [ ] **Filters.** Implement the `vaultId`, `environmentId`, `userId`, `action` and `startDate`/`endDate` filters on the server. Commit: `feat(api): filter audit log by vault, user, action and date`
+- [x] **Filters.** Implement the `vaultId`, `environmentId`, `userId`, `action` and `startDate`/`endDate` filters on the server. Commit: `feat(api): filter audit log by vault, user, action and date`
 - [ ] **CLI `--since`.** `apps/cli/src/cli/audit.rs` has a TODO for filtering by `since`. Implement it by passing `startDate` to the API. Commit: `feat(cli): filter audit log with --since`
 
 ### Vault page and API contract

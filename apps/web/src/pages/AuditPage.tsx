@@ -13,6 +13,17 @@ const actionOptions: { value: string; label: string }[] = [
   ...AUDIT_ACTIONS,
 ];
 
+/**
+ * Converts a YYYY-MM-DD value from a date input into the RFC 3339 instant at local midnight,
+ * optionally some days later, so filters follow the viewer's time zone. The API treats
+ * endDate as exclusive, so the "To" day is passed as the following midnight.
+ */
+const localDayStart = (day: string, addDays = 0): string | undefined => {
+  if (!day) return undefined;
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(year, month - 1, date + addDays).toISOString();
+};
+
 const formatTimestamp = (ts: string) => {
   const date = new Date(ts);
   return date.toLocaleString('en-US', {
@@ -78,8 +89,8 @@ export const AuditPage = () => {
     vaultId: filters.vault || undefined,
     action: (filters.action as AuditAction) || undefined,
     userEmail: filters.user || undefined,
-    startDate: filters.startDate || undefined,
-    endDate: filters.endDate || undefined,
+    startDate: localDayStart(filters.startDate),
+    endDate: localDayStart(filters.endDate, 1),
     page: currentPage,
     limit: pageSize,
   };
