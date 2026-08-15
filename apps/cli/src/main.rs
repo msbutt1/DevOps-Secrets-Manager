@@ -101,7 +101,7 @@ enum Commands {
         #[arg(long)]
         vault: Option<String>,
 
-        /// Filter logs since duration (e.g., 1h, 24h, 7d)
+        /// Only show events since a duration ago (30m, 24h, 7d, 2w), a date (YYYY-MM-DD) or an RFC 3339 time
         #[arg(long)]
         since: Option<String>,
     },

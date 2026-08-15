@@ -98,7 +98,7 @@ These are things that exist in the UI or README but don't work.
 
   Commit: `feat(api): audit environment, member and vault update events`
 - [x] **Filters.** Implement the `vaultId`, `environmentId`, `userId`, `action` and `startDate`/`endDate` filters on the server. Commit: `feat(api): filter audit log by vault, user, action and date`
-- [ ] **CLI `--since`.** `apps/cli/src/cli/audit.rs` has a TODO for filtering by `since`. Implement it by passing `startDate` to the API. Commit: `feat(cli): filter audit log with --since`
+- [x] **CLI `--since`.** `apps/cli/src/cli/audit.rs` has a TODO for filtering by `since`. Implement it by passing `startDate` to the API. Commit: `feat(cli): filter audit log with --since`
 
 ### Vault page and API contract
 - [ ] **"Created by on".** The vault header reads "Created by on" because the API never returns `created_by`. Return the creator's name and `created_at`. Commit: `fix(api): include creator in vault response`

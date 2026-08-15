@@ -378,11 +378,24 @@ impl ApiClient {
         Ok(secret)
     }
 
-    pub async fn get_audit_logs(&self, vault_id: Option<&str>) -> Result<AuditPage, ApiError> {
-        let mut url = format!("{}/audit?limit=200", API_BASE_URL);
-        if let Some(vid) = vault_id {
-            url.push_str(&format!("&vaultId={}", vid));
+    pub async fn get_audit_logs(
+        &self,
+        vault_id: Option<&str>,
+        start_date: Option<&str>,
+    ) -> Result<AuditPage, ApiError> {
+        let mut url = reqwest::Url::parse(&format!("{}/audit", API_BASE_URL))
+            .map_err(|e| ApiError::Other(e.into()))?;
+        {
+            let mut query = url.query_pairs_mut();
+            query.append_pair("limit", "200");
+            if let Some(vid) = vault_id {
+                query.append_pair("vaultId", vid);
+            }
+            if let Some(start) = start_date {
+                query.append_pair("startDate", start);
+            }
         }
+        let url = url.to_string();
 
         let response = self.get_with_auth(&url).await?;
 
