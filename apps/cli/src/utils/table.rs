@@ -69,30 +69,29 @@ impl TablePrinter {
         let mut table = Table::new();
         table.set_content_arrangement(ContentArrangement::Dynamic);
 
-        table.set_header(vec![
-            Cell::new("Timestamp")
-                .fg(Color::Green)
-                .add_attribute(Attribute::Bold),
-            Cell::new("Action")
-                .fg(Color::Green)
-                .add_attribute(Attribute::Bold),
-            Cell::new("User ID")
-                .fg(Color::Green)
-                .add_attribute(Attribute::Bold),
-            Cell::new("Vault ID")
-                .fg(Color::Green)
-                .add_attribute(Attribute::Bold),
-            Cell::new("IP Address")
-                .fg(Color::Green)
-                .add_attribute(Attribute::Bold),
-        ]);
+        let header = [
+            "Timestamp",
+            "Action",
+            "User",
+            "Vault",
+            "Environment",
+            "Target",
+            "IP Address",
+        ];
+        table.set_header(
+            header
+                .iter()
+                .map(|h| Cell::new(h).fg(Color::Green).add_attribute(Attribute::Bold)),
+        );
 
         for log in logs {
             table.add_row(vec![
-                &log.timestamp,
-                &log.action,
-                &log.user_id,
-                log.vault_id.as_deref().unwrap_or("-"),
+                log.timestamp.as_str(),
+                log.action.as_str(),
+                log.user_email.as_str(),
+                log.vault_name.as_deref().unwrap_or("-"),
+                log.environment_name.as_deref().unwrap_or("-"),
+                log.target_name.as_deref().unwrap_or("-"),
                 log.ip_address.as_deref().unwrap_or("-"),
             ]);
         }

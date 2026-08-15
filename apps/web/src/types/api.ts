@@ -243,27 +243,34 @@ export type AuditAction =
 
 export interface AuditEvent {
   id: string;
-  vaultId: string;
-  vaultName: string;
-  environmentId: string | null;
-  environmentName: string | null;
+  timestamp: string;
+  action: AuditAction;
   userId: string;
   userEmail: string;
-  action: AuditAction;
+  organizationId: string | null;
+  vaultId: string | null;
+  vaultName: string | null;
+  environmentId: string | null;
+  environmentName: string | null;
+  targetType: string;
   targetId: string | null;
   targetName: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
   metadata: Record<string, unknown>;
-  ipAddress: string;
-  userAgent: string;
-  timestamp: string;
 }
 
 export interface AuditFilters {
+  organizationId?: string;
   vaultId?: string;
   environmentId?: string;
   userId?: string;
+  /** Case-insensitive match on part of the user's email */
+  userEmail?: string;
   action?: AuditAction;
+  /** RFC 3339 timestamp or YYYY-MM-DD */
   startDate?: string;
+  /** RFC 3339 timestamp or YYYY-MM-DD (the whole day is included) */
   endDate?: string;
   page?: number;
   limit?: number;

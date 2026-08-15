@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	authmiddleware "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 )
 
@@ -16,6 +17,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(audit.RequestContext)
 
 	// Health check endpoint
 	r.Get("/health", healthCheckHandler)

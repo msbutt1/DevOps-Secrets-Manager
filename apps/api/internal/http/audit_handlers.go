@@ -1,9 +1,7 @@
 package http
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -14,6 +12,11 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
+)
+
+const (
+	defaultAuditPageSize = 50
+	maxAuditPageSize     = 200
 )
 
 // AuditHandlers handles audit-related HTTP requests
@@ -34,177 +37,187 @@ func NewAuditHandlers(auditService audit.AuditService, policyService policy.Poli
 	}
 }
 
-// AuditEntryResponse represents the JSON response for an audit log entry
-type AuditEntryResponse struct {
-	ID             uuid.UUID              `json:"id"`
-	Timestamp      time.Time              `json:"timestamp"`
-	UserID         uuid.UUID              `json:"user_id"`
-	OrganizationID *uuid.UUID             `json:"organization_id"`
-	VaultID        *uuid.UUID             `json:"vault_id"`
-	Action         string                 `json:"action"`
-	ResourceType   string                 `json:"resource_type"`
-	ResourceID     *uuid.UUID             `json:"resource_id"`
-	IPAddress      *string                `json:"ip_address"`
-	UserAgent      *string                `json:"user_agent"`
-	Metadata       map[string]interface{} `json:"metadata"`
+// AuditEventResponse is one audit log entry with the names needed to display it
+type AuditEventResponse struct {
+	ID              uuid.UUID              `json:"id"`
+	Timestamp       time.Time              `json:"timestamp"`
+	Action          string                 `json:"action"`
+	UserID          uuid.UUID              `json:"user_id"`
+	UserEmail       string                 `json:"user_email"`
+	OrganizationID  *uuid.UUID             `json:"organization_id"`
+	VaultID         *uuid.UUID             `json:"vault_id"`
+	VaultName       *string                `json:"vault_name"`
+	EnvironmentID   *uuid.UUID             `json:"environment_id"`
+	EnvironmentName *string                `json:"environment_name"`
+	TargetType      string                 `json:"target_type"`
+	TargetID        *uuid.UUID             `json:"target_id"`
+	TargetName      *string                `json:"target_name"`
+	IPAddress       *string                `json:"ip_address"`
+	UserAgent       *string                `json:"user_agent"`
+	Metadata        map[string]interface{} `json:"metadata"`
 }
 
-// HandleQueryAuditLogs handles GET /audit requests
+// PaginatedAuditResponse is a page of audit events
+type PaginatedAuditResponse struct {
+	Data    []AuditEventResponse `json:"data"`
+	Total   int                  `json:"total"`
+	Page    int                  `json:"page"`
+	Limit   int                  `json:"limit"`
+	HasMore bool                 `json:"has_more"`
+}
+
+// HandleQueryAuditLogs handles GET /audit.
+//
+// Callers see their own events, every event in organizations they own or administer, and
+// events in vaults where they are an owner or admin. Query parameters (camelCase; snake_case
+// aliases are accepted): page, limit, organizationId, vaultId, environmentId, userId,
+// userEmail, action, startDate, endDate. Dates are RFC 3339 timestamps or YYYY-MM-DD days;
+// a day as endDate includes that whole day.
 func (h *AuditHandlers) HandleQueryAuditLogs(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
 	claims, err := middleware.GetUserClaims(r.Context())
 	if err != nil {
 		h.respondError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
 		return
 	}
 
-	// Parse query parameters
-	query := r.URL.Query()
-
-	// Get org_id - if not provided, use user's first organization
-	var orgID uuid.UUID
-	orgIDStr := query.Get("org_id")
-	if orgIDStr == "" {
-		// Auto-detect from user's organizations
-		orgs, err := h.getUserOrganizations(r.Context(), claims.UserID)
-		if err != nil || len(orgs) == 0 {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "No organization found for user")
-			return
+	q := r.URL.Query()
+	param := func(camel, snake string) string {
+		if v := q.Get(camel); v != "" {
+			return v
 		}
-		orgID = orgs[0]
-	} else {
-		var err error
-		orgID, err = uuid.Parse(orgIDStr)
-		if err != nil {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid org_id format")
-			return
+		return q.Get(snake)
+	}
+
+	filters := audit.QueryFilters{ViewerID: &claims.UserID}
+
+	uuidParams := []struct {
+		camel, snake string
+		target       **uuid.UUID
+	}{
+		{"organizationId", "org_id", &filters.OrgID},
+		{"vaultId", "vault_id", &filters.VaultID},
+		{"environmentId", "environment_id", &filters.EnvironmentID},
+		{"userId", "user_id", &filters.UserID},
+	}
+	for _, p := range uuidParams {
+		if raw := param(p.camel, p.snake); raw != "" {
+			id, err := uuid.Parse(raw)
+			if err != nil {
+				h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid "+p.camel+" format")
+				return
+			}
+			*p.target = &id
 		}
 	}
 
-	// Check RBAC permission
-	allowed, err := h.policyService.CanOnOrg(r.Context(), claims.UserID, orgID, policy.ActionOrgAuditRead)
-	if errors.Is(err, policy.ErrNoRole) {
-		h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this organization")
-		return
+	if email := param("userEmail", "user_email"); email != "" {
+		filters.UserEmail = &email
 	}
-	if err != nil {
-		h.logger.Error("failed to check audit read permission", "error", err)
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to check permissions")
-		return
-	}
-	if !allowed {
-		h.respondError(w, http.StatusForbidden, "forbidden", "Insufficient permissions to read audit logs")
-		return
-	}
-
-	// Build query filters
-	filters := audit.QueryFilters{
-		OrgID: &orgID,
-	}
-
-	// Parse optional filters
-	if userIDStr := query.Get("user_id"); userIDStr != "" {
-		userID, err := uuid.Parse(userIDStr)
-		if err != nil {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid user_id format")
-			return
-		}
-		filters.UserID = &userID
-	}
-
-	if vaultIDStr := query.Get("vault_id"); vaultIDStr != "" {
-		vaultID, err := uuid.Parse(vaultIDStr)
-		if err != nil {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid vault_id format")
-			return
-		}
-		filters.VaultID = &vaultID
-	}
-
-	if action := query.Get("action"); action != "" {
+	if action := q.Get("action"); action != "" {
 		filters.Action = &action
 	}
-
-	if resourceType := query.Get("resource_type"); resourceType != "" {
+	if resourceType := param("targetType", "resource_type"); resourceType != "" {
 		filters.ResourceType = &resourceType
 	}
 
-	if startTimeStr := query.Get("start_time"); startTimeStr != "" {
-		startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if raw := param("startDate", "start_time"); raw != "" {
+		start, _, err := parseAuditTime(raw)
 		if err != nil {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid start_time format (use RFC3339)")
+			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid startDate (use RFC 3339 or YYYY-MM-DD)")
 			return
 		}
-		filters.StartTime = &startTime
+		filters.StartTime = &start
+	}
+	if raw := param("endDate", "end_time"); raw != "" {
+		end, dayOnly, err := parseAuditTime(raw)
+		if err != nil {
+			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid endDate (use RFC 3339 or YYYY-MM-DD)")
+			return
+		}
+		if dayOnly {
+			end = end.AddDate(0, 0, 1)
+		}
+		filters.EndTime = &end
 	}
 
-	if endTimeStr := query.Get("end_time"); endTimeStr != "" {
-		endTime, err := time.Parse(time.RFC3339, endTimeStr)
-		if err != nil {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid end_time format (use RFC3339)")
-			return
-		}
-		filters.EndTime = &endTime
+	page, err := positiveInt(q.Get("page"), 1)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid page value")
+		return
 	}
-
-	// Parse limit with default and max
-	limit := 100 // default
-	if limitStr := query.Get("limit"); limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err != nil || parsedLimit < 0 {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid limit value")
-			return
-		}
-		limit = parsedLimit
+	limit, err := positiveInt(q.Get("limit"), defaultAuditPageSize)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid limit value")
+		return
 	}
-	if limit > 1000 {
-		limit = 1000 // max limit
+	if limit > maxAuditPageSize {
+		limit = maxAuditPageSize
 	}
 	filters.Limit = limit
+	filters.Offset = (page - 1) * limit
 
-	// Parse offset
-	offset := 0
-	if offsetStr := query.Get("offset"); offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err != nil || parsedOffset < 0 {
-			h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid offset value")
-			return
-		}
-		offset = parsedOffset
-	}
-	filters.Offset = offset
-
-	// Query audit logs
-	entries, err := h.auditService.Query(r.Context(), filters)
+	entries, total, err := h.auditService.Query(r.Context(), filters)
 	if err != nil {
-		h.logger.Error("failed to query audit logs", "error", err)
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to query audit logs")
 		return
 	}
 
-	// Convert to response DTOs
-	responses := make([]AuditEntryResponse, 0, len(entries))
+	data := make([]AuditEventResponse, 0, len(entries))
 	for _, entry := range entries {
-		responses = append(responses, h.toAuditEntryResponse(entry))
+		data = append(data, toAuditEventResponse(entry))
 	}
 
-	h.respondJSON(w, http.StatusOK, responses)
+	h.respondJSON(w, http.StatusOK, PaginatedAuditResponse{
+		Data:    data,
+		Total:   total,
+		Page:    page,
+		Limit:   limit,
+		HasMore: filters.Offset+len(data) < total,
+	})
 }
 
-// toAuditEntryResponse converts an AuditEntry to AuditEntryResponse
-func (h *AuditHandlers) toAuditEntryResponse(entry *audit.AuditEntry) AuditEntryResponse {
-	return AuditEntryResponse{
-		ID:             entry.ID,
-		Timestamp:      entry.Timestamp,
-		UserID:         entry.UserID,
-		OrganizationID: entry.OrganizationID,
-		VaultID:        entry.VaultID,
-		Action:         entry.Action,
-		ResourceType:   entry.ResourceType,
-		ResourceID:     entry.ResourceID,
-		IPAddress:      entry.IPAddress,
-		UserAgent:      entry.UserAgent,
-		Metadata:       entry.Metadata,
+// parseAuditTime accepts RFC 3339 timestamps or YYYY-MM-DD days (UTC). dayOnly reports the latter.
+func parseAuditTime(raw string) (t time.Time, dayOnly bool, err error) {
+	if t, err = time.Parse(time.RFC3339, raw); err == nil {
+		return t, false, nil
+	}
+	t, err = time.Parse(time.DateOnly, raw)
+	return t, err == nil, err
+}
+
+func positiveInt(raw string, fallback int) (int, error) {
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 1 {
+		return 0, strconv.ErrSyntax
+	}
+	return n, nil
+}
+
+func toAuditEventResponse(entry *audit.AuditEntry) AuditEventResponse {
+	metadata := entry.Metadata
+	if metadata == nil {
+		metadata = map[string]interface{}{}
+	}
+	return AuditEventResponse{
+		ID:              entry.ID,
+		Timestamp:       entry.Timestamp,
+		Action:          entry.Action,
+		UserID:          entry.UserID,
+		UserEmail:       entry.UserEmail,
+		OrganizationID:  entry.OrganizationID,
+		VaultID:         entry.VaultID,
+		VaultName:       entry.VaultName,
+		EnvironmentID:   entry.EnvironmentID,
+		EnvironmentName: entry.EnvironmentName,
+		TargetType:      entry.ResourceType,
+		TargetID:        entry.ResourceID,
+		TargetName:      entry.TargetName,
+		IPAddress:       entry.IPAddress,
+		UserAgent:       entry.UserAgent,
+		Metadata:        metadata,
 	}
 }
 
@@ -223,24 +236,4 @@ func (h *AuditHandlers) respondError(w http.ResponseWriter, status int, error st
 		Error:   error,
 		Message: message,
 	})
-}
-
-// getUserOrganizations returns the organization IDs for a user
-func (h *AuditHandlers) getUserOrganizations(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
-	query := `SELECT organization_id FROM user_organizations WHERE user_id = $1`
-	rows, err := h.db.Query(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var orgIDs []uuid.UUID
-	for rows.Next() {
-		var orgID uuid.UUID
-		if err := rows.Scan(&orgID); err != nil {
-			return nil, err
-		}
-		orgIDs = append(orgIDs, orgID)
-	}
-	return orgIDs, rows.Err()
 }

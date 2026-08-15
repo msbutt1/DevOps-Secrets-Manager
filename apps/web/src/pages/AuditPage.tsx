@@ -79,7 +79,7 @@ export const AuditPage = () => {
   const apiFilters = {
     vaultId: filters.vault || undefined,
     action: (filters.action as AuditAction) || undefined,
-    userId: filters.user || undefined,
+    userEmail: filters.user || undefined,
     startDate: filters.startDate || undefined,
     endDate: filters.endDate || undefined,
     page: currentPage,
@@ -112,15 +112,15 @@ export const AuditPage = () => {
       formatTimestamp(e.timestamp),
       e.action,
       e.userEmail,
-      e.vaultName,
+      e.vaultName || '',
       e.environmentName || '',
       e.targetName || '',
-      e.ipAddress,
+      e.ipAddress || '',
     ]);
 
     const csvContent = [
       headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -278,7 +278,7 @@ export const AuditPage = () => {
                         </td>
                         <td className="px-2 py-1 font-mono">{event.targetName || '—'}</td>
                         <td className="px-2 py-1">{event.userEmail}</td>
-                        <td className="px-2 py-1">{event.vaultName}</td>
+                        <td className="px-2 py-1">{event.vaultName || '—'}</td>
                         <td
                           className={`px-2 py-1 ${
                             event.environmentName === 'prod' && selectedEvent?.id !== event.id
@@ -371,7 +371,7 @@ export const AuditPage = () => {
                   <div className="win-border-groove p-2">
                     <div className="text-win-small text-muted-foreground mb-1">Location</div>
                     <div>
-                      {selectedEvent.vaultName}
+                      {selectedEvent.vaultName || '—'}
                       {selectedEvent.environmentName && (
                         <span
                           className={selectedEvent.environmentName === 'prod' ? 'text-warning' : ''}
@@ -385,13 +385,17 @@ export const AuditPage = () => {
 
                   <div className="win-border-groove p-2">
                     <div className="text-win-small text-muted-foreground mb-1">IP Address</div>
-                    <div className="font-mono">{selectedEvent.ipAddress}</div>
+                    <div className="font-mono">{selectedEvent.ipAddress || 'Unknown'}</div>
                   </div>
 
                   <div className="win-border-groove p-2">
                     <div className="text-win-small text-muted-foreground mb-1">User Agent</div>
                     <div className="text-win-small break-all">
-                      {selectedEvent.userAgent.slice(0, 100)}...
+                      {selectedEvent.userAgent
+                        ? selectedEvent.userAgent.length > 100
+                          ? `${selectedEvent.userAgent.slice(0, 100)}…`
+                          : selectedEvent.userAgent
+                        : 'Unknown'}
                     </div>
                   </div>
 

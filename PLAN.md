@@ -84,7 +84,7 @@ These are things that exist in the UI or README but don't work.
   - The scoping itself landed with the per-vault role fix (every lookup resolves the owning vault and answers 404 without access); this item added the cross-tenant tests.
 
 ### Audit log (empty in the UI)
-- [ ] **Response shape mismatch.** The web app expects `PaginatedResponse<AuditEvent>` with these fields:
+- [x] **Response shape mismatch.** The web app expects `PaginatedResponse<AuditEvent>` with these fields:
   - `data`, `total`, `page`, `limit`, `hasMore`
   - `vaultName`, `environmentName`, `userEmail`, `targetName`, `timestamp`
 

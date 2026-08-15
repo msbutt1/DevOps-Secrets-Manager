@@ -89,10 +89,18 @@ pub struct RevealSecretResponse {
 #[derive(Deserialize, Debug)]
 pub struct AuditLog {
     pub action: String,
-    pub user_id: String,
-    pub vault_id: Option<String>,
+    pub user_email: String,
+    pub vault_name: Option<String>,
+    pub environment_name: Option<String>,
+    pub target_name: Option<String>,
     pub ip_address: Option<String>,
     pub timestamp: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct AuditPage {
+    pub data: Vec<AuditLog>,
+    pub total: u64,
 }
 
 pub struct ApiClient {
@@ -370,10 +378,10 @@ impl ApiClient {
         Ok(secret)
     }
 
-    pub async fn get_audit_logs(&self, vault_id: Option<&str>) -> Result<Vec<AuditLog>, ApiError> {
-        let mut url = format!("{}/audit", API_BASE_URL);
+    pub async fn get_audit_logs(&self, vault_id: Option<&str>) -> Result<AuditPage, ApiError> {
+        let mut url = format!("{}/audit?limit=200", API_BASE_URL);
         if let Some(vid) = vault_id {
-            url.push_str(&format!("?vault_id={}", vid));
+            url.push_str(&format!("&vaultId={}", vid));
         }
 
         let response = self.get_with_auth(&url).await?;
@@ -387,8 +395,8 @@ impl ApiClient {
             )));
         }
 
-        let logs: Vec<AuditLog> = response.json().await?;
-        Ok(logs)
+        let page: AuditPage = response.json().await?;
+        Ok(page)
     }
 
     pub async fn find_vault_by_name(&self, name: &str) -> Result<Option<Vault>, ApiError> {

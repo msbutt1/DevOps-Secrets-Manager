@@ -18,7 +18,8 @@ pub async fn execute(vault: Option<&str>, _since: Option<&str>) -> Result<()> {
         None
     };
 
-    let logs = client.get_audit_logs(vault_id.as_deref()).await?;
+    let page = client.get_audit_logs(vault_id.as_deref()).await?;
+    let logs = page.data;
 
     if logs.is_empty() {
         println!("No audit logs found.");
@@ -29,7 +30,7 @@ pub async fn execute(vault: Option<&str>, _since: Option<&str>) -> Result<()> {
     // For now, just display all logs
 
     TablePrinter::print_audit_logs(&logs);
-    println!("\nTotal logs: {}", logs.len());
+    println!("\nShowing {} of {} events", logs.len(), page.total);
 
     Ok(())
 }

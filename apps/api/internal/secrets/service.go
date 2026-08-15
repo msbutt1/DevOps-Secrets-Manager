@@ -22,7 +22,7 @@ type SecretService interface {
 	CreateSecret(ctx context.Context, envID uuid.UUID, keyName, plaintextValue string, description *string, rotationDays *int, expiresAt *time.Time, metadata map[string]interface{}, createdBy uuid.UUID) (*Secret, error)
 	GetSecretMetadata(ctx context.Context, secretID uuid.UUID) (*Secret, error)
 	ListSecretsByEnvironment(ctx context.Context, envID uuid.UUID) ([]*Secret, error)
-	UpdateSecret(ctx context.Context, secretID uuid.UUID, newPlaintextValue string, description *string, rotationDays *int, expiresAt *time.Time, metadata map[string]interface{}) (*Secret, error)
+	UpdateSecret(ctx context.Context, secretID uuid.UUID, newPlaintextValue string, description *string, rotationDays *int, expiresAt *time.Time, metadata map[string]interface{}, updatedBy uuid.UUID) (*Secret, error)
 	DeleteSecret(ctx context.Context, secretID, deletedBy uuid.UUID) error
 	RevealSecret(ctx context.Context, secretID, requestedBy uuid.UUID) (string, error)
 }
@@ -108,23 +108,17 @@ func (s *secretService) CreateSecret(
 		return nil, fmt.Errorf("failed to create secret: %w", err)
 	}
 
-	// Emit audit log
-	if err := s.auditService.Log(
-		ctx,
-		createdBy,
-		audit.ActionSecretCreated,
-		"secret",
-		secret.ID,
-		&vault.OrganizationID,
-		&vault.ID,
-		map[string]interface{}{
-			"key_name":       keyName,
-			"environment_id": envID.String(),
-		},
-	); err != nil {
-		// Log audit error but don't fail the operation
-		fmt.Printf("failed to log audit: %v\n", err)
-	}
+	// Audit failures are logged by the audit service and do not fail the operation
+	s.record(ctx, audit.Event{
+		UserID:         createdBy,
+		Action:         audit.ActionSecretCreated,
+		TargetType:     "secret",
+		TargetID:       &secret.ID,
+		TargetName:     keyName,
+		OrganizationID: &vault.OrganizationID,
+		VaultID:        &vault.ID,
+		EnvironmentID:  &envID,
+	})
 
 	return secret, nil
 }
@@ -158,6 +152,7 @@ func (s *secretService) UpdateSecret(
 	rotationDays *int,
 	expiresAt *time.Time,
 	metadata map[string]interface{},
+	updatedBy uuid.UUID,
 ) (*Secret, error) {
 	// Get existing secret
 	secret, err := s.secretRepo.GetByID(ctx, secretID)
@@ -206,22 +201,17 @@ func (s *secretService) UpdateSecret(
 		return nil, fmt.Errorf("failed to update secret: %w", err)
 	}
 
-	// Emit audit log
-	if err := s.auditService.Log(
-		ctx,
-		secret.CreatedBy, // Using CreatedBy as updater for now
-		audit.ActionSecretUpdated,
-		"secret",
-		secret.ID,
-		&vault.OrganizationID,
-		&vault.ID,
-		map[string]interface{}{
-			"key_name":       secret.KeyName,
-			"environment_id": secret.EnvironmentID.String(),
-		},
-	); err != nil {
-		fmt.Printf("failed to log audit: %v\n", err)
-	}
+	// Audit failures are logged by the audit service and do not fail the operation
+	s.record(ctx, audit.Event{
+		UserID:         updatedBy,
+		Action:         audit.ActionSecretUpdated,
+		TargetType:     "secret",
+		TargetID:       &secret.ID,
+		TargetName:     secret.KeyName,
+		OrganizationID: &vault.OrganizationID,
+		VaultID:        &vault.ID,
+		EnvironmentID:  &secret.EnvironmentID,
+	})
 
 	return secret, nil
 }
@@ -251,22 +241,17 @@ func (s *secretService) DeleteSecret(ctx context.Context, secretID, deletedBy uu
 		return fmt.Errorf("failed to delete secret: %w", err)
 	}
 
-	// Emit audit log
-	if err := s.auditService.Log(
-		ctx,
-		deletedBy,
-		audit.ActionSecretDeleted,
-		"secret",
-		secretID,
-		&vault.OrganizationID,
-		&vault.ID,
-		map[string]interface{}{
-			"key_name":       secret.KeyName,
-			"environment_id": secret.EnvironmentID.String(),
-		},
-	); err != nil {
-		fmt.Printf("failed to log audit: %v\n", err)
-	}
+	// Audit failures are logged by the audit service and do not fail the operation
+	s.record(ctx, audit.Event{
+		UserID:         deletedBy,
+		Action:         audit.ActionSecretDeleted,
+		TargetType:     "secret",
+		TargetID:       &secretID,
+		TargetName:     secret.KeyName,
+		OrganizationID: &vault.OrganizationID,
+		VaultID:        &vault.ID,
+		EnvironmentID:  &secret.EnvironmentID,
+	})
 
 	return nil
 }
@@ -303,22 +288,17 @@ func (s *secretService) RevealSecret(ctx context.Context, secretID, requestedBy 
 		return "", fmt.Errorf("failed to decrypt secret value: %w", err)
 	}
 
-	// MANDATORY: Emit audit log for secret reveal
-	if err := s.auditService.Log(
-		ctx,
-		requestedBy,
-		audit.ActionSecretRevealed,
-		"secret",
-		secretID,
-		&vault.OrganizationID,
-		&vault.ID,
-		map[string]interface{}{
-			"key_name":       secret.KeyName,
-			"environment_id": secret.EnvironmentID.String(),
-		},
-	); err != nil {
-		fmt.Printf("failed to log audit: %v\n", err)
-	}
+	// Audit failures are logged by the audit service and do not fail the operation
+	s.record(ctx, audit.Event{
+		UserID:         requestedBy,
+		Action:         audit.ActionSecretRevealed,
+		TargetType:     "secret",
+		TargetID:       &secretID,
+		TargetName:     secret.KeyName,
+		OrganizationID: &vault.OrganizationID,
+		VaultID:        &vault.ID,
+		EnvironmentID:  &secret.EnvironmentID,
+	})
 
 	return string(plaintext), nil
 }
@@ -366,4 +346,9 @@ func (s *secretService) decryptValue(ciphertext, nonce, dek []byte) (plaintext [
 	}
 
 	return plaintext, nil
+}
+
+// record writes an audit event; the audit service logs failures itself.
+func (s *secretService) record(ctx context.Context, event audit.Event) {
+	_ = s.auditService.Record(ctx, event)
 }

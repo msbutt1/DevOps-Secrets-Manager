@@ -229,6 +229,7 @@ func (h *SecretHandlers) HandleUpdateSecret(w http.ResponseWriter, r *http.Reque
 		req.RotationIntervalDays,
 		req.ExpiresAt,
 		req.Metadata,
+		claims.UserID,
 	)
 	if err != nil {
 		h.handleSecretError(w, err)

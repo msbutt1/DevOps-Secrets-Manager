@@ -3,6 +3,9 @@ package audit
 import (
 	"context"
 	"log/slog"
+	"net"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,10 +19,31 @@ const (
 	ContextKeyUserAgent contextKey = "user_agent"
 )
 
+// RequestContext is HTTP middleware that stores the client IP and User-Agent in the request
+// context so audit events record where an action came from. The IP is taken from the
+// connection; set up a trusted proxy's real-IP handling in front of this if needed.
+func RequestContext(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+			ctx = context.WithValue(ctx, ContextKeyIPAddress, host)
+		} else if r.RemoteAddr != "" {
+			ctx = context.WithValue(ctx, ContextKeyIPAddress, r.RemoteAddr)
+		}
+		if ua := r.UserAgent(); ua != "" {
+			if len(ua) > 512 {
+				ua = ua[:512]
+			}
+			ctx = context.WithValue(ctx, ContextKeyUserAgent, ua)
+		}
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // AuditService defines the interface for audit operations
 type AuditService interface {
-	Log(ctx context.Context, userID uuid.UUID, action string, resourceType string, resourceID uuid.UUID, orgID *uuid.UUID, vaultID *uuid.UUID, metadata map[string]interface{}) error
-	Query(ctx context.Context, filters QueryFilters) ([]*AuditEntry, error)
+	Record(ctx context.Context, event Event) error
+	Query(ctx context.Context, filters QueryFilters) ([]*AuditEntry, int, error)
 }
 
 type auditService struct {
@@ -35,13 +59,13 @@ func NewAuditService(repo Repository, logger *slog.Logger) AuditService {
 	}
 }
 
-// Log creates a new audit log entry
-func (s *auditService) Log(ctx context.Context, userID uuid.UUID, action string, resourceType string, resourceID uuid.UUID, orgID *uuid.UUID, vaultID *uuid.UUID, metadata map[string]interface{}) error {
+// Record appends an event to the audit log.
+func (s *auditService) Record(ctx context.Context, event Event) error {
 	// Extract IP address and User-Agent from context if available
 	var ipAddress *string
 	var userAgent *string
 
-	if ip, ok := ctx.Value(ContextKeyIPAddress).(string); ok && ip != "" {
+	if ip, ok := ctx.Value(ContextKeyIPAddress).(string); ok && net.ParseIP(ip) != nil {
 		ipAddress = &ip
 	}
 
@@ -49,55 +73,47 @@ func (s *auditService) Log(ctx context.Context, userID uuid.UUID, action string,
 		userAgent = &ua
 	}
 
-	// Create audit entry
+	var targetName *string
+	if name := strings.TrimSpace(event.TargetName); name != "" {
+		targetName = &name
+	}
+
 	entry := &AuditEntry{
 		ID:             uuid.New(),
 		Timestamp:      time.Now(),
-		UserID:         userID,
-		OrganizationID: orgID,
-		VaultID:        vaultID,
-		Action:         action,
-		ResourceType:   resourceType,
-		ResourceID:     &resourceID,
+		UserID:         event.UserID,
+		OrganizationID: event.OrganizationID,
+		VaultID:        event.VaultID,
+		EnvironmentID:  event.EnvironmentID,
+		Action:         event.Action,
+		ResourceType:   event.TargetType,
+		ResourceID:     event.TargetID,
+		TargetName:     targetName,
 		IPAddress:      ipAddress,
 		UserAgent:      userAgent,
-		Metadata:       metadata,
+		Metadata:       event.Metadata,
 	}
 
 	// Append to repository
 	if err := s.repo.Append(ctx, entry); err != nil {
 		s.logger.Error("failed to append audit log",
 			"error", err,
-			"user_id", userID,
-			"action", action,
-			"resource_type", resourceType,
+			"user_id", event.UserID,
+			"action", event.Action,
+			"resource_type", event.TargetType,
 		)
 		return err
 	}
 
-	s.logger.Debug("audit log created",
-		"audit_id", entry.ID,
-		"user_id", userID,
-		"action", action,
-		"resource_type", resourceType,
-	)
-
 	return nil
 }
 
-// Query retrieves audit logs based on filters
-func (s *auditService) Query(ctx context.Context, filters QueryFilters) ([]*AuditEntry, error) {
-	entries, err := s.repo.Query(ctx, filters)
+// Query retrieves one page of audit logs and the total match count
+func (s *auditService) Query(ctx context.Context, filters QueryFilters) ([]*AuditEntry, int, error) {
+	entries, total, err := s.repo.Query(ctx, filters)
 	if err != nil {
-		s.logger.Error("failed to query audit logs",
-			"error", err,
-		)
-		return nil, err
+		s.logger.Error("failed to query audit logs", "error", err)
+		return nil, 0, err
 	}
-
-	s.logger.Debug("audit logs queried",
-		"count", len(entries),
-	)
-
-	return entries, nil
+	return entries, total, nil
 }
