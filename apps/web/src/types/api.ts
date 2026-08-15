@@ -224,22 +224,26 @@ export interface UpdateMemberRequest {
 }
 
 // Audit DTOs
-export type AuditAction =
-  | 'login.success'
-  | 'login.failure'
-  | 'secret.created'
-  | 'secret.updated'
-  | 'secret.deleted'
-  | 'secret.revealed'
-  | 'member.added'
-  | 'member.removed'
-  | 'member.role_changed'
-  | 'vault.created'
-  | 'vault.updated'
-  | 'vault.deleted'
-  | 'env.created'
-  | 'env.deleted'
-  | 'token.refreshed';
+/** Every action the API records, with display labels. Kept identical to audit.Actions in the API. */
+export const AUDIT_ACTIONS = [
+  { value: 'login.success', label: 'Login Success' },
+  { value: 'login.failure', label: 'Login Failure' },
+  { value: 'secret.created', label: 'Secret Created' },
+  { value: 'secret.updated', label: 'Secret Updated' },
+  { value: 'secret.deleted', label: 'Secret Deleted' },
+  { value: 'secret.revealed', label: 'Secret Revealed' },
+  { value: 'member.added', label: 'Member Added' },
+  { value: 'member.removed', label: 'Member Removed' },
+  { value: 'member.role_changed', label: 'Role Changed' },
+  { value: 'vault.created', label: 'Vault Created' },
+  { value: 'vault.updated', label: 'Vault Updated' },
+  { value: 'vault.deleted', label: 'Vault Deleted' },
+  { value: 'env.created', label: 'Environment Created' },
+  { value: 'env.updated', label: 'Environment Updated' },
+  { value: 'env.deleted', label: 'Environment Deleted' },
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];
 
 export interface AuditEvent {
   id: string;

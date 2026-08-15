@@ -7,19 +7,44 @@ import (
 	"github.com/google/uuid"
 )
 
-// Action constants define the types of auditable actions
+// Action constants define the types of auditable actions. The same names, in the same order,
+// are listed in AUDIT_ACTIONS in apps/web/src/types/api.ts; a test keeps the two in sync.
 const (
-	ActionLoginSuccess      = "LOGIN_SUCCESS"
-	ActionLoginFailure      = "LOGIN_FAILURE"
-	ActionSecretCreated     = "SECRET_CREATED"
-	ActionSecretRevealed    = "SECRET_REVEALED"
-	ActionSecretUpdated     = "SECRET_UPDATED"
-	ActionSecretDeleted     = "SECRET_DELETED"
-	ActionVaultCreated      = "VAULT_CREATED"
-	ActionVaultDeleted      = "VAULT_DELETED"
-	ActionPermissionChanged = "PERMISSION_CHANGED"
-	ActionTokenRefreshed    = "TOKEN_REFRESHED"
+	ActionLoginSuccess      = "login.success"
+	ActionLoginFailure      = "login.failure"
+	ActionSecretCreated     = "secret.created"
+	ActionSecretUpdated     = "secret.updated"
+	ActionSecretDeleted     = "secret.deleted"
+	ActionSecretRevealed    = "secret.revealed"
+	ActionMemberAdded       = "member.added"
+	ActionMemberRemoved     = "member.removed"
+	ActionMemberRoleChanged = "member.role_changed"
+	ActionVaultCreated      = "vault.created"
+	ActionVaultUpdated      = "vault.updated"
+	ActionVaultDeleted      = "vault.deleted"
+	ActionEnvCreated        = "env.created"
+	ActionEnvUpdated        = "env.updated"
+	ActionEnvDeleted        = "env.deleted"
 )
+
+// Actions lists every action the API records.
+var Actions = []string{
+	ActionLoginSuccess,
+	ActionLoginFailure,
+	ActionSecretCreated,
+	ActionSecretUpdated,
+	ActionSecretDeleted,
+	ActionSecretRevealed,
+	ActionMemberAdded,
+	ActionMemberRemoved,
+	ActionMemberRoleChanged,
+	ActionVaultCreated,
+	ActionVaultUpdated,
+	ActionVaultDeleted,
+	ActionEnvCreated,
+	ActionEnvUpdated,
+	ActionEnvDeleted,
+}
 
 // Event describes something to record in the audit log.
 type Event struct {

@@ -3,23 +3,14 @@ import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input, Select } from '@/components/win95';
 import { EmptyState } from '@/components/EmptyState';
 import { ChevronLeft, ChevronRight, X, Download, FileText } from 'lucide-react';
+import { AUDIT_ACTIONS } from '@/types/api';
 import type { AuditEvent, AuditAction } from '@/types/api';
 import { useAuditLogs } from '@/hooks/use-audit';
 import { useVaults } from '@/hooks/use-vaults';
 
 const actionOptions: { value: string; label: string }[] = [
   { value: '', label: 'All Actions' },
-  { value: 'login.success', label: 'Login Success' },
-  { value: 'login.failure', label: 'Login Failure' },
-  { value: 'secret.created', label: 'Secret Created' },
-  { value: 'secret.updated', label: 'Secret Updated' },
-  { value: 'secret.deleted', label: 'Secret Deleted' },
-  { value: 'secret.revealed', label: 'Secret Revealed' },
-  { value: 'member.added', label: 'Member Added' },
-  { value: 'member.removed', label: 'Member Removed' },
-  { value: 'member.role_changed', label: 'Role Changed' },
-  { value: 'vault.created', label: 'Vault Created' },
-  { value: 'vault.deleted', label: 'Vault Deleted' },
+  ...AUDIT_ACTIONS,
 ];
 
 const formatTimestamp = (ts: string) => {
@@ -40,9 +31,11 @@ const actionColors: Record<string, string> = {
   'member.removed': 'text-warning',
   'login.failure': 'text-warning',
   'vault.deleted': 'text-warning',
+  'env.deleted': 'text-warning',
   'secret.created': 'text-success',
   'member.added': 'text-success',
   'vault.created': 'text-success',
+  'env.created': 'text-success',
   'login.success': 'text-info',
 };
 
@@ -53,8 +46,13 @@ const actionIcons: Record<string, string> = {
   'secret.updated': 'UPDATE',
   'member.added': 'ADD',
   'member.removed': 'REMOVE',
+  'member.role_changed': 'ROLE',
   'vault.created': 'CREATE',
+  'vault.updated': 'UPDATE',
   'vault.deleted': 'DELETE',
+  'env.created': 'CREATE',
+  'env.updated': 'UPDATE',
+  'env.deleted': 'DELETE',
   'login.success': 'LOGIN',
   'login.failure': 'FAIL',
 };
