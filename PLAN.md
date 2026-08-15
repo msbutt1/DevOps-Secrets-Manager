@@ -90,7 +90,7 @@ These are things that exist in the UI or README but don't work.
 
   The API returns a plain list with `resource_type` and `resource_id`. Fix: return a paginated, joined response (`page` and `limit` query parameters, plus a total count). Commit: `fix(api): return paginated audit events with names`
 - [x] **Action names don't match.** The API writes `SECRET_REVEALED`; the web app filters on `secret.revealed`. Pick the dotted lowercase form, add a migration that rewrites existing rows, and share one list. Commit: `fix: align audit action names between API and web`
-- [ ] **Log the missing actions.** Check that every action the web app lists is actually written:
+- [x] **Log the missing actions.** Check that every action the web app lists is actually written:
   - `vault.updated`
   - `env.created` and `env.deleted`
   - `member.added`, `member.removed`, `member.role_changed`

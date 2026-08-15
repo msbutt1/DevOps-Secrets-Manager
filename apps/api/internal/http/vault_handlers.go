@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
@@ -45,15 +46,17 @@ type VaultResponse struct {
 // VaultHandlers handles vault-related HTTP requests
 type VaultHandlers struct {
 	vaultService  vaults.VaultService
+	auditService  audit.AuditService
 	policyService policy.PolicyService
 	db            *pgxpool.Pool
 	logger        *zap.Logger
 }
 
 // NewVaultHandlers creates a new instance of VaultHandlers
-func NewVaultHandlers(vaultService vaults.VaultService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *VaultHandlers {
+func NewVaultHandlers(vaultService vaults.VaultService, auditService audit.AuditService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *VaultHandlers {
 	return &VaultHandlers{
 		vaultService:  vaultService,
+		auditService:  auditService,
 		policyService: policyService,
 		db:            db,
 		logger:        logger,
@@ -118,6 +121,12 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 		h.logger.Error("Failed to add creator to vault_members", zap.Error(err))
 		// Continue anyway - vault was created successfully
 	}
+
+	_ = h.auditService.Record(r.Context(), audit.Event{
+		UserID: claims.UserID, Action: audit.ActionVaultCreated,
+		TargetType: "vault", TargetID: &vault.ID, TargetName: vault.Name,
+		OrganizationID: &vault.OrganizationID, VaultID: &vault.ID,
+	})
 
 	// Return response without encrypted_dek
 	h.respondJSON(w, http.StatusCreated, h.toVaultResponse(r.Context(), vault, claims.UserID))
@@ -236,6 +245,12 @@ func (h *VaultHandlers) HandleUpdateVault(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	_ = h.auditService.Record(r.Context(), audit.Event{
+		UserID: claims.UserID, Action: audit.ActionVaultUpdated,
+		TargetType: "vault", TargetID: &updatedVault.ID, TargetName: updatedVault.Name,
+		OrganizationID: &updatedVault.OrganizationID, VaultID: &updatedVault.ID,
+	})
+
 	h.respondJSON(w, http.StatusOK, h.toVaultResponse(r.Context(), updatedVault, claims.UserID))
 }
 
@@ -260,11 +275,23 @@ func (h *VaultHandlers) HandleDeleteVault(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
+	if err != nil {
+		h.handleVaultError(w, err)
+		return
+	}
+
 	// Delete vault
 	if err := h.vaultService.DeleteVault(r.Context(), vaultID); err != nil {
 		h.handleVaultError(w, err)
 		return
 	}
+
+	_ = h.auditService.Record(r.Context(), audit.Event{
+		UserID: claims.UserID, Action: audit.ActionVaultDeleted,
+		TargetType: "vault", TargetID: &vault.ID, TargetName: vault.Name,
+		OrganizationID: &vault.OrganizationID, VaultID: &vault.ID,
+	})
 
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -88,12 +88,18 @@ func TestAuditLogVisibility(t *testing.T) {
 	f.api.MustDo(http.StatusOK, "POST", "/secrets/"+f.secretID+"/reveal", f.owner.Token, nil)
 	f.createSecret(t, f.envID, "VIEWER_CANNOT_SEE", "v")
 
-	ownerTotal := getAudit(t, f, f.owner.Token, "").Total
-	if got := getAudit(t, f, vaultAdmin.Token, "").Total; got != ownerTotal {
+	ownerTotal := getAudit(t, f, f.owner.Token, "?vaultId="+f.vaultID).Total
+	if got := getAudit(t, f, vaultAdmin.Token, "?vaultId="+f.vaultID).Total; got != ownerTotal || got == 0 {
 		t.Errorf("vault admin should see all %d vault events, saw %d", ownerTotal, got)
 	}
-	if got := getAudit(t, f, viewer.Token, "").Total; got != 0 {
-		t.Errorf("vault viewer should see only their own events (none), saw %d", got)
+	viewerPage := getAudit(t, f, viewer.Token, "")
+	if viewerPage.Total == 0 {
+		t.Errorf("vault viewer should see their own login")
+	}
+	for _, e := range viewerPage.Data {
+		if e.UserEmail != viewer.Email {
+			t.Errorf("vault viewer saw someone else's event: %+v", e)
+		}
 	}
 	if got := getAudit(t, f, stranger.Token, "?vaultId="+f.vaultID).Total; got != 0 {
 		t.Errorf("stranger should see nothing, saw %d", got)

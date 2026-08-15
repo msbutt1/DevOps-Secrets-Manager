@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/tokens"
@@ -75,6 +76,7 @@ type authService struct {
 	refreshTokenTTL       time.Duration
 	verificationTokenTTL  time.Duration
 	logger                *slog.Logger
+	auditService          audit.AuditService
 }
 
 // NewAuthService creates a new authentication service
@@ -88,6 +90,7 @@ func NewAuthService(
 	accessTokenTTL time.Duration,
 	refreshTokenTTL time.Duration,
 	logger *slog.Logger,
+	auditService audit.AuditService,
 ) AuthService {
 	return &authService{
 		userRepo:              userRepo,
@@ -100,6 +103,7 @@ func NewAuthService(
 		refreshTokenTTL:       refreshTokenTTL,
 		verificationTokenTTL:  24 * time.Hour, // 24 hours
 		logger:                logger,
+		auditService:          auditService,
 	}
 }
 
@@ -116,11 +120,13 @@ func (s *authService) Login(ctx context.Context, email, password string) (*AuthR
 
 	// Verify password
 	if err := crypto.VerifyPassword(password, user.PasswordHash); err != nil {
+		s.recordLogin(ctx, user, audit.ActionLoginFailure, "invalid_password")
 		return nil, ErrInvalidCredentials
 	}
 
 	// Check if email is verified
 	if !user.EmailVerified {
+		s.recordLogin(ctx, user, audit.ActionLoginFailure, "email_not_verified")
 		return nil, ErrEmailNotVerified
 	}
 
@@ -158,6 +164,8 @@ func (s *authService) Login(ctx context.Context, email, password string) (*AuthR
 	if err := s.refreshTokenRepo.Create(ctx, refreshTokenEntity); err != nil {
 		return nil, err
 	}
+
+	s.recordLogin(ctx, user, audit.ActionLoginSuccess, "")
 
 	return &AuthResponse{
 		AccessToken:  accessToken,
@@ -281,6 +289,22 @@ func (s *authService) Me(ctx context.Context, userID uuid.UUID) (*UserProfile, e
 		Email: user.Email,
 		Name:  user.Name,
 	}, nil
+}
+
+// recordLogin writes a login audit event for a known account; failures are logged by the audit service.
+func (s *authService) recordLogin(ctx context.Context, user *users.User, action, reason string) {
+	var metadata map[string]interface{}
+	if reason != "" {
+		metadata = map[string]interface{}{"reason": reason}
+	}
+	_ = s.auditService.Record(ctx, audit.Event{
+		UserID:     user.ID,
+		Action:     action,
+		TargetType: "user",
+		TargetID:   &user.ID,
+		TargetName: user.Email,
+		Metadata:   metadata,
+	})
 }
 
 // hashToken hashes a token using SHA-256

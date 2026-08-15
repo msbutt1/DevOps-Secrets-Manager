@@ -20,14 +20,15 @@ func NewPostgresRepository(pool *pgxpool.Pool) Repository {
 	}
 }
 
-// Append inserts a new audit log entry into the database (append-only)
+// Append inserts a new audit log entry into the database (append-only). When the entry names
+// a vault but no organization, the vault's organization is recorded.
 func (r *postgresRepository) Append(ctx context.Context, entry *AuditEntry) error {
 	query := `
 		INSERT INTO audit_logs (
 			id, timestamp, user_id, organization_id, vault_id, environment_id, action,
 			resource_type, resource_id, target_name, ip_address, user_agent, metadata
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, COALESCE($4, (SELECT organization_id FROM vaults WHERE id = $5)), $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, timestamp
 	`
 

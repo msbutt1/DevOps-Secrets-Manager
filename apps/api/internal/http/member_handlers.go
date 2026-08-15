@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
@@ -50,15 +51,17 @@ type MemberPermissions struct {
 // MemberHandlers handles member-related HTTP requests
 type MemberHandlers struct {
 	vaultService  vaults.VaultService
+	auditService  audit.AuditService
 	policyService policy.PolicyService
 	db            *pgxpool.Pool
 	logger        *zap.Logger
 }
 
 // NewMemberHandlers creates a new instance of MemberHandlers
-func NewMemberHandlers(vaultService vaults.VaultService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *MemberHandlers {
+func NewMemberHandlers(vaultService vaults.VaultService, auditService audit.AuditService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *MemberHandlers {
 	return &MemberHandlers{
 		vaultService:  vaultService,
+		auditService:  auditService,
 		policyService: policyService,
 		db:            db,
 		logger:        logger,
@@ -177,6 +180,8 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	h.record(r, claims.UserID, audit.ActionMemberAdded, vaultID, member, map[string]interface{}{"role": member.Role})
+
 	h.respondJSON(w, http.StatusCreated, member)
 }
 
@@ -250,6 +255,10 @@ func (h *MemberHandlers) HandleUpdateMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if currentRole != req.Role {
+		h.record(r, claims.UserID, audit.ActionMemberRoleChanged, vaultID, member, map[string]interface{}{"old_role": currentRole, "new_role": req.Role})
+	}
+
 	h.respondJSON(w, http.StatusOK, member)
 }
 
@@ -295,6 +304,13 @@ func (h *MemberHandlers) HandleRemoveMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	removed, err := h.getVaultMember(r.Context(), vaultID, targetUserID)
+	if err != nil {
+		h.logger.Error("Failed to load member", zap.Error(err))
+		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to remove member")
+		return
+	}
+
 	if currentRole == policy.RoleOwner {
 		if callerRole != policy.RoleOwner {
 			h.respondError(w, http.StatusForbidden, "forbidden", "Only vault owners can remove an owner")
@@ -312,6 +328,8 @@ func (h *MemberHandlers) HandleRemoveMember(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	h.record(r, claims.UserID, audit.ActionMemberRemoved, vaultID, removed, map[string]interface{}{"role": currentRole})
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -321,6 +339,15 @@ type userInfo struct {
 	ID    uuid.UUID
 	Email string
 	Name  string
+}
+
+// record writes a membership audit event targeting the member; failures are logged by the audit service.
+func (h *MemberHandlers) record(r *http.Request, actorID uuid.UUID, action string, vaultID uuid.UUID, member MemberResponse, metadata map[string]interface{}) {
+	_ = h.auditService.Record(r.Context(), audit.Event{
+		UserID: actorID, Action: action,
+		TargetType: "member", TargetID: &member.UserID, TargetName: member.Email,
+		VaultID: &vaultID, Metadata: metadata,
+	})
 }
 
 func (h *MemberHandlers) logPolicyError(err error) {

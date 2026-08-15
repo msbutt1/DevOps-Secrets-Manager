@@ -51,6 +51,9 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 	auditRepo := audit.NewPostgresRepository(pool)
 
 	// Create services
+	vaultService := vaults.NewVaultService(vaultRepo, cfg.MasterKEK)
+	environmentService := environments.NewEnvironmentService(environmentRepo)
+	auditService := audit.NewAuditService(auditRepo, cfg.SLogger)
 	authService := auth.NewAuthService(
 		userRepo,
 		refreshTokenRepo,
@@ -61,20 +64,18 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 		cfg.AccessTokenTTL,
 		cfg.RefreshTokenTTL,
 		cfg.SLogger,
+		auditService,
 	)
-	vaultService := vaults.NewVaultService(vaultRepo, cfg.MasterKEK)
-	environmentService := environments.NewEnvironmentService(environmentRepo)
-	auditService := audit.NewAuditService(auditRepo, cfg.SLogger)
 	secretService := secrets.NewSecretService(secretRepo, environmentRepo, vaultRepo, auditService, cfg.MasterKEK)
 	policyService := policy.NewPolicyService(pool)
 
 	// Create handlers
 	authHandlers := httphandler.NewAuthHandlers(authService, pool, cfg.Logger)
-	vaultHandlers := httphandler.NewVaultHandlers(vaultService, policyService, pool, cfg.Logger)
-	environmentHandlers := httphandler.NewEnvironmentHandlers(environmentService, policyService, pool, cfg.Logger)
+	vaultHandlers := httphandler.NewVaultHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
+	environmentHandlers := httphandler.NewEnvironmentHandlers(environmentService, auditService, policyService, pool, cfg.Logger)
 	secretHandlers := httphandler.NewSecretHandlers(secretService, environmentService, policyService, pool, cfg.Logger)
 	auditHandlers := httphandler.NewAuditHandlers(auditService, policyService, pool, cfg.SLogger)
-	memberHandlers := httphandler.NewMemberHandlers(vaultService, policyService, pool, cfg.Logger)
+	memberHandlers := httphandler.NewMemberHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 
 	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, cfg.JWTSecret)
 }

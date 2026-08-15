@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
@@ -40,15 +41,17 @@ type EnvironmentResponse struct {
 // EnvironmentHandlers handles environment-related HTTP requests
 type EnvironmentHandlers struct {
 	environmentService environments.EnvironmentService
+	auditService       audit.AuditService
 	policyService      policy.PolicyService
 	db                 *pgxpool.Pool
 	logger             *zap.Logger
 }
 
 // NewEnvironmentHandlers creates a new instance of EnvironmentHandlers
-func NewEnvironmentHandlers(environmentService environments.EnvironmentService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *EnvironmentHandlers {
+func NewEnvironmentHandlers(environmentService environments.EnvironmentService, auditService audit.AuditService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *EnvironmentHandlers {
 	return &EnvironmentHandlers{
 		environmentService: environmentService,
+		auditService:       auditService,
 		policyService:      policyService,
 		db:                 db,
 		logger:             logger,
@@ -89,6 +92,8 @@ func (h *EnvironmentHandlers) HandleCreateEnvironment(w http.ResponseWriter, r *
 		h.handleEnvironmentError(w, err)
 		return
 	}
+
+	h.record(r, claims.UserID, audit.ActionEnvCreated, environment)
 
 	h.respondJSON(w, http.StatusCreated, h.toEnvironmentResponse(environment))
 }
@@ -203,6 +208,8 @@ func (h *EnvironmentHandlers) HandleUpdateEnvironment(w http.ResponseWriter, r *
 		return
 	}
 
+	h.record(r, claims.UserID, audit.ActionEnvUpdated, updatedEnvironment)
+
 	h.respondJSON(w, http.StatusOK, h.toEnvironmentResponse(updatedEnvironment))
 }
 
@@ -240,7 +247,18 @@ func (h *EnvironmentHandlers) HandleDeleteEnvironment(w http.ResponseWriter, r *
 		return
 	}
 
+	h.record(r, claims.UserID, audit.ActionEnvDeleted, environment)
+
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// record writes an environment audit event; the audit service logs failures itself.
+func (h *EnvironmentHandlers) record(r *http.Request, userID uuid.UUID, action string, env *environments.Environment) {
+	_ = h.auditService.Record(r.Context(), audit.Event{
+		UserID: userID, Action: action,
+		TargetType: "environment", TargetID: &env.ID, TargetName: env.Name,
+		VaultID: &env.VaultID, EnvironmentID: &env.ID,
+	})
 }
 
 // logPolicyError logs a failed permission lookup
