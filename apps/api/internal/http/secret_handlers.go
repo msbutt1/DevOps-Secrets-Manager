@@ -37,17 +37,28 @@ type UpdateSecretRequest struct {
 
 // Response DTOs
 type SecretMetadataResponse struct {
-	ID                   uuid.UUID              `json:"id"`
-	EnvironmentID        uuid.UUID              `json:"environment_id"`
-	KeyName              string                 `json:"key_name"`
-	Description          *string                `json:"description,omitempty"`
-	RotationIntervalDays *int                   `json:"rotation_interval_days,omitempty"`
-	ExpiresAt            *time.Time             `json:"expires_at,omitempty"`
-	LastRotatedAt        *time.Time             `json:"last_rotated_at,omitempty"`
-	Metadata             map[string]interface{} `json:"metadata,omitempty"`
-	CreatedBy            uuid.UUID              `json:"created_by"`
-	CreatedAt            time.Time              `json:"created_at"`
-	UpdatedAt            time.Time              `json:"updated_at"`
+	ID                   uuid.UUID               `json:"id"`
+	EnvironmentID        uuid.UUID               `json:"environment_id"`
+	KeyName              string                  `json:"key_name"`
+	Description          *string                 `json:"description,omitempty"`
+	RotationIntervalDays *int                    `json:"rotation_interval_days,omitempty"`
+	ExpiresAt            *time.Time              `json:"expires_at,omitempty"`
+	LastRotatedAt        *time.Time              `json:"last_rotated_at,omitempty"`
+	Metadata             map[string]interface{}  `json:"metadata,omitempty"`
+	CreatedBy            uuid.UUID               `json:"created_by"`
+	CreatedAt            time.Time               `json:"created_at"`
+	UpdatedAt            time.Time               `json:"updated_at"`
+	LastUpdatedAt        time.Time               `json:"last_updated_at"`
+	LastUpdatedByID      *uuid.UUID              `json:"last_updated_by_id"`
+	LastUpdatedBy        string                  `json:"last_updated_by"`
+	RotationPolicy       *RotationPolicyResponse `json:"rotation_policy"`
+}
+
+// RotationPolicyResponse describes when a secret with a rotation interval is next due.
+type RotationPolicyResponse struct {
+	IntervalDays   int        `json:"interval_days"`
+	LastRotatedAt  *time.Time `json:"last_rotated_at"`
+	NextRotationAt time.Time  `json:"next_rotation_at"`
 }
 
 type SecretRevealResponse struct {
@@ -172,7 +183,7 @@ func (h *SecretHandlers) HandleCreateSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.respondJSON(w, http.StatusCreated, h.toSecretMetadataResponse(secret))
+	h.respondJSON(w, http.StatusCreated, h.toSecretMetadataResponse(h.reload(r, secret)))
 }
 
 // HandleUpdateSecret handles secret updates
@@ -237,7 +248,7 @@ func (h *SecretHandlers) HandleUpdateSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, h.toSecretMetadataResponse(updatedSecret))
+	h.respondJSON(w, http.StatusOK, h.toSecretMetadataResponse(h.reload(r, updatedSecret)))
 }
 
 // HandleDeleteSecret handles secret deletion
@@ -362,6 +373,37 @@ func (h *SecretHandlers) toSecretMetadataResponse(secret *secrets.Secret) Secret
 		CreatedBy:            secret.CreatedBy,
 		CreatedAt:            secret.CreatedAt,
 		UpdatedAt:            secret.UpdatedAt,
+		LastUpdatedAt:        secret.UpdatedAt,
+		LastUpdatedByID:      secret.UpdatedBy,
+		LastUpdatedBy:        secret.UpdatedByName,
+		RotationPolicy:       rotationPolicy(secret),
+	}
+}
+
+// reload re-reads a secret after a write so joined fields such as the editor's name are filled in.
+func (h *SecretHandlers) reload(r *http.Request, secret *secrets.Secret) *secrets.Secret {
+	fresh, err := h.secretService.GetSecretMetadata(r.Context(), secret.ID)
+	if err != nil {
+		h.logger.Error("Failed to reload secret", zap.Error(err))
+		return secret
+	}
+	return fresh
+}
+
+// rotationPolicy computes the rotation schedule; secrets without an interval have none. A secret
+// that has never been rotated is due one interval after it was created.
+func rotationPolicy(secret *secrets.Secret) *RotationPolicyResponse {
+	if secret.RotationIntervalDays == nil || *secret.RotationIntervalDays <= 0 {
+		return nil
+	}
+	from := secret.CreatedAt
+	if secret.LastRotatedAt != nil {
+		from = *secret.LastRotatedAt
+	}
+	return &RotationPolicyResponse{
+		IntervalDays:   *secret.RotationIntervalDays,
+		LastRotatedAt:  secret.LastRotatedAt,
+		NextRotationAt: from.AddDate(0, 0, *secret.RotationIntervalDays),
 	}
 }
 

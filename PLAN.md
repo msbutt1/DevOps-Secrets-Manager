@@ -103,7 +103,7 @@ These are things that exist in the UI or README but don't work.
 ### Vault page and API contract
 - [x] **"Created by on".** The vault header reads "Created by on" because the API never returns `created_by`. Return the creator's name and `created_at`. Commit: `fix(api): include creator in vault response`
 - [x] **Editing a secret wiped its value.** (Found while fixing the contract.) The edit form sends no value when the field is left blank, and the API re-encrypted an empty string. Updates without a value now keep the stored value. Commit: `fix(api): keep secret value when an update omits it`
-- [ ] **Secret fields the web app expects but the API doesn't send:**
+- [x] **Secret fields the web app expects but the API doesn't send:**
   - `lastUpdatedBy`
   - `rotationPolicy { intervalDays, lastRotatedAt, nextRotationAt }` (the API sends a flat `rotation_interval_days`)
 

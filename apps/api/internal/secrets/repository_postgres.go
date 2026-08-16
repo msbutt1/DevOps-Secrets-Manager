@@ -29,12 +29,12 @@ func (r *postgresRepository) Create(ctx context.Context, secret *Secret) error {
 		INSERT INTO secrets (
 			id, environment_id, key_name, encrypted_value, nonce,
 			description, rotation_interval_days, last_rotated_at, expires_at,
-			metadata, created_by, created_at, updated_at
+			metadata, created_by, updated_by, created_at, updated_at
 		)
 		VALUES (
 			COALESCE($1, gen_random_uuid()), $2, $3, $4, $5,
 			$6, $7, $8, $9,
-			$10, $11, $12, $13
+			$10, $11, $11, $12, $13
 		)
 		RETURNING id, created_at, updated_at
 	`
@@ -82,11 +82,12 @@ func (r *postgresRepository) Create(ctx context.Context, secret *Secret) error {
 func (r *postgresRepository) GetByID(ctx context.Context, secretID uuid.UUID) (*Secret, error) {
 	query := `
 		SELECT
-			id, environment_id, key_name, encrypted_value, nonce,
-			description, rotation_interval_days, last_rotated_at, expires_at,
-			metadata, created_by, created_at, updated_at, deleted_at
-		FROM secrets
-		WHERE id = $1 AND deleted_at IS NULL
+			s.id, s.environment_id, s.key_name, s.encrypted_value, s.nonce,
+			s.description, s.rotation_interval_days, s.last_rotated_at, s.expires_at,
+			s.metadata, s.created_by, s.updated_by, COALESCE(u.name, ''), s.created_at, s.updated_at, s.deleted_at
+		FROM secrets s
+		LEFT JOIN users u ON u.id = s.updated_by
+		WHERE s.id = $1 AND s.deleted_at IS NULL
 	`
 
 	var secret Secret
@@ -104,6 +105,8 @@ func (r *postgresRepository) GetByID(ctx context.Context, secretID uuid.UUID) (*
 		&secret.ExpiresAt,
 		&metadataJSON,
 		&secret.CreatedBy,
+		&secret.UpdatedBy,
+		&secret.UpdatedByName,
 		&secret.CreatedAt,
 		&secret.UpdatedAt,
 		&secret.DeletedAt,
@@ -130,12 +133,13 @@ func (r *postgresRepository) GetByID(ctx context.Context, secretID uuid.UUID) (*
 func (r *postgresRepository) ListByEnvironmentID(ctx context.Context, envID uuid.UUID) ([]*Secret, error) {
 	query := `
 		SELECT
-			id, environment_id, key_name, encrypted_value, nonce,
-			description, rotation_interval_days, last_rotated_at, expires_at,
-			metadata, created_by, created_at, updated_at, deleted_at
-		FROM secrets
-		WHERE environment_id = $1 AND deleted_at IS NULL
-		ORDER BY created_at
+			s.id, s.environment_id, s.key_name, s.encrypted_value, s.nonce,
+			s.description, s.rotation_interval_days, s.last_rotated_at, s.expires_at,
+			s.metadata, s.created_by, s.updated_by, COALESCE(u.name, ''), s.created_at, s.updated_at, s.deleted_at
+		FROM secrets s
+		LEFT JOIN users u ON u.id = s.updated_by
+		WHERE s.environment_id = $1 AND s.deleted_at IS NULL
+		ORDER BY s.created_at
 	`
 
 	rows, err := r.pool.Query(ctx, query, envID)
@@ -161,6 +165,8 @@ func (r *postgresRepository) ListByEnvironmentID(ctx context.Context, envID uuid
 			&secret.ExpiresAt,
 			&metadataJSON,
 			&secret.CreatedBy,
+			&secret.UpdatedBy,
+			&secret.UpdatedByName,
 			&secret.CreatedAt,
 			&secret.UpdatedAt,
 			&secret.DeletedAt,
@@ -198,7 +204,8 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret) error {
 			last_rotated_at = $6,
 			expires_at = $7,
 			metadata = $8,
-			updated_at = $9
+			updated_at = $9,
+			updated_by = $10
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING updated_at
 	`
@@ -225,6 +232,7 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret) error {
 		secret.ExpiresAt,
 		metadataJSON,
 		secret.UpdatedAt,
+		secret.UpdatedBy,
 	).Scan(&secret.UpdatedAt)
 
 	if err != nil {

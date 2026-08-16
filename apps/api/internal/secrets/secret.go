@@ -25,6 +25,8 @@ type Secret struct {
 	ExpiresAt            *time.Time             `json:"expires_at,omitempty"`
 	Metadata             map[string]interface{} `json:"metadata,omitempty"`
 	CreatedBy            uuid.UUID              `json:"created_by"`
+	UpdatedBy            *uuid.UUID             `json:"updated_by,omitempty"`
+	UpdatedByName        string                 `json:"-"` // joined from users on read
 	CreatedAt            time.Time              `json:"created_at"`
 	UpdatedAt            time.Time              `json:"updated_at"`
 	DeletedAt            *time.Time             `json:"deleted_at,omitempty"`

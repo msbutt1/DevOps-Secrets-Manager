@@ -196,6 +196,7 @@ func (s *secretService) UpdateSecret(
 	secret.ExpiresAt = expiresAt
 	secret.Metadata = metadata
 	secret.UpdatedAt = time.Now()
+	secret.UpdatedBy = &updatedBy
 
 	// Persist updates
 	if err := s.secretRepo.Update(ctx, secret); err != nil {

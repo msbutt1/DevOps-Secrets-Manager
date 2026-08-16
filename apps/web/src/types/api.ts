@@ -121,7 +121,9 @@ export interface Secret {
   description?: string;
   lastUpdatedAt?: string;
   updatedAt?: string;
+  /** Display name of the user who last changed the secret */
   lastUpdatedBy: string;
+  lastUpdatedById: string | null;
   createdAt?: string;
   createdBy?: string;
   rotationPolicy: RotationPolicy | null;
@@ -153,7 +155,8 @@ export interface SecretRevealResponse {
 
 export type RotationPolicy = {
   intervalDays: number;
-  lastRotatedAt: string;
+  /** When the value was last changed; null if it never has been since creation */
+  lastRotatedAt: string | null;
   nextRotationAt: string;
 };
 
