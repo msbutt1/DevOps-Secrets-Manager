@@ -117,7 +117,7 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 
 	// Add creator as owner in vault_members
 	_, err = h.db.Exec(r.Context(),
-		`INSERT INTO vault_members (vault_id, user_id, role, created_at) VALUES ($1, $2, 'owner', NOW())`,
+		`INSERT INTO vault_members (vault_id, user_id, role, added_by, created_at) VALUES ($1, $2, 'owner', $2, NOW())`,
 		vault.ID, claims.UserID)
 	if err != nil {
 		h.logger.Error("Failed to add creator to vault_members", zap.Error(err))

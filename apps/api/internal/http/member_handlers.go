@@ -37,7 +37,8 @@ type MemberResponse struct {
 	Role        string            `json:"role"`
 	Permissions MemberPermissions `json:"permissions"`
 	AddedAt     time.Time         `json:"added_at"`
-	AddedBy     string            `json:"added_by"`
+	AddedBy     string            `json:"added_by"` // display name; empty when unknown
+	AddedByID   *uuid.UUID        `json:"added_by_id"`
 }
 
 type MemberPermissions struct {
@@ -167,7 +168,7 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.addUserToVault(r.Context(), targetUser.ID, vaultID, req.Role); err != nil {
+	if err := h.addUserToVault(r.Context(), targetUser.ID, vaultID, req.Role, claims.UserID); err != nil {
 		h.logger.Error("Failed to add user to vault", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to add member")
 		return
@@ -362,18 +363,18 @@ func (h *MemberHandlers) checkOrganizationMembership(ctx context.Context, userID
 }
 
 const memberSelect = `
-	SELECT u.id, u.email, u.name, vm.role, vm.created_at
+	SELECT u.id, u.email, u.name, vm.role, vm.created_at, vm.added_by, COALESCE(adder.name, '')
 	FROM users u
 	JOIN vault_members vm ON u.id = vm.user_id
+	LEFT JOIN users adder ON adder.id = vm.added_by
 	WHERE vm.vault_id = $1
 `
 
 func (h *MemberHandlers) scanMember(row pgx.Row) (MemberResponse, error) {
 	var m MemberResponse
-	if err := row.Scan(&m.UserID, &m.Email, &m.Name, &m.Role, &m.AddedAt); err != nil {
+	if err := row.Scan(&m.UserID, &m.Email, &m.Name, &m.Role, &m.AddedAt, &m.AddedByID, &m.AddedBy); err != nil {
 		return m, err
 	}
-	m.AddedBy = "System"
 	m.Permissions = h.getRolePermissions(m.Role)
 	return m, nil
 }
@@ -410,9 +411,9 @@ func (h *MemberHandlers) getUserByEmail(ctx context.Context, email string) (*use
 	return &u, nil
 }
 
-func (h *MemberHandlers) addUserToVault(ctx context.Context, userID, vaultID uuid.UUID, role string) error {
-	query := `INSERT INTO vault_members (user_id, vault_id, role, created_at) VALUES ($1, $2, $3, NOW())`
-	_, err := h.db.Exec(ctx, query, userID, vaultID, role)
+func (h *MemberHandlers) addUserToVault(ctx context.Context, userID, vaultID uuid.UUID, role string, addedBy uuid.UUID) error {
+	query := `INSERT INTO vault_members (user_id, vault_id, role, added_by, created_at) VALUES ($1, $2, $3, $4, NOW())`
+	_, err := h.db.Exec(ctx, query, userID, vaultID, role, addedBy)
 	return err
 }
 

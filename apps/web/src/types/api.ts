@@ -170,7 +170,9 @@ export interface VaultMember {
   role: VaultRole;
   permissions: VaultPermissions;
   addedAt: string;
+  /** Display name of whoever added the member; empty when unknown */
   addedBy: string;
+  addedById: string | null;
 }
 
 export interface VaultPermissions {

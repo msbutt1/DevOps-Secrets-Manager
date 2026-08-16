@@ -210,6 +210,11 @@ export const AccessPage = () => {
                             <div className="text-win-small text-muted-foreground">
                               {member.name}
                             </div>
+                            {member.addedBy && (
+                              <div className="text-win-small text-muted-foreground">
+                                Added by {member.addedBy}
+                              </div>
+                            )}
                           </td>
                           <td className="px-2 py-1">
                             {member.role === 'owner' ? (
