@@ -21,6 +21,7 @@ type Vault struct {
 	Name           string
 	Description    *string
 	EncryptedDEK   []byte
+	CreatedBy      *uuid.UUID
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	DeletedAt      *time.Time

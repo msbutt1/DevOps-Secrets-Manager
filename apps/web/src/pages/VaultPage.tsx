@@ -260,8 +260,8 @@ export const VaultPage = () => {
             <div>
               <p className="text-win-body text-muted-foreground">{vault.description}</p>
               <p className="text-win-small text-muted-foreground mt-1">
-                Created by {vault.createdBy} on {formatDate(vault.createdAt)} —{' '}
-                {vault.organizationName}
+                {vault.createdBy ? `Created by ${vault.createdBy} on ` : 'Created on '}
+                {formatDate(vault.createdAt)} — {vault.organizationName}
               </p>
             </div>
             <div className="flex gap-1">

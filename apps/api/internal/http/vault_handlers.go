@@ -31,16 +31,18 @@ type UpdateVaultRequest struct {
 
 // Response DTOs
 type VaultResponse struct {
-	ID               uuid.UUID `json:"id"`
-	OrganizationID   uuid.UUID `json:"organization_id"`
-	OrganizationName string    `json:"organization_name"`
-	Name             string    `json:"name"`
-	Description      *string   `json:"description"`
-	UserRole         string    `json:"user_role"`
-	SecretCount      int       `json:"secret_count"`
-	EnvCount         int       `json:"env_count"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               uuid.UUID  `json:"id"`
+	OrganizationID   uuid.UUID  `json:"organization_id"`
+	OrganizationName string     `json:"organization_name"`
+	Name             string     `json:"name"`
+	Description      *string    `json:"description"`
+	UserRole         string     `json:"user_role"`
+	SecretCount      int        `json:"secret_count"`
+	EnvCount         int        `json:"env_count"`
+	CreatedByID      *uuid.UUID `json:"created_by_id"`
+	CreatedBy        string     `json:"created_by"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 // VaultHandlers handles vault-related HTTP requests
@@ -107,7 +109,7 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 	}
 
 	// Create vault
-	vault, err := h.vaultService.CreateVault(r.Context(), orgID, req.Name, req.Description)
+	vault, err := h.vaultService.CreateVault(r.Context(), orgID, req.Name, req.Description, claims.UserID)
 	if err != nil {
 		h.handleVaultError(w, err)
 		return
@@ -336,6 +338,8 @@ func (h *VaultHandlers) toVaultResponse(ctx context.Context, vault *vaults.Vault
 		UserRole:         userRole,
 		SecretCount:      secretCount,
 		EnvCount:         envCount,
+		CreatedByID:      vault.CreatedBy,
+		CreatedBy:        h.getCreatorName(ctx, vault.CreatedBy),
 		CreatedAt:        vault.CreatedAt,
 		UpdatedAt:        vault.UpdatedAt,
 	}
@@ -349,6 +353,18 @@ func (h *VaultHandlers) getOrgName(ctx context.Context, orgID uuid.UUID) string 
 		return "Unknown"
 	}
 	return orgName
+}
+
+// getCreatorName returns the vault creator's display name, or "" when unknown
+func (h *VaultHandlers) getCreatorName(ctx context.Context, userID *uuid.UUID) string {
+	if userID == nil {
+		return ""
+	}
+	var name string
+	if err := h.db.QueryRow(ctx, "SELECT name FROM users WHERE id = $1", *userID).Scan(&name); err != nil {
+		return ""
+	}
+	return name
 }
 
 // getVaultUserRole gets the user's effective role on a vault (vault membership or inherited

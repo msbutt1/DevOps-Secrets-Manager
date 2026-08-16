@@ -10,7 +10,7 @@ import (
 
 // VaultService defines the interface for vault operations
 type VaultService interface {
-	CreateVault(ctx context.Context, orgID uuid.UUID, name string, description *string) (*Vault, error)
+	CreateVault(ctx context.Context, orgID uuid.UUID, name string, description *string, createdBy uuid.UUID) (*Vault, error)
 	GetVault(ctx context.Context, vaultID uuid.UUID) (*Vault, error)
 	ListVaults(ctx context.Context, orgID uuid.UUID) ([]*Vault, error)
 	UpdateVault(ctx context.Context, vaultID uuid.UUID, name string, description *string) (*Vault, error)
@@ -31,7 +31,7 @@ func NewVaultService(repo Repository, masterKEK []byte) VaultService {
 }
 
 // CreateVault creates a new vault with a generated and encrypted DEK
-func (s *vaultService) CreateVault(ctx context.Context, orgID uuid.UUID, name string, description *string) (*Vault, error) {
+func (s *vaultService) CreateVault(ctx context.Context, orgID uuid.UUID, name string, description *string, createdBy uuid.UUID) (*Vault, error) {
 	// Generate 32-byte DEK
 	dek, err := crypto.GenerateDEK()
 	if err != nil {
@@ -51,6 +51,7 @@ func (s *vaultService) CreateVault(ctx context.Context, orgID uuid.UUID, name st
 		Name:           name,
 		Description:    description,
 		EncryptedDEK:   encryptedDEK,
+		CreatedBy:      &createdBy,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}

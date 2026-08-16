@@ -72,7 +72,9 @@ export interface Vault {
   organizationName: string;
   createdAt: string;
   updatedAt: string;
+  /** Creator's display name; empty when unknown */
   createdBy: string;
+  createdById: string | null;
   userRole: VaultRole;
   secretCount?: number;
   envCount?: number;
