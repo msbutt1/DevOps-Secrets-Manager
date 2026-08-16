@@ -6,6 +6,8 @@ interface RevealSecretDialogProps {
   isOpen: boolean;
   secretName: string;
   secretValue: string | null;
+  /** Seconds to show the value before hiding it, as returned by the API */
+  expiresIn?: number;
   isLoading?: boolean;
   onClose: () => void;
   onReveal: () => void;
@@ -15,28 +17,30 @@ export const RevealSecretDialog = ({
   isOpen,
   secretName,
   secretValue,
+  expiresIn = 30,
   isLoading = false,
   onClose,
   onReveal,
 }: RevealSecretDialogProps) => {
   const [copied, setCopied] = useState(false);
-  const [countdown, setCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(expiresIn);
   const [hasRevealed, setHasRevealed] = useState(false);
 
   // Reset state when dialog opens
   useEffect(() => {
     if (isOpen) {
       setCopied(false);
-      setCountdown(30);
+      setCountdown(expiresIn);
       setHasRevealed(false);
     }
-  }, [isOpen]);
+  }, [isOpen, expiresIn]);
 
   // Countdown timer when secret is revealed
   useEffect(() => {
     if (!secretValue || !isOpen) return;
 
     setHasRevealed(true);
+    setCountdown(expiresIn);
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -49,7 +53,7 @@ export const RevealSecretDialog = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [secretValue, isOpen, onClose]);
+  }, [secretValue, isOpen, onClose, expiresIn]);
 
   const handleCopy = useCallback(async () => {
     if (!secretValue) return;
@@ -95,7 +99,7 @@ export const RevealSecretDialog = ({
             />
             <div className="text-win-small">
               <strong>Security Notice:</strong> This action is logged for audit purposes. The secret
-              value will be hidden automatically after 30 seconds.
+              value will be hidden automatically after {expiresIn} seconds.
             </div>
           </Panel>
 

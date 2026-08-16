@@ -30,12 +30,23 @@ type Config struct {
 	Email           email.EmailService
 	Logger          *zap.Logger
 	SLogger         *slog.Logger
+	// RevealAutoHideSeconds is returned with revealed values as the client auto-hide window
+	// (default 30, clamped to 5-600).
+	RevealAutoHideSeconds int
 }
 
 // New builds the API's HTTP handler.
 func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 	if cfg.AccessTokenTTL == 0 {
 		cfg.AccessTokenTTL = 15 * time.Minute
+	}
+	switch {
+	case cfg.RevealAutoHideSeconds == 0:
+		cfg.RevealAutoHideSeconds = 30
+	case cfg.RevealAutoHideSeconds < 5:
+		cfg.RevealAutoHideSeconds = 5
+	case cfg.RevealAutoHideSeconds > 600:
+		cfg.RevealAutoHideSeconds = 600
 	}
 	if cfg.RefreshTokenTTL == 0 {
 		cfg.RefreshTokenTTL = 7 * 24 * time.Hour
@@ -73,7 +84,7 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 	authHandlers := httphandler.NewAuthHandlers(authService, pool, cfg.Logger)
 	vaultHandlers := httphandler.NewVaultHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 	environmentHandlers := httphandler.NewEnvironmentHandlers(environmentService, auditService, policyService, pool, cfg.Logger)
-	secretHandlers := httphandler.NewSecretHandlers(secretService, environmentService, policyService, pool, cfg.Logger)
+	secretHandlers := httphandler.NewSecretHandlers(secretService, environmentService, policyService, pool, cfg.Logger, cfg.RevealAutoHideSeconds)
 	auditHandlers := httphandler.NewAuditHandlers(auditService, policyService, pool, cfg.SLogger)
 	memberHandlers := httphandler.NewMemberHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 

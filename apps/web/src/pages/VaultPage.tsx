@@ -72,6 +72,7 @@ export const VaultPage = () => {
   // Dialog states
   const [revealSecret, setRevealSecret] = useState<Secret | null>(null);
   const [revealedValue, setRevealedValue] = useState<string | null>(null);
+  const [revealExpiresIn, setRevealExpiresIn] = useState<number | undefined>(undefined);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [editSecret, setEditSecret] = useState<Secret | null>(null);
   const [showCreateSecret, setShowCreateSecret] = useState(false);
@@ -125,6 +126,7 @@ export const VaultPage = () => {
 
     try {
       const response = await revealMutation.mutateAsync(revealSecret.id);
+      setRevealExpiresIn(response.expiresIn);
       setRevealedValue(response.value);
     } catch (error) {
       console.error('Failed to reveal secret:', error);
@@ -582,6 +584,7 @@ export const VaultPage = () => {
         isOpen={!!revealSecret}
         secretName={revealSecret?.keyName || ''}
         secretValue={revealedValue}
+        expiresIn={revealExpiresIn}
         onClose={() => {
           setRevealSecret(null);
           setRevealedValue(null);

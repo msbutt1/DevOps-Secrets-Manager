@@ -65,6 +65,8 @@ type SecretRevealResponse struct {
 	ID      uuid.UUID `json:"id"`
 	KeyName string    `json:"key_name"`
 	Value   string    `json:"value"`
+	// ExpiresIn is how many seconds clients should show the value before hiding it again.
+	ExpiresIn int `json:"expires_in"`
 }
 
 // SecretHandlers handles secret-related HTTP requests
@@ -74,16 +76,19 @@ type SecretHandlers struct {
 	policyService policy.PolicyService
 	db            *pgxpool.Pool
 	logger        *zap.Logger
+
+	revealAutoHideSeconds int
 }
 
 // NewSecretHandlers creates a new instance of SecretHandlers
-func NewSecretHandlers(secretService secrets.SecretService, envService environments.EnvironmentService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *SecretHandlers {
+func NewSecretHandlers(secretService secrets.SecretService, envService environments.EnvironmentService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger, revealAutoHideSeconds int) *SecretHandlers {
 	return &SecretHandlers{
-		secretService: secretService,
-		envService:    envService,
-		policyService: policyService,
-		db:            db,
-		logger:        logger,
+		revealAutoHideSeconds: revealAutoHideSeconds,
+		secretService:         secretService,
+		envService:            envService,
+		policyService:         policyService,
+		db:                    db,
+		logger:                logger,
 	}
 }
 
@@ -346,9 +351,10 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 	}
 
 	response := SecretRevealResponse{
-		ID:      secret.ID,
-		KeyName: secret.KeyName,
-		Value:   plaintextValue,
+		ID:        secret.ID,
+		KeyName:   secret.KeyName,
+		Value:     plaintextValue,
+		ExpiresIn: h.revealAutoHideSeconds,
 	}
 
 	h.respondJSON(w, http.StatusOK, response)

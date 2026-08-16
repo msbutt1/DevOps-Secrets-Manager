@@ -9,9 +9,13 @@ import (
 func revealValue(t *testing.T, f *fixture, secretID string) string {
 	t.Helper()
 	var out struct {
-		Value string `json:"value"`
+		Value     string `json:"value"`
+		ExpiresIn int    `json:"expires_in"`
 	}
 	f.api.MustDo(http.StatusOK, "POST", "/secrets/"+secretID+"/reveal", f.owner.Token, nil).Decode(t, &out)
+	if out.ExpiresIn != 30 {
+		t.Errorf("expires_in: want the default 30 seconds, got %d", out.ExpiresIn)
+	}
 	return out.Value
 }
 

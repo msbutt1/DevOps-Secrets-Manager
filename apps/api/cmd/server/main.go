@@ -89,6 +89,8 @@ func main() {
 		Email:           emailService,
 		Logger:          logger,
 		SLogger:         slogger,
+
+		RevealAutoHideSeconds: viper.GetInt("reveal_auto_hide_seconds"),
 	})
 
 	// Configure HTTP server
