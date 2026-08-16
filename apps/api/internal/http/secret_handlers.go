@@ -27,7 +27,8 @@ type CreateSecretRequest struct {
 }
 
 type UpdateSecretRequest struct {
-	Value                string                 `json:"value"`
+	// Value is optional: when omitted the stored value is kept and only metadata changes.
+	Value                *string                `json:"value"`
 	Description          *string                `json:"description"`
 	RotationIntervalDays *int                   `json:"rotation_interval_days"`
 	ExpiresAt            *time.Time             `json:"expires_at"`

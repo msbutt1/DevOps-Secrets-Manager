@@ -22,7 +22,7 @@ type SecretService interface {
 	CreateSecret(ctx context.Context, envID uuid.UUID, keyName, plaintextValue string, description *string, rotationDays *int, expiresAt *time.Time, metadata map[string]interface{}, createdBy uuid.UUID) (*Secret, error)
 	GetSecretMetadata(ctx context.Context, secretID uuid.UUID) (*Secret, error)
 	ListSecretsByEnvironment(ctx context.Context, envID uuid.UUID) ([]*Secret, error)
-	UpdateSecret(ctx context.Context, secretID uuid.UUID, newPlaintextValue string, description *string, rotationDays *int, expiresAt *time.Time, metadata map[string]interface{}, updatedBy uuid.UUID) (*Secret, error)
+	UpdateSecret(ctx context.Context, secretID uuid.UUID, newPlaintextValue *string, description *string, rotationDays *int, expiresAt *time.Time, metadata map[string]interface{}, updatedBy uuid.UUID) (*Secret, error)
 	DeleteSecret(ctx context.Context, secretID, deletedBy uuid.UUID) error
 	RevealSecret(ctx context.Context, secretID, requestedBy uuid.UUID) (string, error)
 }
@@ -147,7 +147,7 @@ func (s *secretService) ListSecretsByEnvironment(ctx context.Context, envID uuid
 func (s *secretService) UpdateSecret(
 	ctx context.Context,
 	secretID uuid.UUID,
-	newPlaintextValue string,
+	newPlaintextValue *string,
 	description *string,
 	rotationDays *int,
 	expiresAt *time.Time,
@@ -172,29 +172,30 @@ func (s *secretService) UpdateSecret(
 		return nil, fmt.Errorf("failed to get vault: %w", err)
 	}
 
-	// Decrypt vault's DEK
-	dek, err := crypto.DecryptDEK(vault.EncryptedDEK, s.masterKEK)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
-	}
+	// Re-encrypt only when a new value was supplied; otherwise keep the stored ciphertext
+	if newPlaintextValue != nil {
+		dek, err := crypto.DecryptDEK(vault.EncryptedDEK, s.masterKEK)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
+		}
 
-	// Encrypt the new plaintext value
-	ciphertext, nonce, err := s.encryptValue([]byte(newPlaintextValue), dek)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt value: %w", err)
+		ciphertext, nonce, err := s.encryptValue([]byte(*newPlaintextValue), dek)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt value: %w", err)
+		}
+
+		secret.EncryptedValue = ciphertext
+		secret.Nonce = nonce
+		now := time.Now()
+		secret.LastRotatedAt = &now
 	}
 
 	// Update secret fields
-	secret.EncryptedValue = ciphertext
-	secret.Nonce = nonce
 	secret.Description = description
 	secret.RotationIntervalDays = rotationDays
 	secret.ExpiresAt = expiresAt
 	secret.Metadata = metadata
 	secret.UpdatedAt = time.Now()
-
-	now := time.Now()
-	secret.LastRotatedAt = &now
 
 	// Persist updates
 	if err := s.secretRepo.Update(ctx, secret); err != nil {
@@ -211,6 +212,7 @@ func (s *secretService) UpdateSecret(
 		OrganizationID: &vault.OrganizationID,
 		VaultID:        &vault.ID,
 		EnvironmentID:  &secret.EnvironmentID,
+		Metadata:       map[string]interface{}{"value_changed": newPlaintextValue != nil},
 	})
 
 	return secret, nil

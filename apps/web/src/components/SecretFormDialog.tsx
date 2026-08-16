@@ -61,7 +61,8 @@ export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretForm
 
       onSave({
         keyName: name,
-        value,
+        // Leaving the value blank while editing keeps the stored value
+        value: isEditing && !value ? undefined : value,
         description: description || undefined,
         rotationIntervalDays: rotationInterval ? parseInt(rotationInterval) : undefined,
         expiresAt: expiresAtRFC3339,
