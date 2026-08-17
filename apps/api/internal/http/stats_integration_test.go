@@ -87,3 +87,63 @@ func TestHealthReportsDatabaseAndSchema(t *testing.T) {
 	}
 	f.api.MustDo(http.StatusServiceUnavailable, "GET", "/health", "", nil)
 }
+
+func TestDashboardAlerts(t *testing.T) {
+	f := newFixture(t)
+	staging := f.createEnv(t, f.vaultID, "staging")
+	past := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+	soon := time.Now().Add(3 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	later := time.Now().Add(20 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	f.api.MustDo(http.StatusCreated, "POST", "/envs/"+staging+"/secrets", f.owner.Token, map[string]any{"key_name": "GONE", "value": "x", "expires_at": past})
+	f.api.MustDo(http.StatusCreated, "POST", "/envs/"+staging+"/secrets", f.owner.Token, map[string]any{"key_name": "SOON", "value": "x", "expires_at": soon})
+	f.api.MustDo(http.StatusCreated, "POST", "/envs/"+staging+"/secrets", f.owner.Token, map[string]any{"key_name": "LATER", "value": "x", "expires_at": later})
+	stale := f.createSecret(t, staging, "STALE", "x")
+	f.api.MustDo(http.StatusOK, "PUT", "/secrets/"+stale, f.owner.Token, map[string]any{"rotation_interval_days": 7})
+	if _, err := f.api.Pool.Exec(context.Background(), `UPDATE secrets SET created_at = now() - interval '10 days' WHERE id = $1`, stale); err != nil {
+		t.Fatal(err)
+	}
+	idle := f.member(t, "Iris Idle", "developer", f.vaultID, "developer")
+	if _, err := f.api.Pool.Exec(context.Background(), `DELETE FROM audit_logs WHERE user_id = $1 AND action = 'login.success'`, idle.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	type alert struct {
+		Type            string  `json:"type"`
+		Severity        string  `json:"severity"`
+		Message         string  `json:"message"`
+		VaultName       string  `json:"vault_name"`
+		EnvironmentName *string `json:"environment_name"`
+		TargetName      string  `json:"target_name"`
+	}
+	var alerts []alert
+	f.api.MustDo(http.StatusOK, "GET", "/alerts", f.owner.Token, nil).Decode(t, &alerts)
+
+	got := map[string]string{}
+	for _, a := range alerts {
+		got[a.TargetName] = a.Type
+	}
+	want := map[string]string{"GONE": "secret_expired", "SOON": "secret_expiring", "STALE": "rotation_overdue", idle.Email: "member_inactive"}
+	if len(got) != len(want) {
+		t.Fatalf("want %v, got %+v", want, alerts)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s: want %s, got %q", k, v, got[k])
+		}
+	}
+	if alerts[0].Type != "secret_expired" || alerts[0].Severity != "high" || alerts[0].VaultName != "payments-api" {
+		t.Errorf("expired secret should be first and high severity: %+v", alerts[0])
+	}
+
+	// A developer sees secret alerts but not inactive members, which only managers can act on.
+	var devAlerts []alert
+	f.api.MustDo(http.StatusOK, "GET", "/alerts", idle.Token, nil).Decode(t, &devAlerts)
+	for _, a := range devAlerts {
+		if a.Type == "member_inactive" {
+			t.Errorf("developer should not see member alerts: %+v", a)
+		}
+	}
+	if len(devAlerts) != 3 {
+		t.Errorf("developer should see 3 secret alerts, got %d", len(devAlerts))
+	}
+}

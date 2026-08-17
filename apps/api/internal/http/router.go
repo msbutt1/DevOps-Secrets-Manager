@@ -73,6 +73,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 
 	// Dashboard statistics (protected)
 	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/stats", statsHandlers.HandleStats)
+	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/alerts", statsHandlers.HandleAlerts)
 
 	// Audit routes (protected)
 	r.Route("/audit", func(r chi.Router) {
