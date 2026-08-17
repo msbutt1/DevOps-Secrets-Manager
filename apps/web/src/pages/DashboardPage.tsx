@@ -7,7 +7,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useVaults, useCreateVault } from '@/hooks/use-vaults';
 import { useAuditLogs } from '@/hooks/use-audit';
-import { useDashboardStats, useHealth } from '@/hooks/use-dashboard';
+import { useDashboardAlerts, useDashboardStats, useHealth } from '@/hooks/use-dashboard';
 import { formatUptime } from '@/lib/format';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorMessage } from '@/components/ErrorMessage';
@@ -24,11 +24,15 @@ import {
   Users,
   Check,
 } from 'lucide-react';
-import type { VaultCreateRequest, VaultRole } from '@/types/api';
+import type { DashboardAlertType, VaultCreateRequest, VaultRole } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
 
-// Alerts will show real data once backend supports expiration/rotation tracking
-const alerts: { id: string; type: string; message: string; vault: string; severity: string }[] = [];
+const alertIcons: Record<DashboardAlertType, typeof AlertTriangle> = {
+  secret_expired: AlertTriangle,
+  secret_expiring: Clock,
+  rotation_overdue: RefreshCw,
+  member_inactive: Users,
+};
 
 const activityIcons: Record<string, typeof AlertTriangle> = {
   'secret.revealed': Key,
@@ -67,6 +71,7 @@ export const DashboardPage = () => {
   });
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
   const { data: health, isError: healthError } = useHealth();
+  const { data: alerts = [], isError: alertsError } = useDashboardAlerts();
   const createVaultMutation = useCreateVault();
   const apiHealthy = !healthError && health?.status === 'ok';
 
@@ -250,42 +255,51 @@ export const DashboardPage = () => {
               </div>
 
               <div className="win-border-sunken bg-input max-h-[140px] overflow-auto">
-                {alerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="px-2 py-1 border-b border-border/50 text-win-body flex items-start gap-2"
-                  >
-                    {alert.type === 'expiring' ? (
-                      <Clock
-                        size={12}
-                        className="text-warning mt-[2px] flex-shrink-0"
-                        strokeWidth={1.5}
-                      />
-                    ) : (
-                      <RefreshCw
-                        size={12}
-                        className="text-warning mt-[2px] flex-shrink-0"
-                        strokeWidth={1.5}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{alert.message}</div>
-                      <div className="text-win-small text-muted-foreground">{alert.vault}</div>
-                    </div>
-                    <span
-                      className={`text-win-small px-1 ${
-                        alert.severity === 'high'
-                          ? 'bg-warning/20 text-warning'
-                          : alert.severity === 'medium'
-                            ? 'bg-warning/10 text-warning'
-                            : 'text-muted-foreground'
-                      }`}
+                {alerts.map((alert) => {
+                  const Icon = alertIcons[alert.type] ?? AlertTriangle;
+                  const target =
+                    alert.type === 'member_inactive'
+                      ? `/vaults/${alert.vaultId}/access`
+                      : `/vaults/${alert.vaultId}`;
+                  return (
+                    <Link
+                      key={`${alert.type}-${alert.targetId}-${alert.vaultId}`}
+                      to={target}
+                      className="px-2 py-1 border-b border-border/50 text-win-body flex items-start gap-2 hover:bg-primary/10"
                     >
-                      {alert.severity}
-                    </span>
-                  </div>
-                ))}
-                {alerts.length === 0 && (
+                      <Icon
+                        size={12}
+                        className={`mt-[2px] flex-shrink-0 ${alert.severity === 'low' ? 'text-muted-foreground' : 'text-warning'}`}
+                        strokeWidth={1.5}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate">{alert.message}</div>
+                        <div className="text-win-small text-muted-foreground truncate">
+                          {alert.vaultName}
+                          {alert.environmentName ? ` / ${alert.environmentName}` : ''}
+                          {alert.dueAt && alert.type !== 'member_inactive'
+                            ? ` — ${new Date(alert.dueAt).toLocaleDateString()}`
+                            : ''}
+                        </div>
+                      </div>
+                      <span
+                        className={`text-win-small px-1 ${
+                          alert.severity === 'high'
+                            ? 'bg-warning/20 text-warning'
+                            : alert.severity === 'medium'
+                              ? 'bg-warning/10 text-warning'
+                              : 'text-muted-foreground'
+                        }`}
+                      >
+                        {alert.severity}
+                      </span>
+                    </Link>
+                  );
+                })}
+                {alertsError && (
+                  <div className="px-2 py-4 text-center text-warning">Could not load alerts</div>
+                )}
+                {!alertsError && alerts.length === 0 && (
                   <div className="px-2 py-4 text-center text-muted-foreground">
                     <Check size={16} className="mx-auto mb-1 text-success" />
                     No active alerts

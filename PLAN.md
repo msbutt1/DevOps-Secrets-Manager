@@ -124,7 +124,7 @@ These are things that exist in the UI or README but don't work.
   - Commits: `feat(api): add dashboard stats endpoint` + `fix(web): show real dashboard stats`
   - [x] API: `GET /stats` and a real `/health`.
   - [x] Web: stat cards from `/stats`; System Status from `/health` (the false "Key Derivation: PBKDF2" line is gone too, as keys are random, not derived).
-- [ ] **System alerts.** Make the alerts panel list real items: expired secrets, secrets overdue for rotation, members with no recent login. Otherwise remove the panel. Commit: `feat(web): show expiry and rotation alerts on dashboard`
+- [x] **System alerts.** Make the alerts panel list real items: expired secrets, secrets overdue for rotation, members with no recent login. Otherwise remove the panel. Commit: `feat(web): show expiry and rotation alerts on dashboard`
 - [ ] **Recent activity.** Once the audit endpoint is fixed, check that the panel fills in. Commit (if changes are needed): `fix(web): load recent activity from audit log`
 
 ### Docker and deployment

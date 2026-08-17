@@ -312,6 +312,22 @@ export interface DashboardStats {
   activeWindowDays: number;
 }
 
+export type DashboardAlertType =
+  'secret_expired' | 'secret_expiring' | 'rotation_overdue' | 'member_inactive';
+
+export interface DashboardAlert {
+  type: DashboardAlertType;
+  severity: 'high' | 'medium' | 'low';
+  message: string;
+  vaultId: string;
+  vaultName: string;
+  environmentName: string | null;
+  targetId: string;
+  targetName: string;
+  /** Expiry or rotation due date, or the member's last login (null if never) */
+  dueAt: string | null;
+}
+
 export interface HealthStatus {
   status: 'ok' | 'unavailable';
   database: string;

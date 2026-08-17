@@ -4,7 +4,15 @@ import { healthApi, statsApi } from '@/lib/api-client';
 export const dashboardKeys = {
   stats: ['dashboard', 'stats'] as const,
   health: ['dashboard', 'health'] as const,
+  alerts: ['dashboard', 'alerts'] as const,
 };
+
+export function useDashboardAlerts() {
+  return useQuery({
+    queryKey: dashboardKeys.alerts,
+    queryFn: statsApi.alerts,
+  });
+}
 
 export function useDashboardStats() {
   return useQuery({

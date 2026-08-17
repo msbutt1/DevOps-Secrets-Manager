@@ -25,6 +25,7 @@ import type {
   AuditFilters,
   PaginatedResponse,
   DashboardStats,
+  DashboardAlert,
   HealthStatus,
   ApiError,
 } from '@/types/api';
@@ -315,6 +316,7 @@ export const auditApi = {
 // ============ DASHBOARD API ============
 export const statsApi = {
   get: (): Promise<DashboardStats> => apiFetch<DashboardStats>('/stats'),
+  alerts: (): Promise<DashboardAlert[]> => apiFetch<DashboardAlert[]>('/alerts'),
 };
 
 // ============ HEALTH API ============
