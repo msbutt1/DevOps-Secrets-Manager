@@ -296,6 +296,33 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
+// Dashboard DTOs
+export interface DashboardStats {
+  vaults: number;
+  environments: number;
+  secrets: number;
+  secretsExpired: number;
+  secretsExpiringSoon: number;
+  secretsRotationOverdue: number;
+  /** People with access to the caller's vaults */
+  users: number;
+  /** Of those, how many logged in within activeWindowDays */
+  activeUsers: number;
+  expiringSoonDays: number;
+  activeWindowDays: number;
+}
+
+export interface HealthStatus {
+  status: 'ok' | 'unavailable';
+  database: string;
+  migrationVersion: number | null;
+  migrationDirty: boolean;
+  startedAt: string;
+  uptimeSeconds: number;
+  version: string;
+  timestamp: string;
+}
+
 // API Error
 export interface ApiError {
   code: string;

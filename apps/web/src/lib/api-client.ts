@@ -24,6 +24,8 @@ import type {
   AuditEvent,
   AuditFilters,
   PaginatedResponse,
+  DashboardStats,
+  HealthStatus,
   ApiError,
 } from '@/types/api';
 import { toCamelCase, toSnakeCase } from './case-transform';
@@ -310,8 +312,12 @@ export const auditApi = {
   },
 };
 
+// ============ DASHBOARD API ============
+export const statsApi = {
+  get: (): Promise<DashboardStats> => apiFetch<DashboardStats>('/stats'),
+};
+
 // ============ HEALTH API ============
 export const healthApi = {
-  check: (): Promise<{ status: string; timestamp: string }> =>
-    apiFetch<{ status: string; timestamp: string }>('/health'),
+  check: (): Promise<HealthStatus> => apiFetch<HealthStatus>('/health'),
 };

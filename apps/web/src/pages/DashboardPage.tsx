@@ -7,6 +7,8 @@ import { AppLayout } from '@/components/AppLayout';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useVaults, useCreateVault } from '@/hooks/use-vaults';
 import { useAuditLogs } from '@/hooks/use-audit';
+import { useDashboardStats, useHealth } from '@/hooks/use-dashboard';
+import { formatUptime } from '@/lib/format';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import {
@@ -63,7 +65,10 @@ export const DashboardPage = () => {
     limit: 4,
     page: 1,
   });
+  const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
+  const { data: health, isError: healthError } = useHealth();
   const createVaultMutation = useCreateVault();
+  const apiHealthy = !healthError && health?.status === 'ok';
 
   // Transform audit events to activity format
   const recentActivity = (auditData?.data || []).map((event) => ({
@@ -78,18 +83,8 @@ export const DashboardPage = () => {
   // Use first 3 vaults for display
   const displayVaults = vaults.slice(0, 3);
 
-  // Compute real statistics
-  const stats = {
-    totalVaults: vaults.length,
-    totalSecrets: vaults.reduce((sum, v) => sum + (v.secretCount || 0), 0),
-    totalEnvironments: vaults.reduce((sum, v) => sum + (v.envCount || 0), 0),
-    activeUsers: 0, // Placeholder - backend doesn't track this
-    secretsExpiringSoon: 0, // Placeholder - backend doesn't support
-    secretsNeedingRotation: 0, // Placeholder - backend doesn't support
-  };
-
   // Loading state
-  if (vaultsLoading || auditLoading) {
+  if (vaultsLoading || auditLoading || statsLoading) {
     return (
       <AppLayout>
         <LoadingState type="page" message="Loading dashboard..." />
@@ -98,10 +93,10 @@ export const DashboardPage = () => {
   }
 
   // Error state
-  if (vaultsError) {
+  if (vaultsError || statsError || !stats) {
     return (
       <AppLayout>
-        <ErrorMessage error={vaultsError} />
+        <ErrorMessage error={vaultsError || statsError || new Error('Failed to load dashboard')} />
       </AppLayout>
     );
   }
@@ -121,37 +116,57 @@ export const DashboardPage = () => {
         <div className="grid grid-cols-6 gap-win-sm">
           <Panel className="!p-2 text-center">
             <Key size={16} className="mx-auto mb-1 text-info" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold">{stats.totalSecrets}</div>
+            <div className="text-win-title font-semibold">{stats.secrets}</div>
             <div className="text-win-small text-muted-foreground">Total Secrets</div>
           </Panel>
           <Panel className="!p-2 text-center">
             <Database size={16} className="mx-auto mb-1 text-info" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold">{stats.totalVaults}</div>
+            <div className="text-win-title font-semibold">{stats.vaults}</div>
             <div className="text-win-small text-muted-foreground">Vaults</div>
           </Panel>
           <Panel className="!p-2 text-center">
             <Server size={16} className="mx-auto mb-1 text-info" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold">{stats.totalEnvironments}</div>
+            <div className="text-win-title font-semibold">{stats.environments}</div>
             <div className="text-win-small text-muted-foreground">Environments</div>
           </Panel>
           <Panel className="!p-2 text-center">
             <Clock size={16} className="mx-auto mb-1 text-warning" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold text-warning">
-              {stats.secretsExpiringSoon}
+            <div
+              className={`text-win-title font-semibold ${stats.secretsExpired + stats.secretsExpiringSoon > 0 ? 'text-warning' : ''}`}
+            >
+              {stats.secretsExpired + stats.secretsExpiringSoon}
             </div>
-            <div className="text-win-small text-muted-foreground">Expiring Soon</div>
+            <div
+              className="text-win-small text-muted-foreground"
+              title={`${stats.secretsExpired} expired, ${stats.secretsExpiringSoon} expiring within ${stats.expiringSoonDays} days`}
+            >
+              Expired / Expiring
+            </div>
           </Panel>
           <Panel className="!p-2 text-center">
             <RefreshCw size={16} className="mx-auto mb-1 text-warning" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold text-warning">
-              {stats.secretsNeedingRotation}
+            <div
+              className={`text-win-title font-semibold ${stats.secretsRotationOverdue > 0 ? 'text-warning' : ''}`}
+            >
+              {stats.secretsRotationOverdue}
             </div>
-            <div className="text-win-small text-muted-foreground">Need Rotation</div>
+            <div className="text-win-small text-muted-foreground">Rotation Overdue</div>
           </Panel>
           <Panel className="!p-2 text-center">
             <Users size={16} className="mx-auto mb-1 text-success" strokeWidth={1.5} />
-            <div className="text-win-title font-semibold">{stats.activeUsers}</div>
-            <div className="text-win-small text-muted-foreground">Active Users</div>
+            <div className="text-win-title font-semibold">
+              {stats.activeUsers}
+              <span className="text-win-small text-muted-foreground font-normal">
+                {' '}
+                / {stats.users}
+              </span>
+            </div>
+            <div
+              className="text-win-small text-muted-foreground"
+              title={`People with access who logged in within ${stats.activeWindowDays} days`}
+            >
+              Active Users ({stats.activeWindowDays}d)
+            </div>
           </Panel>
         </div>
 
@@ -338,26 +353,39 @@ export const DashboardPage = () => {
               <div className="space-y-1 text-win-body">
                 <div className="flex justify-between items-center">
                   <span>API Status:</span>
-                  <span className="text-success font-semibold flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                    Operational
-                  </span>
+                  {apiHealthy ? (
+                    <span className="text-success font-semibold flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-success" />
+                      Operational
+                    </span>
+                  ) : (
+                    <span className="text-warning font-semibold flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-warning" />
+                      {health ? 'Degraded' : 'Unreachable'}
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between">
+                  <span>Database:</span>
+                  <span className="font-semibold">{health?.database ?? 'unknown'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Encryption:</span>
-                  <span className="font-semibold">AES-256-GCM</span>
+                  <span className="font-semibold">AES-256-GCM envelope</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Key Derivation:</span>
-                  <span className="font-semibold">PBKDF2</span>
+                  <span>Schema Version:</span>
+                  <span className="text-muted-foreground">{health?.migrationVersion ?? '—'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Last Backup:</span>
-                  <span className="text-muted-foreground">2 hours ago</span>
+                  <span>API Uptime:</span>
+                  <span className="text-muted-foreground">
+                    {health ? formatUptime(health.uptimeSeconds) : '—'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Uptime:</span>
-                  <span className="text-muted-foreground">99.99%</span>
+                  <span>API Version:</span>
+                  <span className="text-muted-foreground">{health?.version ?? '—'}</span>
                 </div>
               </div>
             </Panel>
