@@ -122,6 +122,7 @@ These are things that exist in the UI or README but don't work.
   - `activeUsers`, `secretsExpiringSoon` and `secretsNeedingRotation` are always 0
   - Fix: a `/stats` endpoint with real counts, and a real `/health` check (database ping, migration version, server start time).
   - Commits: `feat(api): add dashboard stats endpoint` + `fix(web): show real dashboard stats`
+  - [x] API: `GET /stats` and a real `/health`.
 - [ ] **System alerts.** Make the alerts panel list real items: expired secrets, secrets overdue for rotation, members with no recent login. Otherwise remove the panel. Commit: `feat(web): show expiry and rotation alerts on dashboard`
 - [ ] **Recent activity.** Once the audit endpoint is fixed, check that the panel fills in. Commit (if changes are needed): `fix(web): load recent activity from audit log`
 

@@ -20,6 +20,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// version is set at build time with -ldflags "-X main.version=v1.0.0".
+var version = "dev"
+
 func main() {
 	// Initialize logger
 	logger, err := zap.NewProduction()
@@ -91,6 +94,7 @@ func main() {
 		SLogger:         slogger,
 
 		RevealAutoHideSeconds: viper.GetInt("reveal_auto_hide_seconds"),
+		Version:               version,
 	})
 
 	// Configure HTTP server

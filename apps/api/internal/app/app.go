@@ -33,10 +33,16 @@ type Config struct {
 	// RevealAutoHideSeconds is returned with revealed values as the client auto-hide window
 	// (default 30, clamped to 5-600).
 	RevealAutoHideSeconds int
+	// Version is reported by /health (set at build time; "dev" when empty).
+	Version string
 }
 
 // New builds the API's HTTP handler.
 func New(pool *pgxpool.Pool, cfg Config) http.Handler {
+	startedAt := time.Now()
+	if cfg.Version == "" {
+		cfg.Version = "dev"
+	}
 	if cfg.AccessTokenTTL == 0 {
 		cfg.AccessTokenTTL = 15 * time.Minute
 	}
@@ -88,5 +94,7 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 	auditHandlers := httphandler.NewAuditHandlers(auditService, policyService, pool, cfg.SLogger)
 	memberHandlers := httphandler.NewMemberHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 
-	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, cfg.JWTSecret)
+	statsHandlers := httphandler.NewStatsHandlers(pool, cfg.Logger, startedAt, cfg.Version)
+
+	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, statsHandlers, cfg.JWTSecret)
 }

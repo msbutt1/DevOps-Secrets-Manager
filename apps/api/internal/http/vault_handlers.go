@@ -145,12 +145,9 @@ func (h *VaultHandlers) HandleListVaults(w http.ResponseWriter, r *http.Request)
 
 	// Vaults the user is a member of, plus every vault in organizations they own or administer.
 	// Vault membership only counts while the user is still in the vault's organization.
-	query := `
-		SELECT v.id FROM vaults v
-		JOIN user_organizations uo ON uo.organization_id = v.organization_id AND uo.user_id = $1
-		WHERE v.deleted_at IS NULL
-		  AND (uo.role IN ('owner', 'admin')
-		       OR EXISTS (SELECT 1 FROM vault_members vm WHERE vm.vault_id = v.id AND vm.user_id = $1))
+	query := `WITH` + accessibleVaultsCTE + `
+		SELECT a.id FROM accessible a
+		JOIN vaults v ON v.id = a.id
 		ORDER BY v.created_at DESC
 	`
 	rows, err := h.db.Query(r.Context(), query, claims.UserID)

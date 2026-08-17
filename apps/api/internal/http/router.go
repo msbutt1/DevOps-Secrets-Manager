@@ -1,9 +1,6 @@
 package http
 
 import (
-	"encoding/json"
-	"net/http"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
@@ -11,7 +8,7 @@ import (
 )
 
 // NewRouter creates and configures a new chi router
-func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, jwtSecret string) *chi.Mux {
+func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, statsHandlers *StatsHandlers, jwtSecret string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middleware
@@ -20,7 +17,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	r.Use(audit.RequestContext)
 
 	// Health check endpoint
-	r.Get("/health", healthCheckHandler)
+	r.Get("/health", statsHandlers.HandleHealth)
 
 	// Auth routes
 	r.Route("/auth", func(r chi.Router) {
@@ -74,6 +71,9 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		r.Post("/{id}/reveal", secretHandlers.HandleRevealSecret)
 	})
 
+	// Dashboard statistics (protected)
+	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/stats", statsHandlers.HandleStats)
+
 	// Audit routes (protected)
 	r.Route("/audit", func(r chi.Router) {
 		r.Use(authmiddleware.AuthMiddleware(jwtSecret))
@@ -81,11 +81,4 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	})
 
 	return r
-}
-
-// healthCheckHandler returns a simple health status
-func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
