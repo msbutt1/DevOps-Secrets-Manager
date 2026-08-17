@@ -110,7 +110,7 @@ These are things that exist in the UI or README but don't work.
   Commit: `fix(api): return rotation policy and last editor for secrets`
 - [x] **Reveal response.** The web app expects `expiresIn` (auto-hide seconds). Check the API sends it; don't rely on the client default. Commit: `fix(api): include auto-hide window in reveal response`
 - [x] **Member response.** Check `added_by` is populated (not blank) and that adding a member by email returns a clear 404 when that user doesn't exist. Commit: `fix(api): populate added_by and clarify unknown member errors`
-- [ ] **Environment names.** The web form only allows `dev`/`staging`/`prod`, but the database accepts any name and the API has no check. Choose one:
+- [x] **Environment names.** The web form only allows `dev`/`staging`/`prod`, but the database accepts any name and the API has no check. Choose one:
   - allow custom names everywhere (recommended), or
   - enforce the three names in the API and database.
 

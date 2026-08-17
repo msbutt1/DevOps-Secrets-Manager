@@ -29,6 +29,11 @@ func NewEnvironmentService(repo Repository) EnvironmentService {
 
 // CreateEnvironment creates a new environment
 func (s *environmentService) CreateEnvironment(ctx context.Context, vaultID uuid.UUID, name string, description *string) (*Environment, error) {
+	name, err := NormalizeName(name)
+	if err != nil {
+		return nil, err
+	}
+
 	environment := &Environment{
 		ID:          uuid.New(),
 		VaultID:     vaultID,
@@ -67,6 +72,11 @@ func (s *environmentService) ListEnvironmentsByVault(ctx context.Context, vaultI
 
 // UpdateEnvironment updates an environment's name and description
 func (s *environmentService) UpdateEnvironment(ctx context.Context, envID uuid.UUID, name string, description *string) (*Environment, error) {
+	name, err := NormalizeName(name)
+	if err != nil {
+		return nil, err
+	}
+
 	// Get existing environment
 	environment, err := s.environmentRepo.GetByID(ctx, envID)
 	if err != nil {

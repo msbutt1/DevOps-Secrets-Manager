@@ -101,7 +101,8 @@ export interface Environment {
   secretCount?: number;
 }
 
-export type EnvironmentName = 'dev' | 'staging' | 'prod';
+/** Any name matching ENVIRONMENT_NAME_PATTERN in src/lib/environments.ts */
+export type EnvironmentName = string;
 
 export interface EnvironmentCreateRequest {
   name: EnvironmentName;

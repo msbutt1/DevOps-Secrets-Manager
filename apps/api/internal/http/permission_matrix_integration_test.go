@@ -3,8 +3,10 @@ package http_test
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 )
 
@@ -45,28 +47,28 @@ func TestRolePermissionMatrix(t *testing.T) {
 			return f.api.Do("PUT", "/vaults/"+v, tok, map[string]any{"name": "payments-api"}).Status
 		}},
 		{"create environment", write, 201, func(t *testing.T, tok, v string) int {
-			return f.api.Do("POST", "/vaults/"+v+"/envs", tok, map[string]any{"name": "env-" + tok[len(tok)-8:]}).Status
+			return f.api.Do("POST", "/vaults/"+v+"/envs", tok, map[string]any{"name": "env-" + suffix()}).Status
 		}},
 		{"update environment", write, 200, func(t *testing.T, tok, v string) int {
 			return f.api.Do("PUT", "/envs/"+f.envID, tok, map[string]any{"name": "production"}).Status
 		}},
 		{"delete environment", write, 204, func(t *testing.T, tok, v string) int {
-			return f.api.Do("DELETE", "/envs/"+f.createEnv(t, v, "doomed-"+tok[len(tok)-8:]), tok, nil).Status
+			return f.api.Do("DELETE", "/envs/"+f.createEnv(t, v, "doomed-"+suffix()), tok, nil).Status
 		}},
 		{"create secret", write, 201, func(t *testing.T, tok, v string) int {
-			return f.api.Do("POST", "/envs/"+f.envID+"/secrets", tok, map[string]any{"key_name": "K_" + tok[len(tok)-8:], "value": "v"}).Status
+			return f.api.Do("POST", "/envs/"+f.envID+"/secrets", tok, map[string]any{"key_name": "K_" + suffix(), "value": "v"}).Status
 		}},
 		{"update secret", write, 200, func(t *testing.T, tok, v string) int {
 			return f.api.Do("PUT", "/secrets/"+f.secretID, tok, map[string]any{"value": "postgres://updated"}).Status
 		}},
 		{"delete secret", write, 204, func(t *testing.T, tok, v string) int {
-			return f.api.Do("DELETE", "/secrets/"+f.createSecret(t, f.envID, "DOOMED_"+tok[len(tok)-8:], "x"), tok, nil).Status
+			return f.api.Do("DELETE", "/secrets/"+f.createSecret(t, f.envID, "DOOMED_"+suffix(), "x"), tok, nil).Status
 		}},
 		{"reveal secret", reveal, 200, func(t *testing.T, tok, v string) int {
 			return f.api.Do("POST", "/secrets/"+f.secretID+"/reveal", tok, nil).Status
 		}},
 		{"add, change and remove a member", manage, 204, func(t *testing.T, tok, v string) int {
-			guest := f.member(t, "Guest "+tok[len(tok)-6:], "viewer", "", "")
+			guest := f.member(t, "Guest "+suffix(), "viewer", "", "")
 			if s := f.api.Do("POST", "/vaults/"+v+"/members", tok, map[string]any{"email": guest.Email, "role": "viewer"}).Status; s != 201 {
 				return s
 			}
@@ -105,4 +107,9 @@ func TestRolePermissionMatrix(t *testing.T) {
 			})
 		}
 	}
+}
+
+// suffix returns a short unique lowercase string for resource names.
+func suffix() string {
+	return strings.ToLower(strings.ReplaceAll(uuid.NewString(), "-", "")[:8])
 }

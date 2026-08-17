@@ -23,6 +23,7 @@ import {
   Check,
 } from 'lucide-react';
 import type { VaultCreateRequest, VaultRole } from '@/types/api';
+import { isProductionEnvironment } from '@/lib/environments';
 
 // Alerts will show real data once backend supports expiration/rotation tracking
 const alerts: { id: string; type: string; message: string; vault: string; severity: string }[] = [];
@@ -303,7 +304,9 @@ export const DashboardPage = () => {
                       <div className="text-win-small text-muted-foreground pl-4">
                         {activity.user} in {activity.vault}
                         {activity.env && (
-                          <span className={activity.env === 'prod' ? 'text-warning' : ''}>
+                          <span
+                            className={isProductionEnvironment(activity.env) ? 'text-warning' : ''}
+                          >
                             /{activity.env}
                           </span>
                         )}

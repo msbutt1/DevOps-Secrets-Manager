@@ -42,6 +42,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { Secret, Environment, EnvironmentName } from '@/types/api';
+import { isProductionEnvironment } from '@/lib/environments';
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -65,7 +66,7 @@ const formatDateTime = (dateStr: string) => {
 
 export const VaultPage = () => {
   const { id } = useParams<{ id: string }>();
-  const [activeEnv, setActiveEnv] = useState<EnvironmentName>('dev');
+  const [activeEnv, setActiveEnv] = useState<EnvironmentName>('');
   const [filter, setFilter] = useState('');
   const [selectedSecrets, setSelectedSecrets] = useState<Set<string>>(new Set());
 
@@ -306,7 +307,7 @@ export const VaultPage = () => {
                       activeEnv === env.name
                         ? 'bg-background font-semibold border-b-2 border-b-primary'
                         : 'bg-secondary hover:bg-background'
-                    } ${env.name === 'prod' ? 'text-warning' : ''}`}
+                    } ${isProductionEnvironment(env.name) ? 'text-warning' : ''}`}
                   >
                     <Layers size={12} strokeWidth={1.5} />
                     {env.name.toUpperCase()}
@@ -327,7 +328,7 @@ export const VaultPage = () => {
               </div>
 
               {/* Production Warning */}
-              {activeEnv === 'prod' && (
+              {isProductionEnvironment(activeEnv) && (
                 <div className="bg-warning/10 border-b-2 border-warning px-3 py-2 flex items-center gap-2">
                   <AlertTriangle size={14} className="text-warning" strokeWidth={1.5} />
                   <span className="text-win-body">

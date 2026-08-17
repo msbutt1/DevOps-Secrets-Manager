@@ -4,6 +4,7 @@ import { Panel, Button, Input, Select } from '@/components/win95';
 import { EmptyState } from '@/components/EmptyState';
 import { ChevronLeft, ChevronRight, X, Download, FileText } from 'lucide-react';
 import { AUDIT_ACTIONS } from '@/types/api';
+import { isProductionEnvironment } from '@/lib/environments';
 import type { AuditEvent, AuditAction } from '@/types/api';
 import { useAuditLogs } from '@/hooks/use-audit';
 import { useVaults } from '@/hooks/use-vaults';
@@ -290,7 +291,8 @@ export const AuditPage = () => {
                         <td className="px-2 py-1">{event.vaultName || '—'}</td>
                         <td
                           className={`px-2 py-1 ${
-                            event.environmentName === 'prod' && selectedEvent?.id !== event.id
+                            isProductionEnvironment(event.environmentName) &&
+                            selectedEvent?.id !== event.id
                               ? 'text-warning font-semibold'
                               : ''
                           }`}
@@ -383,7 +385,11 @@ export const AuditPage = () => {
                       {selectedEvent.vaultName || '—'}
                       {selectedEvent.environmentName && (
                         <span
-                          className={selectedEvent.environmentName === 'prod' ? 'text-warning' : ''}
+                          className={
+                            isProductionEnvironment(selectedEvent.environmentName)
+                              ? 'text-warning'
+                              : ''
+                          }
                         >
                           {' / '}
                           {selectedEvent.environmentName}

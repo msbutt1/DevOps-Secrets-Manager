@@ -55,3 +55,16 @@ func TestMemberResponseIncludesWhoAddedThem(t *testing.T) {
 		t.Errorf("unexpected message for unknown email: %q", errBody.Message)
 	}
 }
+
+func TestEnvironmentNameRules(t *testing.T) {
+	f := newFixture(t)
+
+	for _, name := range []string{"eu-west-1", "qa", "preview_42"} {
+		f.api.MustDo(http.StatusCreated, "POST", "/vaults/"+f.vaultID+"/envs", f.owner.Token, map[string]any{"name": name})
+	}
+	for _, name := range []string{"", "Production", "has space", "-leading"} {
+		f.api.MustDo(http.StatusBadRequest, "POST", "/vaults/"+f.vaultID+"/envs", f.owner.Token, map[string]any{"name": name})
+	}
+	f.api.MustDo(http.StatusConflict, "POST", "/vaults/"+f.vaultID+"/envs", f.owner.Token, map[string]any{"name": "qa"})
+	f.api.MustDo(http.StatusBadRequest, "PUT", "/envs/"+f.envID, f.owner.Token, map[string]any{"name": "Not Valid"})
+}

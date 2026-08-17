@@ -286,6 +286,8 @@ func (h *EnvironmentHandlers) handleEnvironmentError(w http.ResponseWriter, err 
 		h.respondError(w, http.StatusNotFound, "not_found", "Environment not found")
 	case errors.Is(err, environments.ErrDuplicate):
 		h.respondError(w, http.StatusConflict, "duplicate", "Environment already exists")
+	case errors.Is(err, environments.ErrInvalidName):
+		h.respondError(w, http.StatusBadRequest, "invalid_name", err.Error())
 	default:
 		h.logger.Error("Unexpected environment error", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")

@@ -1,20 +1,20 @@
-import { useState } from 'react';
-import { Button, Panel } from '@/components/win95';
-import { Layers, AlertTriangle } from 'lucide-react';
-import type { EnvironmentName, EnvironmentCreateRequest } from '@/types/api';
+import { useEffect, useState } from 'react';
+import { Button, Input, Panel } from '@/components/win95';
+import { Layers } from 'lucide-react';
+import type { EnvironmentCreateRequest } from '@/types/api';
+import {
+  ENVIRONMENT_NAME_HINT,
+  SUGGESTED_ENVIRONMENTS,
+  isProductionEnvironment,
+  validateEnvironmentName,
+} from '@/lib/environments';
 
 interface EnvironmentFormDialogProps {
   isOpen: boolean;
-  existingEnvs: EnvironmentName[];
+  existingEnvs: string[];
   onClose: () => void;
   onSave: (data: EnvironmentCreateRequest) => void;
 }
-
-const ENV_OPTIONS: { value: EnvironmentName; label: string; description: string }[] = [
-  { value: 'dev', label: 'Development', description: 'For local development and testing' },
-  { value: 'staging', label: 'Staging', description: 'Pre-production testing environment' },
-  { value: 'prod', label: 'Production', description: 'Live production environment' },
-];
 
 export const EnvironmentFormDialog = ({
   isOpen,
@@ -22,21 +22,30 @@ export const EnvironmentFormDialog = ({
   onClose,
   onSave,
 }: EnvironmentFormDialogProps) => {
-  const [selectedEnv, setSelectedEnv] = useState<EnvironmentName | null>(null);
+  const [name, setName] = useState('');
+  const [touched, setTouched] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const availableEnvs = ENV_OPTIONS.filter((env) => !existingEnvs.includes(env.value));
+  useEffect(() => {
+    if (isOpen) {
+      setName('');
+      setTouched(false);
+    }
+  }, [isOpen]);
+
+  const error = validateEnvironmentName(name, existingEnvs);
+  const suggestions = SUGGESTED_ENVIRONMENTS.filter((env) => !existingEnvs.includes(env.name));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEnv) return;
+    setTouched(true);
+    if (error) return;
 
     setIsSubmitting(true);
     try {
-      onSave({ name: selectedEnv });
+      onSave({ name: name.trim() });
     } finally {
       setIsSubmitting(false);
-      setSelectedEnv(null);
     }
   };
 
@@ -59,74 +68,72 @@ export const EnvironmentFormDialog = ({
 
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-3 space-y-3">
-          {availableEnvs.length === 0 ? (
-            <Panel className="flex items-start gap-2 !p-2">
-              <AlertTriangle
-                size={14}
-                className="text-warning flex-shrink-0 mt-[2px]"
-                strokeWidth={1.5}
-              />
-              <div className="text-win-body">
-                All environment types have been created for this vault.
-              </div>
-            </Panel>
-          ) : (
-            <>
-              <Panel className="!p-2">
-                <p className="text-win-small">
-                  Select an environment type to add to this vault. Each vault can have one of each
-                  environment type.
-                </p>
-              </Panel>
+          <Panel className="!p-2">
+            <p className="text-win-small">
+              Name the environment, for example <strong>staging</strong> or{' '}
+              <strong>eu-west-1</strong>. Each name can be used once per vault.
+            </p>
+          </Panel>
 
-              <div className="space-y-2">
-                {availableEnvs.map((env) => (
-                  <label
-                    key={env.value}
-                    className={`block win-border-groove p-2 cursor-pointer ${
-                      selectedEnv === env.value ? 'bg-primary/10 border-primary' : ''
-                    } ${env.value === 'prod' ? 'border-warning/50' : ''}`}
+          <div>
+            <label htmlFor="environment-name" className="block text-win-body mb-1">
+              Environment Name: <span className="text-warning">*</span>
+            </label>
+            <Input
+              id="environment-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => setTouched(true)}
+              placeholder="e.g., staging"
+              autoFocus
+              disabled={isSubmitting}
+              aria-invalid={touched && !!error}
+              aria-describedby="environment-name-help"
+            />
+            <p
+              id="environment-name-help"
+              className={`text-win-small mt-1 ${touched && error ? 'text-warning' : 'text-muted-foreground'}`}
+            >
+              {touched && error ? error : ENVIRONMENT_NAME_HINT}
+            </p>
+            {isProductionEnvironment(name.trim()) && (
+              <p className="text-win-small text-warning mt-1">
+                Production environment: secrets here affect live systems.
+              </p>
+            )}
+          </div>
+
+          {suggestions.length > 0 && (
+            <div>
+              <div className="text-win-small text-muted-foreground mb-1">Suggestions:</div>
+              <div className="flex flex-wrap gap-1">
+                {suggestions.map((env) => (
+                  <button
+                    key={env.name}
+                    type="button"
+                    title={env.description}
+                    onClick={() => {
+                      setName(env.name);
+                      setTouched(true);
+                    }}
+                    className={`win-button !min-w-0 !px-2 !py-[2px] text-win-small ${
+                      isProductionEnvironment(env.name) ? 'text-warning' : ''
+                    }`}
                   >
-                    <div className="flex items-start gap-2">
-                      <input
-                        type="radio"
-                        name="environment"
-                        value={env.value}
-                        checked={selectedEnv === env.value}
-                        onChange={() => setSelectedEnv(env.value)}
-                        className="win-checkbox mt-1"
-                      />
-                      <div>
-                        <div
-                          className={`text-win-body font-semibold ${
-                            env.value === 'prod' ? 'text-warning' : ''
-                          }`}
-                        >
-                          {env.label}
-                          {env.value === 'prod' && (
-                            <span className="ml-2 text-win-small">(CRITICAL)</span>
-                          )}
-                        </div>
-                        <div className="text-win-small text-muted-foreground">
-                          {env.description}
-                        </div>
-                      </div>
-                    </div>
-                  </label>
+                    {env.name}
+                  </button>
                 ))}
               </div>
-            </>
+            </div>
           )}
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            {availableEnvs.length > 0 && (
-              <Button type="submit" disabled={isSubmitting || !selectedEnv}>
-                {isSubmitting ? 'Creating...' : 'Create'}
-              </Button>
-            )}
+            <Button type="submit" disabled={isSubmitting || (touched && !!error)}>
+              {isSubmitting ? 'Creating...' : 'Create'}
+            </Button>
             <Button type="button" onClick={onClose} disabled={isSubmitting}>
-              {availableEnvs.length === 0 ? 'Close' : 'Cancel'}
+              Cancel
             </Button>
           </div>
         </form>
