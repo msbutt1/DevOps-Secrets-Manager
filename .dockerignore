@@ -1,0 +1,14 @@
+# Build context for apps/api/Dockerfile is the repository root.
+# Keep local configuration, credentials and bulky artifacts out of images and build cache.
+.git
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/target
+**/dist
+**/coverage
+apps/web
+apps/cli
+*.log
+local.mk
