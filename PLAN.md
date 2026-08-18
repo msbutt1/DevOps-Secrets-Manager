@@ -131,7 +131,7 @@ These are things that exist in the UI or README but don't work.
 - [ ] **Test the Compose stack from a fresh clone.** Run `docker compose up --build`, register, create a vault, add a secret, reveal it. Record every problem found as its own fix commit.
 - [x] **Postgres versions.** Compose uses Postgres 15 while local development used 17. Pick one (16 or 17) and document it. Commit: `chore(docker): pin Postgres version`
 - [x] **Health checks.** Add a Compose health check for the API; make the web container wait for it. Commit: `chore(docker): add API healthcheck`
-- [ ] **Base images.** Pin the Alpine runtime image instead of `alpine:latest`, and drop the obsolete `-a -installsuffix cgo` build flags. Commit: `build(api): pin runtime image and simplify build flags`
+- [x] **Base images.** Pin the Alpine runtime image instead of `alpine:latest`, and drop the obsolete `-a -installsuffix cgo` build flags. Commit: `build(api): pin runtime image and simplify build flags`
 
 ### Documentation that doesn't match the code
 - [ ] **JWT algorithm.** The README says tokens use RS256; the code uses HS256. Either correct the README or move to RS256 (see Phase 3). Commit: `docs: correct JWT signing algorithm`

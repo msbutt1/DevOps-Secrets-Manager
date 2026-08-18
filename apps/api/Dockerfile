@@ -1,5 +1,5 @@
 # Stage 1: Build the Go application
-FROM golang:1.25.6-alpine AS builder
+FROM golang:1.25.14-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git
@@ -14,11 +14,12 @@ RUN go mod download
 # Copy the API source code
 COPY apps/api/ ./apps/api/
 
-# Build the Go binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server ./apps/api/cmd/server
+# Build a static binary; VERSION is reported by /health
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./apps/api/cmd/server
 
 # Stage 2: Create minimal runtime image
-FROM alpine:latest
+FROM alpine:3.24.1
 
 # Install CA certificates for HTTPS
 RUN apk --no-cache add ca-certificates
