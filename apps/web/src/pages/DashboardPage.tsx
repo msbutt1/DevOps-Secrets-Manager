@@ -24,8 +24,11 @@ import {
   Users,
   Check,
 } from 'lucide-react';
+import { AUDIT_ACTIONS } from '@/types/api';
 import type { DashboardAlertType, VaultCreateRequest, VaultRole } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
+
+const actionLabels = new Map<string, string>(AUDIT_ACTIONS.map((a) => [a.value, a.label]));
 
 const alertIcons: Record<DashboardAlertType, typeof AlertTriangle> = {
   secret_expired: AlertTriangle,
@@ -46,6 +49,7 @@ const activityIcons: Record<string, typeof AlertTriangle> = {
   'vault.updated': Database,
   'vault.deleted': Database,
   'env.created': Server,
+  'env.updated': Server,
   'env.deleted': Server,
 };
 
@@ -65,9 +69,11 @@ export const DashboardPage = () => {
 
   // Fetch real data
   const { data: vaults = [], isLoading: vaultsLoading, error: vaultsError } = useVaults();
+  // Recent changes and reveals; logins would crowd everything else out
   const { data: auditData, isLoading: auditLoading } = useAuditLogs({
-    limit: 4,
+    limit: 5,
     page: 1,
+    excludeAction: ['login.success', 'login.failure'],
   });
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
   const { data: health, isError: healthError } = useHealth();
@@ -79,8 +85,10 @@ export const DashboardPage = () => {
   const recentActivity = (auditData?.data || []).map((event) => ({
     id: event.id,
     type: event.action,
+    label: actionLabels.get(event.action) ?? event.action,
+    target: event.targetName,
     user: event.userEmail,
-    vault: event.vaultName || 'System',
+    vault: event.vaultName,
     env: event.environmentName,
     timestamp: formatRelativeTime(event.timestamp),
   }));
@@ -325,14 +333,20 @@ export const DashboardPage = () => {
                     >
                       <div className="flex items-center gap-2">
                         <Icon size={10} strokeWidth={1.5} className="flex-shrink-0" />
-                        <span className="font-semibold">{activity.type}</span>
-                        <span className="text-muted-foreground text-win-small ml-auto">
+                        <span className="font-semibold truncate min-w-0">
+                          {activity.label}
+                          {activity.target && (
+                            <span className="font-normal font-mono"> {activity.target}</span>
+                          )}
+                        </span>
+                        <span className="text-muted-foreground text-win-small ml-auto whitespace-nowrap">
                           {activity.timestamp}
                         </span>
                       </div>
                       <div className="text-win-small text-muted-foreground pl-4">
-                        {activity.user} in {activity.vault}
-                        {activity.env && (
+                        {activity.user}
+                        {activity.vault && ` in ${activity.vault}`}
+                        {activity.vault && activity.env && (
                           <span
                             className={isProductionEnvironment(activity.env) ? 'text-warning' : ''}
                           >

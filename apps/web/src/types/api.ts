@@ -280,6 +280,8 @@ export interface AuditFilters {
   /** Case-insensitive match on part of the user's email */
   userEmail?: string;
   action?: AuditAction;
+  /** Leave out events with these actions */
+  excludeAction?: AuditAction[];
   /** RFC 3339 timestamp or YYYY-MM-DD */
   startDate?: string;
   /** RFC 3339 timestamp or YYYY-MM-DD (the whole day is included) */

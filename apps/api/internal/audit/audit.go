@@ -92,11 +92,13 @@ type QueryFilters struct {
 	VaultID       *uuid.UUID
 	EnvironmentID *uuid.UUID
 	Action        *string
-	ResourceType  *string
-	StartTime     *time.Time // inclusive
-	EndTime       *time.Time // exclusive
-	Limit         int
-	Offset        int
+	// ExcludeActions drops events with any of these actions (e.g. logins on the dashboard).
+	ExcludeActions []string
+	ResourceType   *string
+	StartTime      *time.Time // inclusive
+	EndTime        *time.Time // exclusive
+	Limit          int
+	Offset         int
 }
 
 // Repository defines the interface for audit log data access

@@ -64,6 +64,14 @@ func TestAuditLogFilters(t *testing.T) {
 			t.Errorf("want 2 reveals, got %d", n)
 		}
 	})
+	t.Run("excludeAction", func(t *testing.T) {
+		n := all(t, "excludeAction=login.success&excludeAction=secret.revealed", func(e auditEvent) bool {
+			return e.Action != "login.success" && e.Action != "secret.revealed"
+		})
+		if n == 0 {
+			t.Error("expected remaining events")
+		}
+	})
 	t.Run("date range", func(t *testing.T) {
 		if n := all(t, "startDate=2020-01-01&endDate=2020-01-15", func(e auditEvent) bool { return e.Action == "vault.created" }); n != 1 {
 			t.Errorf("endDate as a day must include that whole day; got %d", n)

@@ -125,7 +125,7 @@ These are things that exist in the UI or README but don't work.
   - [x] API: `GET /stats` and a real `/health`.
   - [x] Web: stat cards from `/stats`; System Status from `/health` (the false "Key Derivation: PBKDF2" line is gone too, as keys are random, not derived).
 - [x] **System alerts.** Make the alerts panel list real items: expired secrets, secrets overdue for rotation, members with no recent login. Otherwise remove the panel. Commit: `feat(web): show expiry and rotation alerts on dashboard`
-- [ ] **Recent activity.** Once the audit endpoint is fixed, check that the panel fills in. Commit (if changes are needed): `fix(web): load recent activity from audit log`
+- [x] **Recent activity.** Once the audit endpoint is fixed, check that the panel fills in. Commit (if changes are needed): `fix(web): load recent activity from audit log`
 
 ### Docker and deployment
 - [ ] **Test the Compose stack from a fresh clone.** Run `docker compose up --build`, register, create a vault, add a secret, reveal it. Record every problem found as its own fix commit.

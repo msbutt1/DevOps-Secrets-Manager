@@ -71,7 +71,7 @@ type PaginatedAuditResponse struct {
 // Callers see their own events, every event in organizations they own or administer, and
 // events in vaults where they are an owner or admin. Query parameters (camelCase; snake_case
 // aliases are accepted): page, limit, organizationId, vaultId, environmentId, userId,
-// userEmail, action, startDate, endDate. Dates are RFC 3339 timestamps or YYYY-MM-DD days;
+// userEmail, action, excludeAction (repeatable), startDate, endDate. Dates are RFC 3339 timestamps or YYYY-MM-DD days;
 // a day as endDate includes that whole day.
 func (h *AuditHandlers) HandleQueryAuditLogs(w http.ResponseWriter, r *http.Request) {
 	claims, err := middleware.GetUserClaims(r.Context())
@@ -115,6 +115,11 @@ func (h *AuditHandlers) HandleQueryAuditLogs(w http.ResponseWriter, r *http.Requ
 	}
 	if action := q.Get("action"); action != "" {
 		filters.Action = &action
+	}
+	for _, excluded := range q["excludeAction"] {
+		if excluded != "" {
+			filters.ExcludeActions = append(filters.ExcludeActions, excluded)
+		}
 	}
 	if resourceType := param("targetType", "resource_type"); resourceType != "" {
 		filters.ResourceType = &resourceType

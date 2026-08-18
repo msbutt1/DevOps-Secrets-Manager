@@ -109,6 +109,9 @@ func (r *postgresRepository) Query(ctx context.Context, filters QueryFilters) ([
 	if filters.Action != nil {
 		conditions = append(conditions, "a.action = "+arg(*filters.Action))
 	}
+	if len(filters.ExcludeActions) > 0 {
+		conditions = append(conditions, "NOT (a.action = ANY("+arg(filters.ExcludeActions)+"))")
+	}
 	if filters.ResourceType != nil {
 		conditions = append(conditions, "a.resource_type = "+arg(*filters.ResourceType))
 	}

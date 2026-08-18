@@ -305,7 +305,9 @@ export const auditApi = {
   list: (filters: AuditFilters = {}): Promise<PaginatedResponse<AuditEvent>> => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '') {
+      if (Array.isArray(value)) {
+        value.forEach((item) => params.append(key, String(item)));
+      } else if (value !== undefined && value !== '') {
         params.append(key, String(value));
       }
     });
