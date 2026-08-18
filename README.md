@@ -38,7 +38,7 @@ A complete secrets management platform for DevOps teams featuring end-to-end enc
 | **API** | Go 1.21+, Chi Router | REST API server |
 | **Web** | React 18, TypeScript, Vite | User interface |
 | **CLI** | Rust 1.70+ | Command-line tool |
-| **Database** | PostgreSQL 15+ | Persistent storage |
+| **Database** | PostgreSQL 17 | Persistent storage |
 | **Auth** | JWT (RS256) | Authentication |
 | **Encryption** | AES-256-GCM | Secret encryption |
 
@@ -70,7 +70,7 @@ open http://localhost:5173
 - Go 1.21+
 - Node.js 18+
 - Rust 1.70+
-- PostgreSQL 15+
+- PostgreSQL 17 (the version used by Docker Compose and CI)
 
 #### 1. Start the Database
 
@@ -287,7 +287,7 @@ cargo clippy
 
 1. **Create Neon Database**
    - Sign up at neon.tech
-   - Create PostgreSQL 15 database
+   - Create PostgreSQL 17 database
    - Copy connection string
 
 2. **Deploy API to Fly.io**
@@ -360,6 +360,9 @@ devops-secrets-manager/
 ports:
   - "5433:5432"  # Use 5433 on host
 ```
+
+**Database fails to start after upgrading**
+Compose now uses PostgreSQL 17. A `postgres_data` volume created by the old PostgreSQL 15 image cannot be opened by 17: dump it first (`docker compose exec db pg_dumpall -U secrets_user > backup.sql` with the old image), or, for throwaway local data, remove it with `docker compose down -v`.
 
 **Database connection failed**
 ```bash

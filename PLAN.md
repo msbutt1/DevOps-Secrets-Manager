@@ -129,7 +129,7 @@ These are things that exist in the UI or README but don't work.
 
 ### Docker and deployment
 - [ ] **Test the Compose stack from a fresh clone.** Run `docker compose up --build`, register, create a vault, add a secret, reveal it. Record every problem found as its own fix commit.
-- [ ] **Postgres versions.** Compose uses Postgres 15 while local development used 17. Pick one (16 or 17) and document it. Commit: `chore(docker): pin Postgres version`
+- [x] **Postgres versions.** Compose uses Postgres 15 while local development used 17. Pick one (16 or 17) and document it. Commit: `chore(docker): pin Postgres version`
 - [ ] **Health checks.** Add a Compose health check for the API; make the web container wait for it. Commit: `chore(docker): add API healthcheck`
 - [ ] **Base images.** Pin the Alpine runtime image instead of `alpine:latest`, and drop the obsolete `-a -installsuffix cgo` build flags. Commit: `build(api): pin runtime image and simplify build flags`
 
