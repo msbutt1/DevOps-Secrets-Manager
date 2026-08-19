@@ -210,23 +210,35 @@ Secret Values (stored encrypted)
 
 ### Environment Variables
 
-```bash
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=secrets_manager
-# OR use connection string
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
+The API reads an optional `.env` file in its working directory, an optional `config.yaml`,
+and environment variables. Nested settings use the `APP_` prefix (`database.host` becomes
+`APP_DATABASE_HOST`). `make env` writes a working `apps/api/.env` for local development.
 
-# Security
-JWT_SECRET=your-jwt-secret-min-32-chars
-APP_ENCRYPTION_MASTER_KEY=32-byte-hex-encoded-key
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MASTER_KEK` | (required) | 64 hex characters (32 bytes); wraps every vault's data key |
+| `APP_JWT_SECRET` | (required) | HS256 signing secret, at least 32 characters, different from `MASTER_KEK` |
+| `APP_DATABASE_HOST` | `localhost` | PostgreSQL host |
+| `APP_DATABASE_PORT` | `5432` | PostgreSQL port (`make db` uses 5433) |
+| `APP_DATABASE_USER` / `APP_DATABASE_PASSWORD` | | Database credentials |
+| `APP_DATABASE_NAME` | | Database name |
+| `APP_DATABASE_SSLMODE` | `disable` | `require` or stricter for hosted databases |
+| `APP_DATABASE_MIGRATIONS_PATH` | `migrations` | Directory of SQL migrations, relative to the working directory |
+| `DATABASE_URL` | | Full connection string; overrides the `APP_DATABASE_*` settings |
+| `APP_SERVER_PORT` | `8080` | HTTP port |
+| `APP_JWT_ACCESS_TOKEN_TTL` | `15m` | Access token lifetime |
+| `APP_JWT_REFRESH_TOKEN_TTL` | `168h` | Refresh token lifetime |
+| `APP_ENV` | `production` | `development` enables local-only fallbacks (see below) |
+| `APP_PUBLIC_URL` | `http://localhost:5173` | Web app address used in emailed links |
+| `APP_REVEAL_AUTO_HIDE_SECONDS` | `30` | How long the web app shows a revealed value (5-600) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | | Outgoing email |
 
-# Server
-SERVER_PORT=8080
-```
+The API refuses to start when `MASTER_KEK` or `APP_JWT_SECRET` is missing, too short, a
+placeholder such as `change-me`, or a value that was ever published as an example.
+
+Docker Compose reads `.env` in the repository root (copy `.env.example`), where the keys are
+named `MASTER_KEK` and `JWT_SECRET` and the database settings `DATABASE_USER`,
+`DATABASE_PASSWORD` and `DATABASE_NAME`; `docker-compose.yml` maps them to the variables above.
 
 ### Email in Development
 
@@ -295,8 +307,8 @@ cargo clippy
    cd apps/api
    fly launch
    fly secrets set DATABASE_URL="postgresql://..."
-   fly secrets set JWT_SECRET="your-secret"
-   fly secrets set APP_ENCRYPTION_MASTER_KEY="your-key"
+   fly secrets set APP_JWT_SECRET="$(openssl rand -hex 32)"
+   fly secrets set MASTER_KEK="$(openssl rand -hex 32)"
    fly deploy
    ```
 

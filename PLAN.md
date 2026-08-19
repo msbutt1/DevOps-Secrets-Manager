@@ -136,7 +136,7 @@ These are things that exist in the UI or README but don't work.
 
 ### Documentation that doesn't match the code
 - [x] **JWT algorithm.** The README says tokens use RS256; the code uses HS256. Either correct the README or move to RS256 (see Phase 3). Commit: `docs: correct JWT signing algorithm`
-- [ ] **Variable names.** Make the README's environment variable names match what the code reads: `APP_DATABASE_*`, `APP_JWT_SECRET`, `MASTER_KEK`. Commit: `docs: fix environment variable names`
+- [x] **Variable names.** Make the README's environment variable names match what the code reads: `APP_DATABASE_*`, `APP_JWT_SECRET`, `MASTER_KEK`. Commit: `docs: fix environment variable names`
 - [ ] **Commands.** Check every command in the README and `apps/cli/QUICKSTART.md` by running it. Commit: `docs: verify setup and CLI instructions`
 - [ ] **OpenAPI spec.** Update `docs/openapi.yaml` to match the real API, including `/auth/me`, `/auth/change-password`, pagination and error formats. Commit: `docs(api): sync OpenAPI spec with handlers`
 
