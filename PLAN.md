@@ -137,7 +137,8 @@ These are things that exist in the UI or README but don't work.
 ### Documentation that doesn't match the code
 - [x] **JWT algorithm.** The README says tokens use RS256; the code uses HS256. Either correct the README or move to RS256 (see Phase 3). Commit: `docs: correct JWT signing algorithm`
 - [x] **Variable names.** Make the README's environment variable names match what the code reads: `APP_DATABASE_*`, `APP_JWT_SECRET`, `MASTER_KEK`. Commit: `docs: fix environment variable names`
-- [ ] **Commands.** Check every command in the README and `apps/cli/QUICKSTART.md` by running it. Commit: `docs: verify setup and CLI instructions`
+- [x] **Commands.** Check every command in the README and `apps/cli/QUICKSTART.md` by running it. Commit: `docs: verify setup and CLI instructions`
+  - Ran the Makefile quick start from a wiped database and the whole QUICKSTART workflow against the local API. Docker commands could not be run here. Problems found and queued under CLI: `logout` never revokes the refresh token, `pull --out` writes a world-readable file, and `set` cannot update.
 - [ ] **OpenAPI spec.** Update `docs/openapi.yaml` to match the real API, including `/auth/me`, `/auth/change-password`, pagination and error formats. Commit: `docs(api): sync OpenAPI spec with handlers`
 
 ---
@@ -208,6 +209,7 @@ These are half-built or missing, but a team would need them.
   - `secrets members list/add/remove`
   - `secrets import .env`
   - Commit per command, e.g. `feat(cli): add delete command`
+- [ ] **Logout and file safety.** (Found while checking the docs.) `secrets logout` sends no refresh token, so the session stays valid on the server; `pull --out` creates the `.env` file readable by everyone. Revoke on logout and write files with mode 0600. Commit: `fix(cli): revoke session on logout and write .env files privately`
 - [ ] **`secrets run` safety.** Never print values. Mask secrets that appear in the child process's output (optional flag). Exit with the child's exit code. Commit: `fix(cli): propagate exit code and mask values in run`
 - [ ] **Scripting output.** `--output json` on list commands. Commit: `feat(cli): JSON output`
 - [ ] **Shell completions.** Generate them with `clap_complete`. Commit: `feat(cli): shell completions`

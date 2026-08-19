@@ -5,8 +5,9 @@ Get up and running with the DevOps Secrets Manager CLI in 5 minutes.
 ## Prerequisites
 
 - Rust toolchain installed (rustc, cargo)
-- DevOps Secrets Manager API server running at localhost:8080
-- Valid user account credentials
+- DevOps Secrets Manager API server running at localhost:8080 (`make dev` from the repository root)
+- A verified account (after `make seed`: `salaar@demo.dev` / `Demo-Passw0rd!2026`)
+- A vault with at least one environment; the CLI cannot create them yet
 
 ## Build
 
@@ -18,7 +19,7 @@ cargo build --release
 make release
 ```
 
-The binary will be at `target/release/secrets` (11MB).
+The binary will be at `target/release/secrets`.
 
 ## Quick Test
 
@@ -38,7 +39,7 @@ The binary will be at `target/release/secrets` (11MB).
 ./target/release/secrets login
 ```
 
-Enter your email and password when prompted. Tokens are stored securely in your system keyring.
+Enter your email and password when prompted. Tokens are stored in the system keyring when one is available; otherwise they fall back to a base64-encoded file in your config directory, which is not encrypted.
 
 ### 2. List Vaults
 
@@ -51,20 +52,20 @@ You'll see a table with all available vaults.
 ### 3. Pull Secrets
 
 ```bash
-./target/release/secrets pull --vault my-vault --env development
+./target/release/secrets pull --vault payments-api --env development
 ```
 
 Secrets are displayed in KEY=value format.
 
-### 4. Run with Secrets (THE KILLER FEATURE)
+### 4. Run with Secrets
 
 Instead of managing .env files, inject secrets directly:
 
 ```bash
-./target/release/secrets run --vault backend --env dev -- node server.js
+./target/release/secrets run --vault payments-api --env development -- node server.js
 ```
 
-Secrets are injected as environment variables WITHOUT writing to disk!
+Secrets are injected as environment variables without writing them to disk.
 
 ## Common Use Cases
 
@@ -94,6 +95,8 @@ secrets run --vault deploy --env prod -- ./deploy.sh
 
 ### Adding Secrets
 
+`set` creates a new secret; it fails if the key already exists in that environment.
+
 ```bash
 # Add a new secret
 secrets set DATABASE_URL=postgres://localhost/mydb \
@@ -107,10 +110,10 @@ secrets set DATABASE_URL=postgres://localhost/mydb \
 To use `secrets` from anywhere:
 
 ```bash
-# Using make
-make install
+# Install into ~/.cargo/bin
+cargo install --path .
 
-# Or manually
+# Or system-wide
 sudo cp target/release/secrets /usr/local/bin/
 ```
 
@@ -121,7 +124,7 @@ Now you can use `secrets` instead of `./target/release/secrets`.
 1. **Zero-Disk Secrets**: The `run` command never writes secrets to disk
 2. **Automatic Token Refresh**: Expired tokens are refreshed transparently
 3. **Smart Resolution**: Use vault/environment names, not UUIDs
-4. **Secure Storage**: Tokens stored in system keyring with file fallback
+4. **Token Storage**: Tokens stored in the system keyring, with a plain file fallback
 5. **Clean Output**: Beautiful table formatting for all list commands
 
 ## Examples
@@ -155,8 +158,11 @@ secrets pull --vault app --env staging --out .env
 ### View Activity
 
 ```bash
-# See all audit logs
+# See recent audit events
 secrets audit
+
+# Only the last day
+secrets audit --since 24h
 
 # Filter by vault
 secrets audit --vault backend
@@ -178,7 +184,7 @@ The CLI will automatically fall back to file-based storage if the system keyring
 
 ### Command not found
 
-Either use the full path `./target/release/secrets` or install it system-wide with `make install`.
+Either use the full path `./target/release/secrets` or install it with `cargo install --path .`.
 
 ## Next Steps
 

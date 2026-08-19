@@ -26,7 +26,7 @@ A complete secrets management platform for DevOps teams featuring end-to-end enc
 - **End-to-End Encryption**: AES-256-GCM envelope encryption with master KEK and per-vault DEKs
 - **Role-Based Access Control**: 5 roles (Owner, Admin, Developer, Oncall, Viewer) with granular permissions
 - **Vault-Level Membership**: Fine-grained access control per vault, not just organization-wide
-- **Secret Versioning**: Full history of secret changes with audit trail
+- **Audit Log**: Every reveal and change is recorded with who, where and when
 - **Environment Injection**: Run any command with secrets injected as environment variables
 - **JWT Authentication**: HS256-signed access tokens with refresh token rotation
 - **Multi-Environment Support**: Organize secrets by environment (dev, staging, production)
@@ -44,91 +44,57 @@ A complete secrets management platform for DevOps teams featuring end-to-end enc
 
 ## Quick Start
 
-### Using Docker (Recommended)
+### Local development (no Docker)
+
+Requires Go 1.25, Node.js 22, PostgreSQL 17 client and server binaries (`pg_ctl`, `initdb`,
+`psql`) and, for the CLI, Rust.
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd devops-secrets-manager
+git clone https://github.com/msbutt1/DevOps-Secrets-Manager.git
+cd DevOps-Secrets-Manager
+make db && make migrate-up && make seed && make dev
+```
 
-# Copy environment file
+- `make db` initialises and starts PostgreSQL on port 5433 under `~/.local/share/devops-secrets-manager`
+- `make migrate-up` writes `apps/api/.env` with generated keys (if missing) and applies migrations
+- `make seed` creates demo users, vaults, environments and secrets through the API
+- `make dev` runs the API on http://localhost:8080 and the web app on http://localhost:5173
+
+Log in as `salaar@demo.dev` with the password `Demo-Passw0rd!2026`. `make help` lists every
+target, including `make test`, `make lint` and `make cli`.
+
+### Docker Compose
+
+```bash
 cp .env.example .env
-
-# Start all services
-docker compose up -d
-
-# Access the web UI
-open http://localhost:5173
-
-# Register a new account through the web UI
+# Replace MASTER_KEK and JWT_SECRET in .env; generate each with: openssl rand -hex 32
+docker compose up --build -d
 ```
 
-### Manual Development Setup
+The web app is served on http://localhost:3000 and the API on http://localhost:8080. With
+`APP_ENV=development` and no SMTP settings, the verification link for a new account is printed
+in the API logs (`docker compose logs api`).
 
-#### Prerequisites
-
-- Go 1.21+
-- Node.js 18+
-- Rust 1.70+
-- PostgreSQL 17 (the version used by Docker Compose and CI)
-
-#### 1. Start the Database
+### CLI
 
 ```bash
-# Create database
-createdb secrets_manager
-
-# The API will run migrations automatically on startup
-```
-
-#### 2. Start the API
-
-```bash
-cd apps/api
-
-# Copy and configure
-cp ../../.env.example .env
-# Edit .env with your database credentials
-
-# Run the server
-go run cmd/server/main.go
-```
-
-#### 3. Start the Web UI
-
-```bash
-cd apps/web
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-#### 4. Build the CLI
-
-```bash
-cd apps/cli
-
-# Build release binary
-cargo build --release
-
-# Install globally (optional)
-cargo install --path .
+make cli                       # builds apps/cli/target/release/secrets
+cargo install --path apps/cli  # optional: puts `secrets` on your PATH
 ```
 
 ## User Guide
 
 ### Web Interface
 
-1. **Register/Login**: Create an account at `http://localhost:5173`
-2. **Create Organization**: Set up your team's organization
-3. **Create Vault**: Organize secrets by project or service
-4. **Add Secrets**: Store key-value pairs with optional metadata
-5. **Manage Members**: Invite team members with appropriate roles
+1. **Register and verify**: Create an account at `http://localhost:5173` and open the verification link (logged by the API in development)
+2. **Organization**: Registration creates your own organization, where you are the owner
+3. **Create a vault**: Organize secrets by project or service, then add environments such as `staging` or `production`
+4. **Add secrets**: Store key-value pairs with optional description, rotation interval, expiry and labels
+5. **Manage members**: Give people in your organization a role on the vault
 
 ### CLI Commands
+
+The CLI talks to the API at `http://localhost:8080`.
 
 ```bash
 # Authenticate
@@ -137,7 +103,7 @@ secrets login
 # List your vaults
 secrets vault list
 
-# View secrets in a vault
+# List a vault's environments
 secrets env list --vault my-app
 
 # Pull secrets to a .env file
@@ -146,7 +112,7 @@ secrets pull --vault my-app --env production --out .env
 # Run a command with injected secrets
 secrets run --vault my-app --env production -- npm start
 
-# Set a secret
+# Create a secret (the key must not exist yet)
 secrets set "API_KEY=sk-123" --vault my-app --env production
 
 # View audit log
@@ -155,20 +121,30 @@ secrets audit --vault my-app --since 7d
 
 ### API Endpoints
 
+The API has no path prefix; the web app reaches it through `/api` (proxied by Vite in
+development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/refresh` | Refresh token |
-| GET | `/api/vaults` | List user's vaults |
-| POST | `/api/vaults` | Create vault |
-| GET | `/api/vaults/:id` | Get vault details |
-| GET | `/api/vaults/:id/secrets` | List secrets |
-| POST | `/api/vaults/:id/secrets` | Create secret |
-| GET | `/api/vaults/:id/secrets/:secretId/reveal` | Reveal secret value |
-| GET | `/api/vaults/:id/members` | List vault members |
-| POST | `/api/vaults/:id/members` | Add member |
-| DELETE | `/api/vaults/:id/members/:userId` | Remove member |
+| POST | `/auth/register` | Register (sends a verification email) |
+| POST | `/auth/verify-email` | Verify an email address |
+| POST | `/auth/login` | Log in |
+| POST | `/auth/refresh` | Exchange a refresh token for new tokens |
+| POST | `/auth/logout` | Revoke a refresh token |
+| GET | `/auth/me` | Current user and organizations |
+| POST | `/auth/change-password` | Change password |
+| GET, POST | `/vaults` | List or create vaults |
+| GET, PUT, DELETE | `/vaults/{id}` | Read, rename or delete a vault |
+| GET, POST | `/vaults/{id}/envs` | List or create environments |
+| GET, PUT, DELETE | `/envs/{id}` | Read, rename or delete an environment |
+| GET, POST | `/envs/{id}/secrets` | List secret metadata or create a secret |
+| PUT, DELETE | `/secrets/{id}` | Update or delete a secret |
+| POST | `/secrets/{id}/reveal` | Decrypt a secret value (audited) |
+| GET, POST | `/vaults/{id}/members` | List or add vault members |
+| PUT, DELETE | `/vaults/{id}/members/{userId}` | Change a member's role or remove them |
+| GET | `/audit` | Paginated, filterable audit log |
+| GET | `/stats`, `/alerts` | Dashboard counts and alerts |
+| GET | `/health` | Database, schema version and uptime |
 
 ## Security Model
 
@@ -196,15 +172,18 @@ Secret Values (stored encrypted)
 
 ### Role Permissions
 
+Roles are set per vault. Organization owners and admins have that role on every vault in the
+organization; everyone else needs to be added to a vault.
+
 | Permission | Owner | Admin | Developer | Oncall | Viewer |
 |------------|-------|-------|-----------|--------|--------|
-| View Secrets | Yes | Yes | Yes | Yes | Yes |
-| Reveal Values | Yes | Yes | Yes | Yes | No |
-| Create Secrets | Yes | Yes | Yes | No | No |
-| Update Secrets | Yes | Yes | Yes | No | No |
-| Delete Secrets | Yes | Yes | No | No | No |
-| Manage Members | Yes | Yes | No | No | No |
-| Delete Vault | Yes | No | No | No | No |
+| See vaults, environments, secret names and members | Yes | Yes | Yes | Yes | Yes |
+| Create, update and delete secrets and environments | Yes | Yes | Yes | No | No |
+| Reveal secret values | Yes | Yes | No | Yes | No |
+| Manage members and read the vault's audit log | Yes | Yes | No | No | No |
+| Delete the vault | Yes | No | No | No | No |
+
+Only owners can grant or remove the owner role, and a vault always keeps at least one owner.
 
 ## Configuration
 
@@ -262,36 +241,14 @@ openssl rand -hex 32
 ### Running Tests
 
 ```bash
-# API tests
-cd apps/api
-go test ./...
-
-# Web tests
-cd apps/web
-npm test
-
-# CLI tests
-cd apps/cli
-cargo test
+make test       # Go, web and CLI tests
+make lint       # gofmt, go vet, ESLint, Prettier, TypeScript, rustfmt and clippy
+make build      # API, web bundle and CLI release binary
 ```
 
-### Code Quality
-
-```bash
-# API linting
-cd apps/api
-go vet ./...
-golangci-lint run
-
-# Web linting
-cd apps/web
-npm run lint
-
-# CLI formatting
-cd apps/cli
-cargo fmt --check
-cargo clippy
-```
+Go integration tests create a throwaway database per test on the server named by
+`TEST_DATABASE_URL` (the Makefile points it at the local PostgreSQL from `make db`) and are
+skipped when it is not set. CI runs the same targets.
 
 ## Deployment
 
@@ -320,28 +277,19 @@ cargo clippy
    # Set VITE_API_BASE_URL to your Fly.io API URL
    ```
 
-### Docker Production
-
-```bash
-# Build production images
-docker compose -f docker-compose.prod.yml build
-
-# Deploy with your orchestrator of choice
-```
-
 ## Project Structure
 
 ```
 devops-secrets-manager/
 |-- apps/
 |   |-- api/                 # Go REST API
-|   |   |-- cmd/server/      # Entry point
+|   |   |-- cmd/             # server, migrate and seed commands
 |   |   |-- internal/        # Business logic
 |   |   |   |-- http/        # HTTP handlers
 |   |   |   |-- policy/      # RBAC policies
 |   |   |   |-- storage/     # Database layer
-|   |   |   |-- crypto/      # Encryption
-|   |   |   |-- jwt/         # Token handling
+|   |   |   |-- crypto/      # Envelope encryption, JWT, key checks
+|   |   |   |-- audit/       # Audit log
 |   |   |-- migrations/      # SQL migrations
 |   |
 |   |-- web/                 # React frontend
@@ -358,7 +306,8 @@ devops-secrets-manager/
 |           |-- api/         # API client
 |           |-- config/      # Token storage
 |
-|-- docker-compose.yml       # Local development
+|-- Makefile                 # Local development and checks
+|-- docker-compose.yml       # Containerised stack
 |-- .env.example             # Environment template
 ```
 
@@ -367,11 +316,8 @@ devops-secrets-manager/
 ### Common Issues
 
 **Port already in use**
-```bash
-# Change PostgreSQL port in docker-compose.yml
-ports:
-  - "5433:5432"  # Use 5433 on host
-```
+Compose publishes PostgreSQL on 5433, the API on 8080 and the web app on 3000; `make db` also
+uses 5433, so stop one before starting the other (`make db-stop`).
 
 **Database fails to start after upgrading**
 Compose now uses PostgreSQL 17. A `postgres_data` volume created by the old PostgreSQL 15 image cannot be opened by 17: dump it first (`docker compose exec db pg_dumpall -U secrets_user > backup.sql` with the old image), or, for throwaway local data, remove it with `docker compose down -v`.
@@ -393,8 +339,8 @@ secrets login
 ```
 
 **Cannot reveal secrets**
-- Check your role has reveal permission (Developer or higher)
-- Verify you're a member of the vault
+- Only owners, admins and on-call members can reveal values; developers can write but not read them
+- Check your role on that vault (the Members page shows it)
 
 ## Contributing
 
