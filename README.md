@@ -28,7 +28,7 @@ A complete secrets management platform for DevOps teams featuring end-to-end enc
 - **Vault-Level Membership**: Fine-grained access control per vault, not just organization-wide
 - **Secret Versioning**: Full history of secret changes with audit trail
 - **Environment Injection**: Run any command with secrets injected as environment variables
-- **JWT Authentication**: Secure token-based auth with refresh token rotation
+- **JWT Authentication**: HS256-signed access tokens with refresh token rotation
 - **Multi-Environment Support**: Organize secrets by environment (dev, staging, production)
 
 ## Tech Stack
@@ -39,7 +39,7 @@ A complete secrets management platform for DevOps teams featuring end-to-end enc
 | **Web** | React 18, TypeScript, Vite | User interface |
 | **CLI** | Rust 1.70+ | Command-line tool |
 | **Database** | PostgreSQL 17 | Persistent storage |
-| **Auth** | JWT (RS256) | Authentication |
+| **Auth** | JWT (HS256) | Authentication |
 | **Encryption** | AES-256-GCM | Secret encryption |
 
 ## Quick Start
