@@ -128,7 +128,8 @@ These are things that exist in the UI or README but don't work.
 - [x] **Recent activity.** Once the audit endpoint is fixed, check that the panel fills in. Commit (if changes are needed): `fix(web): load recent activity from audit log`
 
 ### Docker and deployment
-- [ ] **Test the Compose stack from a fresh clone.** Run `docker compose up --build`, register, create a vault, add a secret, reveal it. Record every problem found as its own fix commit.
+- [-] **Test the Compose stack from a fresh clone.** Run `docker compose up --build`, register, create a vault, add a secret, reveal it. Record every problem found as its own fix commit.
+  - Not possible on the development machine (the Docker daemon needs sudo). The Compose file is validated with `docker compose config`, a static review found and fixed the missing root `.dockerignore`, and CI builds the images; running the stack end to end is left for a machine with Docker.
 - [x] **Postgres versions.** Compose uses Postgres 15 while local development used 17. Pick one (16 or 17) and document it. Commit: `chore(docker): pin Postgres version`
 - [x] **Health checks.** Add a Compose health check for the API; make the web container wait for it. Commit: `chore(docker): add API healthcheck`
 - [x] **Base images.** Pin the Alpine runtime image instead of `alpine:latest`, and drop the obsolete `-a -installsuffix cgo` build flags. Commit: `build(api): pin runtime image and simplify build flags`
