@@ -55,6 +55,14 @@ func (mg *Migrator) Up() error {
 	return nil
 }
 
+// Steps applies n pending migrations.
+func (mg *Migrator) Steps(n int) error {
+	if err := mg.m.Steps(n); err != nil {
+		return fmt.Errorf("failed to apply %d migrations: %w", n, err)
+	}
+	return nil
+}
+
 // Down rolls back the given number of migrations; steps <= 0 rolls back all of them.
 func (mg *Migrator) Down(steps int) error {
 	var err error
