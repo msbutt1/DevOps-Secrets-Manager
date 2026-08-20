@@ -22,6 +22,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Keys whose values are user-defined maps (secret labels, audit metadata). Their own keys are
+ * data, not field names, so they are passed through unchanged in both directions.
+ */
+const FREE_FORM_KEYS = new Set(['metadata']);
+
+/**
  * Convert object keys from snake_case to camelCase (for API responses)
  */
 export function toCamelCase<T>(obj: unknown): T {
@@ -41,7 +47,7 @@ export function toCamelCase<T>(obj: unknown): T {
 
     for (const [key, value] of Object.entries(obj)) {
       const camelKey = snakeToCamel(key);
-      result[camelKey] = toCamelCase(value);
+      result[camelKey] = FREE_FORM_KEYS.has(key) ? value : toCamelCase(value);
     }
 
     return result as T;
@@ -71,7 +77,7 @@ export function toSnakeCase<T>(obj: unknown): T {
 
     for (const [key, value] of Object.entries(obj)) {
       const snakeKey = camelToSnake(key);
-      result[snakeKey] = toSnakeCase(value);
+      result[snakeKey] = FREE_FORM_KEYS.has(snakeKey) ? value : toSnakeCase(value);
     }
 
     return result as T;

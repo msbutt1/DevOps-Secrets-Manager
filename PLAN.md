@@ -164,7 +164,7 @@ These are half-built or missing, but a team would need them.
 - [ ] **Forgot password.** Emailed reset token, then a reset page. Commit: `feat: password reset by email`
 - [x] **Email verification in development.** Login is blocked until the email is verified, but local setups have no SMTP. Add a dev mode that logs the verification link (or a `APP_EMAIL_DISABLED=true` auto-verify switch that is off by default). Document it. Commit: `feat(api): log verification links when SMTP is not configured`
 - [ ] **Resend verification email.** Commit: `feat: resend verification email`
-- [ ] **Sessions.** List active sessions (refresh tokens) in Settings and allow "sign out everywhere". Commit: `feat: view and revoke active sessions`
+- [ ] **Sessions.** List active sessions (refresh tokens) in Settings and allow "sign out everywhere". The Settings page's "Current Session" panel is currently hard-coded ("Chrome on Windows", 192.168.1.100) and must show real data or go. Commit: `feat: view and revoke active sessions`
 
 ### Secrets lifecycle
 - [ ] **Expiry.**
@@ -258,6 +258,7 @@ These are half-built or missing, but a team would need them.
   - Uses the CI Postgres service / local `make db` server through `TEST_DATABASE_URL`, with a fresh database per test (no new dependency).
 - [x] **Migration tests.** Every migration applies and rolls back cleanly, which would have caught the missing `vault_members` table. Commit: `test(api): migrations apply and roll back`
 - [x] **Contract test.** Generate the web app's TypeScript types from `docs/openapi.yaml` (`openapi-typescript`), and fail CI if the handlers and spec differ. This stops the API/web drift that caused most of Phase 1. Commit: `test: enforce OpenAPI contract for web types`
+- [x] **Secret label keys were rewritten.** (Found by the generated types.) The web app's snake_case/camelCase transform also renamed user-defined label keys, so `team_name` came back as `teamName` and was saved that way. Keys inside `metadata` are now left alone. Commit: `fix(web): keep secret label keys unchanged`
 - [ ] **Web tests.**
   - Components: reveal dialog, permission gate, secret form validation.
   - Replace the placeholder `src/test/example.test.ts`.

@@ -106,3 +106,23 @@ describe('toSnakeCase', () => {
     expect(toSnakeCase(true)).toBe(true);
   });
 });
+
+describe('free-form metadata', () => {
+  it('keeps label keys exactly as the user wrote them in both directions', () => {
+    const fromApi = toCamelCase<{ keyName: string; metadata: Record<string, string> }>({
+      key_name: 'DATABASE_URL',
+      metadata: { team_name: 'payments', costCenter: 'cc-1', Owner: 'ops' },
+    });
+    expect(fromApi.keyName).toBe('DATABASE_URL');
+    expect(fromApi.metadata).toEqual({ team_name: 'payments', costCenter: 'cc-1', Owner: 'ops' });
+
+    const toApi = toSnakeCase<Record<string, unknown>>({
+      keyName: 'DATABASE_URL',
+      metadata: { team_name: 'payments', costCenter: 'cc-1' },
+    });
+    expect(toApi).toEqual({
+      key_name: 'DATABASE_URL',
+      metadata: { team_name: 'payments', costCenter: 'cc-1' },
+    });
+  });
+});
