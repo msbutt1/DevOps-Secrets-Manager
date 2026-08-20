@@ -23,7 +23,7 @@ import type {
   UpdateMemberRequest,
   AuditEvent,
   AuditFilters,
-  PaginatedResponse,
+  AuditEventPage,
   DashboardStats,
   DashboardAlert,
   HealthStatus,
@@ -302,7 +302,7 @@ export const accessApi = {
 
 // ============ AUDIT API ============
 export const auditApi = {
-  list: (filters: AuditFilters = {}): Promise<PaginatedResponse<AuditEvent>> => {
+  list: (filters: AuditFilters = {}): Promise<AuditEventPage> => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (Array.isArray(value)) {
@@ -311,7 +311,7 @@ export const auditApi = {
         params.append(key, String(value));
       }
     });
-    return apiFetch<PaginatedResponse<AuditEvent>>(`/audit?${params.toString()}`);
+    return apiFetch<AuditEventPage>(`/audit?${params.toString()}`);
   },
 };
 

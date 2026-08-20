@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "generate:api-types": "openapi-typescript ../../docs/openapi.yaml -o src/types/openapi.gen.ts && prettier --write src/types/openapi.gen.ts",
+    "check:api-types": "node scripts/check-api-types.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -80,6 +82,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
+    "openapi-typescript": "7.13.0",
     "postcss": "^8.5.6",
     "prettier": "3.9.6",
     "tailwindcss": "^3.4.17",

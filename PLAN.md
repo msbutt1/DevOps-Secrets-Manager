@@ -257,7 +257,7 @@ These are half-built or missing, but a team would need them.
   Commit: `test(api): end-to-end API integration tests`
   - Uses the CI Postgres service / local `make db` server through `TEST_DATABASE_URL`, with a fresh database per test (no new dependency).
 - [x] **Migration tests.** Every migration applies and rolls back cleanly, which would have caught the missing `vault_members` table. Commit: `test(api): migrations apply and roll back`
-- [ ] **Contract test.** Generate the web app's TypeScript types from `docs/openapi.yaml` (`openapi-typescript`), and fail CI if the handlers and spec differ. This stops the API/web drift that caused most of Phase 1. Commit: `test: enforce OpenAPI contract for web types`
+- [x] **Contract test.** Generate the web app's TypeScript types from `docs/openapi.yaml` (`openapi-typescript`), and fail CI if the handlers and spec differ. This stops the API/web drift that caused most of Phase 1. Commit: `test: enforce OpenAPI contract for web types`
 - [ ] **Web tests.**
   - Components: reveal dialog, permission gate, secret form validation.
   - Replace the placeholder `src/test/example.test.ts`.

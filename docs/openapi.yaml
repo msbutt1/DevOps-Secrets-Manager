@@ -812,11 +812,12 @@ components:
 
     UserProfile:
       type: object
-      required: [id, email, name, organizations]
+      required: [id, email, name, created_at, organizations]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
         name: { type: string }
+        created_at: { type: string, format: date-time }
         organizations:
           type: array
           items: { $ref: '#/components/schemas/UserOrganization' }

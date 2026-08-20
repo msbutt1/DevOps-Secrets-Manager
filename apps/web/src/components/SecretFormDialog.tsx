@@ -29,7 +29,12 @@ export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretForm
       setDescription(secret.description || '');
       setRotationInterval(secret.rotationPolicy?.intervalDays.toString() || '');
       setExpiresAt(secret.expiresAt?.split('T')[0] || '');
-      setLabels(Object.entries(secret.metadata || {}).map(([key, value]) => ({ key, value })));
+      setLabels(
+        Object.entries(secret.metadata || {}).map(([key, value]) => ({
+          key,
+          value: String(value),
+        })),
+      );
     } else {
       setName('');
       setValue('');

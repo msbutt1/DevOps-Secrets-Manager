@@ -57,7 +57,8 @@ func New(t *testing.T) *Server {
 		SLogger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
-	srv := httptest.NewServer(handler)
+	// Every request made through the harness is checked against docs/openapi.yaml.
+	srv := httptest.NewServer(contractMiddleware(t, handler))
 	t.Cleanup(srv.Close)
 	return &Server{Server: srv, Pool: pool, Email: recorder, t: t}
 }

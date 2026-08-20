@@ -42,9 +42,10 @@ type AuthResponse struct {
 
 // UserProfile represents the user profile information
 type UserProfile struct {
-	ID    uuid.UUID
-	Email string
-	Name  string
+	ID        uuid.UUID
+	Email     string
+	Name      string
+	CreatedAt time.Time
 }
 
 // RegisterRequest represents a user registration request
@@ -285,9 +286,10 @@ func (s *authService) Me(ctx context.Context, userID uuid.UUID) (*UserProfile, e
 	}
 
 	return &UserProfile{
-		ID:    user.ID,
-		Email: user.Email,
-		Name:  user.Name,
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		CreatedAt: user.CreatedAt,
 	}, nil
 }
 

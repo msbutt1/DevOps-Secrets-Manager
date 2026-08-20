@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { auditApi } from '@/lib/api-client';
-import type { AuditFilters, AuditEvent, PaginatedResponse } from '@/types/api';
+import type { AuditFilters, AuditEventPage } from '@/types/api';
 
 export const auditKeys = {
   all: ['audit'] as const,
@@ -8,7 +8,7 @@ export const auditKeys = {
 };
 
 export function useAuditLogs(filters: AuditFilters) {
-  return useQuery<PaginatedResponse<AuditEvent>>({
+  return useQuery<AuditEventPage>({
     queryKey: auditKeys.list(filters),
     queryFn: () => auditApi.list(filters),
   });

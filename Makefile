@@ -129,7 +129,7 @@ lint-api:
 	go vet ./...
 
 lint-web: web-deps
-	cd apps/web && npm run lint && npm run format:check && npx tsc -p tsconfig.app.json --noEmit
+	cd apps/web && npm run lint && npm run format:check && npm run check:api-types && npx tsc -p tsconfig.app.json --noEmit
 
 lint-cli:
 	cd apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings

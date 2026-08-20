@@ -16,12 +16,13 @@ func TestRegisterVerifyLoginAndMe(t *testing.T) {
 
 	var me struct {
 		Email         string `json:"email"`
+		CreatedAt     string `json:"created_at"`
 		Organizations []struct {
 			Role string `json:"role"`
 		} `json:"organizations"`
 	}
 	api.MustDo(http.StatusOK, http.MethodGet, "/auth/me", user.Token, nil).Decode(t, &me)
-	if me.Email != user.Email {
+	if me.Email != user.Email || me.CreatedAt == "" {
 		t.Fatalf("expected %s, got %s", user.Email, me.Email)
 	}
 	if len(me.Organizations) != 1 || me.Organizations[0].Role != "owner" {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,6 +67,7 @@ type UserProfileDTO struct {
 	ID            uuid.UUID             `json:"id"`
 	Email         string                `json:"email"`
 	Name          string                `json:"name"`
+	CreatedAt     time.Time             `json:"created_at"`
 	Organizations []UserOrganizationDTO `json:"organizations"`
 }
 
@@ -182,6 +184,7 @@ func (h *AuthHandlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 		ID:            profile.ID,
 		Email:         profile.Email,
 		Name:          profile.Name,
+		CreatedAt:     profile.CreatedAt,
 		Organizations: orgs,
 	})
 }

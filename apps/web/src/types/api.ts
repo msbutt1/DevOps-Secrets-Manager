@@ -1,188 +1,51 @@
+import type { Camelize } from './camelize';
+import type { components } from './openapi.gen';
+
+/**
+ * Request and response types come from docs/openapi.yaml (generated into openapi.gen.ts with
+ * `npm run generate:api-types`) with keys camelCased the way api-client transforms them, so the
+ * web app cannot drift from the API contract without failing the type check.
+ */
+type Schema<Name extends keyof components['schemas']> = Camelize<components['schemas'][Name]>;
+
 // Authentication DTOs
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name: string;
-}
-
-export interface RegisterResponse {
-  userId: string;
-  message: string;
-}
-
-export interface VerifyEmailRequest {
-  token: string;
-}
-
-export interface VerifyEmailResponse {
-  message: string;
-}
-
-export interface ChangePasswordRequest {
-  currentPassword: string;
-  newPassword: string;
-}
-
-export interface ChangePasswordResponse {
-  message: string;
-}
-
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  createdAt: string;
-  organizations?: UserOrganization[];
-}
-
-export interface UserOrganization {
-  id: string;
-  name: string;
-  role: OrganizationRole;
-}
-
-export type OrganizationRole = 'owner' | 'admin' | 'developer' | 'oncall' | 'viewer';
-
-// Organization DTOs
-export interface Organization {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type LoginRequest = Schema<'LoginRequest'>;
+export type RegisterRequest = Schema<'RegisterRequest'>;
+export type RegisterResponse = Schema<'RegisterResponse'>;
+export type VerifyEmailRequest = Schema<'VerifyEmailRequest'>;
+export type VerifyEmailResponse = Schema<'MessageResponse'>;
+export type ChangePasswordRequest = Schema<'ChangePasswordRequest'>;
+export type ChangePasswordResponse = Schema<'MessageResponse'>;
+export type AuthTokens = Schema<'AuthTokens'>;
+export type User = Schema<'UserProfile'>;
+export type UserOrganization = Schema<'UserOrganization'>;
+export type OrganizationRole = Schema<'Role'>;
 
 // Vault DTOs
-export interface Vault {
-  id: string;
-  name: string;
-  description?: string;
-  organizationId: string;
-  organizationName: string;
-  createdAt: string;
-  updatedAt: string;
-  /** Creator's display name; empty when unknown */
-  createdBy: string;
-  createdById: string | null;
-  userRole: VaultRole;
-  secretCount?: number;
-  envCount?: number;
-}
+export type Vault = Schema<'Vault'>;
+export type VaultCreateRequest = Schema<'CreateVaultRequest'>;
+export type VaultUpdateRequest = Schema<'UpdateVaultRequest'>;
 
-export interface VaultCreateRequest {
-  name: string;
-  description?: string;
-  organizationId?: string;
-}
-
-export interface VaultUpdateRequest {
-  name?: string;
-  description?: string;
-}
-
-export interface Environment {
-  id: string;
-  vaultId: string;
-  name: EnvironmentName;
-  description?: string;
-  createdAt: string;
-  updatedAt?: string;
-  secretCount?: number;
-}
-
+// Environment DTOs
+export type Environment = Schema<'Environment'>;
 /** Any name matching ENVIRONMENT_NAME_PATTERN in src/lib/environments.ts */
 export type EnvironmentName = string;
-
-export interface EnvironmentCreateRequest {
-  name: EnvironmentName;
-  description?: string;
-}
-
-export interface EnvironmentUpdateRequest {
-  name?: EnvironmentName;
-  description?: string;
-}
+export type EnvironmentCreateRequest = Schema<'EnvironmentRequest'>;
+export type EnvironmentUpdateRequest = Schema<'EnvironmentRequest'>;
 
 // Secret DTOs
-export interface Secret {
-  id: string;
-  environmentId: string;
-  keyName: string;
-  description?: string;
-  lastUpdatedAt?: string;
-  updatedAt?: string;
-  /** Display name of the user who last changed the secret */
-  lastUpdatedBy: string;
-  lastUpdatedById: string | null;
-  createdAt?: string;
-  createdBy?: string;
-  rotationPolicy: RotationPolicy | null;
-  expiresAt: string | null;
-  metadata?: Record<string, string>;
-}
-
-export interface SecretCreateRequest {
-  keyName: string;
-  value: string;
-  description?: string;
-  rotationIntervalDays?: number;
-  expiresAt?: string;
-  metadata?: Record<string, string>;
-}
-
-export interface SecretUpdateRequest {
-  value?: string;
-  description?: string;
-  rotationIntervalDays?: number;
-  expiresAt?: string;
-  metadata?: Record<string, string>;
-}
-
-export interface SecretRevealResponse {
-  value: string;
-  expiresIn: number; // seconds until auto-hide
-}
-
-export type RotationPolicy = {
-  intervalDays: number;
-  /** When the value was last changed; null if it never has been since creation */
-  lastRotatedAt: string | null;
-  nextRotationAt: string;
-};
+export type Secret = Schema<'SecretMetadata'>;
+export type SecretCreateRequest = Schema<'CreateSecretRequest'>;
+export type SecretUpdateRequest = Schema<'UpdateSecretRequest'>;
+export type SecretRevealResponse = Schema<'SecretReveal'>;
+export type RotationPolicy = Schema<'RotationPolicy'>;
 
 // Access Control DTOs
-export type VaultRole = 'owner' | 'admin' | 'developer' | 'oncall' | 'viewer';
-
-export interface VaultMember {
-  userId: string;
-  email: string;
-  name: string;
-  role: VaultRole;
-  permissions: VaultPermissions;
-  addedAt: string;
-  /** Display name of whoever added the member; empty when unknown */
-  addedBy: string;
-  addedById: string | null;
-}
-
-export interface VaultPermissions {
-  canRead: boolean;
-  canWrite: boolean;
-  canReveal: boolean;
-  canManageMembers: boolean;
-  canDelete: boolean;
-}
+export type VaultRole = Schema<'Role'>;
+export type VaultMember = Schema<'Member'>;
+export type VaultPermissions = Schema<'MemberPermissions'>;
+export type AddMemberRequest = Schema<'AddMemberRequest'>;
+export type UpdateMemberRequest = Schema<'UpdateMemberRequest'>;
 
 export const ROLE_PERMISSIONS: Record<VaultRole, VaultPermissions> = {
   owner: {
@@ -222,15 +85,6 @@ export const ROLE_PERMISSIONS: Record<VaultRole, VaultPermissions> = {
   },
 };
 
-export interface AddMemberRequest {
-  email: string;
-  role: VaultRole;
-}
-
-export interface UpdateMemberRequest {
-  role: VaultRole;
-}
-
 // Audit DTOs
 /** Every action the API records, with display labels. Kept identical to audit.Actions in the API. */
 export const AUDIT_ACTIONS = [
@@ -253,24 +107,13 @@ export const AUDIT_ACTIONS = [
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];
 
-export interface AuditEvent {
-  id: string;
-  timestamp: string;
-  action: AuditAction;
-  userId: string;
-  userEmail: string;
-  organizationId: string | null;
-  vaultId: string | null;
-  vaultName: string | null;
-  environmentId: string | null;
-  environmentName: string | null;
-  targetType: string;
-  targetId: string | null;
-  targetName: string | null;
-  ipAddress: string | null;
-  userAgent: string | null;
-  metadata: Record<string, unknown>;
-}
+// AUDIT_ACTIONS must list exactly the actions in the OpenAPI AuditAction enum.
+type SameMembers<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const auditActionsMatchSpec: SameMembers<AuditAction, Schema<'AuditAction'>> = true;
+void auditActionsMatchSpec;
+
+export type AuditEvent = Schema<'AuditEvent'>;
+export type AuditEventPage = Schema<'AuditEventPage'>;
 
 export interface AuditFilters {
   organizationId?: string;
@@ -290,60 +133,11 @@ export interface AuditFilters {
   limit?: number;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  hasMore: boolean;
-}
-
 // Dashboard DTOs
-export interface DashboardStats {
-  vaults: number;
-  environments: number;
-  secrets: number;
-  secretsExpired: number;
-  secretsExpiringSoon: number;
-  secretsRotationOverdue: number;
-  /** People with access to the caller's vaults */
-  users: number;
-  /** Of those, how many logged in within activeWindowDays */
-  activeUsers: number;
-  expiringSoonDays: number;
-  activeWindowDays: number;
-}
-
-export type DashboardAlertType =
-  'secret_expired' | 'secret_expiring' | 'rotation_overdue' | 'member_inactive';
-
-export interface DashboardAlert {
-  type: DashboardAlertType;
-  severity: 'high' | 'medium' | 'low';
-  message: string;
-  vaultId: string;
-  vaultName: string;
-  environmentName: string | null;
-  targetId: string;
-  targetName: string;
-  /** Expiry or rotation due date, or the member's last login (null if never) */
-  dueAt: string | null;
-}
-
-export interface HealthStatus {
-  status: 'ok' | 'unavailable';
-  database: string;
-  migrationVersion: number | null;
-  migrationDirty: boolean;
-  startedAt: string;
-  uptimeSeconds: number;
-  version: string;
-  timestamp: string;
-}
+export type DashboardStats = Schema<'DashboardStats'>;
+export type DashboardAlert = Schema<'DashboardAlert'>;
+export type DashboardAlertType = DashboardAlert['type'];
+export type HealthStatus = Schema<'Health'>;
 
 // API Error
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: Record<string, string>;
-}
+export type ApiError = Schema<'Error'>;
