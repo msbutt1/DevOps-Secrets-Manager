@@ -1,641 +1,680 @@
 openapi: 3.0.3
 info:
-  title: DevOps Secrets Management API
+  title: DevOps Secrets Manager API
   version: 1.0.0
-  description: API for managing secrets, vaults, and environments in a DevOps context with role-based access control and audit logging.
+  description: |
+    Manage encrypted secrets organised into vaults and environments, with per-vault roles and
+    an audit log.
+
+    Field names are snake_case. Timestamps are RFC 3339. Every error response has the
+    `Error` shape. The web app reaches this API under `/api` (proxied by Vite or nginx); the
+    API itself has no prefix.
+
+    Callers with no role on a vault get `404` for the vault and everything in it, so IDs that
+    belong to other teams are never confirmed. Callers who can see a vault but whose role lacks
+    a permission get `403`.
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8080
-    description: Local development server
+    description: Local development API
+  - url: http://localhost:5173/api
+    description: Local web app proxy
 
 security:
   - bearerAuth: []
 
 tags:
   - name: Authentication
-    description: User authentication and session management
   - name: Vaults
-    description: Vault management operations
   - name: Environments
-    description: Environment management within vaults
   - name: Secrets
-    description: Secret management and revelation
+  - name: Members
   - name: Audit
-    description: Audit log queries
+  - name: Dashboard
   - name: Health
-    description: Health check endpoint
 
 paths:
   /health:
     get:
-      tags:
-        - Health
+      tags: [Health]
       summary: Health check
-      description: Returns the health status of the API
+      description: Pings the database and reports the schema version. Answers 503 when the database is unreachable or a migration is dirty.
+      operationId: getHealth
       security: []
       responses:
         '200':
-          description: Service is healthy
+          description: Healthy
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: ok
+              schema: { $ref: '#/components/schemas/Health' }
+        '503':
+          description: Unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register
+      description: Creates the account and the user's own organization, and sends a verification email. Login is refused until the email is verified.
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: An account with this email already exists (`user_already_exists`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/verify-email:
+    post:
+      tags: [Authentication]
+      summary: Verify email
+      operationId: verifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
+      responses:
+        '200':
+          description: Verified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400':
+          description: Missing, invalid, used or expired token (`invalid_verification`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /auth/login:
     post:
-      tags:
-        - Authentication
-      summary: User login
-      description: Authenticate user with email and password
+      tags: [Authentication]
+      summary: Log in
+      operationId: login
       security: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
+            schema: { $ref: '#/components/schemas/LoginRequest' }
       responses:
         '200':
-          description: Login successful
+          description: Logged in
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+              schema: { $ref: '#/components/schemas/AuthTokens' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Wrong email or password (`invalid_credentials`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: Email not verified yet (`email_not_verified`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /auth/refresh:
     post:
-      tags:
-        - Authentication
-      summary: Refresh access token
-      description: Obtain a new access token using a refresh token
+      tags: [Authentication]
+      summary: Refresh tokens
+      description: Exchanges a refresh token for a new access token and a new refresh token. The old refresh token is revoked.
+      operationId: refreshTokens
       security: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshRequest'
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
         '200':
-          description: Token refreshed successfully
+          description: New tokens
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+              schema: { $ref: '#/components/schemas/AuthTokens' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Invalid, expired or revoked refresh token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /auth/logout:
     post:
-      tags:
-        - Authentication
-      summary: User logout
-      description: Revoke a refresh token
+      tags: [Authentication]
+      summary: Log out
+      description: Revokes the refresh token.
+      operationId: logout
       security: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/LogoutRequest'
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
         '204':
-          description: Logout successful
-        '400':
-          $ref: '#/components/responses/BadRequest'
+          description: Logged out
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Unknown refresh token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 
   /auth/me:
     get:
-      tags:
-        - Authentication
-      summary: Get current user profile
-      description: Retrieve the authenticated user's profile information
+      tags: [Authentication]
+      summary: Current user
+      operationId: getMe
       responses:
         '200':
-          description: User profile retrieved successfully
+          description: The authenticated user and their organizations
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/UserProfile'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+              schema: { $ref: '#/components/schemas/UserProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/change-password:
+    post:
+      tags: [Authentication]
+      summary: Change password
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400':
+          description: Missing fields, new password too short, or wrong current password
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
   /vaults:
-    post:
-      tags:
-        - Vaults
-      summary: Create a new vault
-      description: Create a new vault within an organization
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateVaultRequest'
-      responses:
-        '201':
-          description: Vault created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/VaultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
     get:
-      tags:
-        - Vaults
+      tags: [Vaults]
       summary: List vaults
-      description: List all vaults for a given organization
-      parameters:
-        - name: organization_id
-          in: query
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Organization ID to filter vaults
+      description: Vaults the caller is a member of, plus every vault in organizations they own or administer. Newest first.
+      operationId: listVaults
       responses:
         '200':
-          description: Vaults retrieved successfully
+          description: Vaults
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: '#/components/schemas/VaultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                items: { $ref: '#/components/schemas/Vault' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Vaults]
+      summary: Create vault
+      description: Requires the owner, admin or developer role in the organization. The creator becomes the vault's owner. Without `organization_id` the caller's first organization is used.
+      operationId: createVault
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateVaultRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Vault' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /vaults/{id}:
+    parameters:
+      - $ref: '#/components/parameters/VaultIdPath'
     get:
-      tags:
-        - Vaults
-      summary: Get vault by ID
-      description: Retrieve a specific vault by its ID
-      parameters:
-        - $ref: '#/components/parameters/VaultId'
+      tags: [Vaults]
+      summary: Get vault
+      description: Requires read permission.
+      operationId: getVault
       responses:
         '200':
-          description: Vault retrieved successfully
+          description: Vault
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/VaultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+              schema: { $ref: '#/components/schemas/Vault' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     put:
-      tags:
-        - Vaults
+      tags: [Vaults]
       summary: Update vault
-      description: Update an existing vault's name and description
-      parameters:
-        - $ref: '#/components/parameters/VaultId'
+      description: Requires write permission.
+      operationId: updateVault
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateVaultRequest'
+            schema: { $ref: '#/components/schemas/UpdateVaultRequest' }
       responses:
         '200':
-          description: Vault updated successfully
+          description: Updated
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/VaultResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+              schema: { $ref: '#/components/schemas/Vault' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
     delete:
-      tags:
-        - Vaults
+      tags: [Vaults]
       summary: Delete vault
-      description: Delete a vault (soft delete)
-      parameters:
-        - $ref: '#/components/parameters/VaultId'
+      description: Requires delete permission (owners only). The vault is soft-deleted.
+      operationId: deleteVault
       responses:
         '204':
-          description: Vault deleted successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Deleted
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /vaults/{vault_id}/envs:
-    post:
-      tags:
-        - Environments
-      summary: Create environment
-      description: Create a new environment within a vault
-      parameters:
-        - name: vault_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Vault ID
-      requestBody:
+    parameters:
+      - name: vault_id
+        in: path
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateEnvironmentRequest'
-      responses:
-        '201':
-          description: Environment created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvironmentResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+        schema: { type: string, format: uuid }
     get:
-      tags:
-        - Environments
+      tags: [Environments]
       summary: List environments
-      description: List all environments within a vault
-      parameters:
-        - name: vault_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Vault ID
+      description: Requires read permission. Newest first.
+      operationId: listEnvironments
       responses:
         '200':
-          description: Environments retrieved successfully
+          description: Environments
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: '#/components/schemas/EnvironmentResponse'
+                items: { $ref: '#/components/schemas/Environment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Environments]
+      summary: Create environment
+      description: Requires write permission.
+      operationId: createEnvironment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EnvironmentRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Environment' }
         '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Invalid body or name (`invalid_name`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /envs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/EnvironmentIdPath'
     get:
-      tags:
-        - Environments
-      summary: Get environment by ID
-      description: Retrieve a specific environment by its ID
-      parameters:
-        - $ref: '#/components/parameters/EnvironmentId'
+      tags: [Environments]
+      summary: Get environment
+      description: Requires read permission on the environment's vault.
+      operationId: getEnvironment
       responses:
         '200':
-          description: Environment retrieved successfully
+          description: Environment
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/EnvironmentResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+              schema: { $ref: '#/components/schemas/Environment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     put:
-      tags:
-        - Environments
+      tags: [Environments]
       summary: Update environment
-      description: Update an existing environment's name and description
-      parameters:
-        - $ref: '#/components/parameters/EnvironmentId'
+      description: Requires write permission.
+      operationId: updateEnvironment
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateEnvironmentRequest'
+            schema: { $ref: '#/components/schemas/EnvironmentRequest' }
       responses:
         '200':
-          description: Environment updated successfully
+          description: Updated
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/EnvironmentResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+              schema: { $ref: '#/components/schemas/Environment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
     delete:
-      tags:
-        - Environments
+      tags: [Environments]
       summary: Delete environment
-      description: Delete an environment (soft delete)
-      parameters:
-        - $ref: '#/components/parameters/EnvironmentId'
+      description: Requires write permission. The environment is soft-deleted.
+      operationId: deleteEnvironment
       responses:
         '204':
-          description: Environment deleted successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Deleted
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /envs/{id}/secrets:
+    parameters:
+      - $ref: '#/components/parameters/EnvironmentIdPath'
     get:
-      tags:
-        - Secrets
+      tags: [Secrets]
       summary: List secrets
-      description: List all secrets metadata in an environment (values not included)
-      parameters:
-        - $ref: '#/components/parameters/EnvironmentId'
+      description: Returns metadata only, never values. Requires read permission.
+      operationId: listSecrets
       responses:
         '200':
-          description: Secrets retrieved successfully
+          description: Secrets
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: '#/components/schemas/SecretMetadataResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+                items: { $ref: '#/components/schemas/SecretMetadata' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
     post:
-      tags:
-        - Secrets
+      tags: [Secrets]
       summary: Create secret
-      description: Create a new secret within an environment
-      parameters:
-        - $ref: '#/components/parameters/EnvironmentId'
+      description: Requires write permission. The value is encrypted with the vault's data key.
+      operationId: createSecret
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/CreateSecretRequest'
+            schema: { $ref: '#/components/schemas/CreateSecretRequest' }
       responses:
         '201':
-          description: Secret created successfully
+          description: Created
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/SecretMetadataResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+              schema: { $ref: '#/components/schemas/SecretMetadata' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /secrets/{id}:
+    parameters:
+      - $ref: '#/components/parameters/SecretIdPath'
     put:
-      tags:
-        - Secrets
+      tags: [Secrets]
       summary: Update secret
-      description: Update an existing secret's value and metadata
-      parameters:
-        - $ref: '#/components/parameters/SecretId'
+      description: Requires write permission. Omit `value` to keep the stored value and change only metadata; description, rotation interval, expiry and metadata are replaced by the values sent.
+      operationId: updateSecret
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateSecretRequest'
+            schema: { $ref: '#/components/schemas/UpdateSecretRequest' }
       responses:
         '200':
-          description: Secret updated successfully
+          description: Updated
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/SecretMetadataResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
+              schema: { $ref: '#/components/schemas/SecretMetadata' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     delete:
-      tags:
-        - Secrets
+      tags: [Secrets]
       summary: Delete secret
-      description: Delete a secret (soft delete)
-      parameters:
-        - $ref: '#/components/parameters/SecretId'
+      description: Requires write permission. The secret is soft-deleted.
+      operationId: deleteSecret
       responses:
         '204':
-          description: Secret deleted successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Deleted
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /secrets/{id}/reveal:
+    parameters:
+      - $ref: '#/components/parameters/SecretIdPath'
     post:
-      tags:
-        - Secrets
+      tags: [Secrets]
       summary: Reveal secret value
-      description: Retrieve the decrypted value of a secret (logged in audit trail)
-      parameters:
-        - $ref: '#/components/parameters/SecretId'
+      description: Requires reveal permission (owner, admin or on-call). Every reveal is recorded in the audit log.
+      operationId: revealSecret
       responses:
         '200':
-          description: Secret value revealed successfully
+          description: Decrypted value
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SecretReveal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /vaults/{id}/members:
+    parameters:
+      - $ref: '#/components/parameters/VaultIdPath'
+    get:
+      tags: [Members]
+      summary: List members
+      description: Explicit vault members. Requires read permission.
+      operationId: listMembers
+      responses:
+        '200':
+          description: Members
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SecretRevealResponse'
+                type: array
+                items: { $ref: '#/components/schemas/Member' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Members]
+      summary: Add member
+      description: Requires manage-members permission. The user must already belong to the vault's organization. Only owners can add another owner.
+      operationId: addMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddMemberRequest' }
+      responses:
+        '201':
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
         '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Invalid role or the user is not in the organization
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+          description: Vault not found, or no user with that email
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /vaults/{id}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/VaultIdPath'
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [Members]
+      summary: Change member role
+      description: Requires manage-members permission. Only owners can grant or change the owner role, and the last owner cannot be demoted.
+      operationId: updateMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMemberRequest' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Members]
+      summary: Remove member
+      description: Requires manage-members permission. Callers cannot remove themselves, only owners can remove an owner, and the last owner cannot be removed.
+      operationId: removeMember
+      responses:
+        '204':
+          description: Removed
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /audit:
     get:
-      tags:
-        - Audit
-      summary: Query audit logs
-      description: Retrieve audit log entries with optional filters
+      tags: [Audit]
+      summary: Query the audit log
+      description: |
+        Newest first. Callers see their own events, every event in organizations they own or
+        administer, and events in vaults where they are an owner or admin. snake_case aliases
+        (`vault_id`, `user_id`, `org_id`, `environment_id`, `start_time`, `end_time`) are also accepted.
+      operationId: listAuditEvents
       parameters:
-        - name: org_id
+        - name: page
           in: query
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Organization ID (required for RBAC)
-        - name: user_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-          description: Filter by user ID
-        - name: vault_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-          description: Filter by vault ID
-        - name: action
-          in: query
-          schema:
-            type: string
-          description: Filter by action type
-        - name: resource_type
-          in: query
-          schema:
-            type: string
-          description: Filter by resource type
-        - name: start_time
-          in: query
-          schema:
-            type: string
-            format: date-time
-          description: Filter by start time (RFC3339)
-        - name: end_time
-          in: query
-          schema:
-            type: string
-            format: date-time
-          description: Filter by end time (RFC3339)
+          schema: { type: integer, minimum: 1, default: 1 }
         - name: limit
           in: query
-          schema:
-            type: integer
-            default: 100
-            maximum: 1000
-          description: Maximum number of entries to return
-        - name: offset
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: organizationId
           in: query
+          schema: { type: string, format: uuid }
+        - name: vaultId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: environmentId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: userEmail
+          in: query
+          description: Case-insensitive substring of the actor's email
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { $ref: '#/components/schemas/AuditAction' }
+        - name: excludeAction
+          in: query
+          description: Leave out events with this action; repeat for several
+          style: form
+          explode: true
           schema:
-            type: integer
-            default: 0
-          description: Number of entries to skip
+            type: array
+            items: { $ref: '#/components/schemas/AuditAction' }
+        - name: startDate
+          in: query
+          description: Inclusive; RFC 3339 timestamp or YYYY-MM-DD (UTC midnight)
+          schema: { type: string }
+        - name: endDate
+          in: query
+          description: Exclusive for timestamps; a YYYY-MM-DD day includes that whole day
+          schema: { type: string }
       responses:
         '200':
-          description: Audit logs retrieved successfully
+          description: One page of events
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditEventPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /stats:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard statistics
+      description: Counts across the vaults the caller can access.
+      operationId: getStats
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardStats' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /alerts:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard alerts
+      description: Expired and soon-expiring (7 days) secrets and overdue rotations in accessible vaults, and members without a login in 90 days in vaults the caller manages. Ordered by severity, at most 50.
+      operationId: listAlerts
+      responses:
+        '200':
+          description: Alerts
           content:
             application/json:
               schema:
                 type: array
-                items:
-                  $ref: '#/components/schemas/AuditEntry'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                items: { $ref: '#/components/schemas/DashboardAlert' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
 components:
   securitySchemes:
@@ -643,451 +682,434 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT token obtained from /auth/login or /auth/refresh
+      description: HS256 access token from /auth/login or /auth/refresh (15 minutes by default).
 
   parameters:
-    VaultId:
+    VaultIdPath:
       name: id
       in: path
       required: true
-      schema:
-        type: string
-        format: uuid
-      description: Vault ID
+      schema: { type: string, format: uuid }
+    EnvironmentIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SecretIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
 
-    EnvironmentId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: Environment ID
-
-    SecretId:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: Secret ID
+  responses:
+    BadRequest:
+      description: Invalid ID, query parameter or body (`invalid_request`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing, invalid or expired access token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: The caller's role does not allow this action (`forbidden`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found, or the caller has no access to it (`not_found`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: A resource with that name already exists (`duplicate` or `conflict`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
 
   schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable code, e.g. not_found, forbidden, invalid_request
+          example: not_found
+        message:
+          type: string
+          example: Vault not found
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+
+    Role:
+      type: string
+      enum: [owner, admin, developer, oncall, viewer]
+
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        name: { type: string }
+
+    RegisterResponse:
+      type: object
+      required: [user_id, message]
+      properties:
+        user_id: { type: string, format: uuid }
+        message: { type: string }
+
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
     LoginRequest:
       type: object
-      required:
-        - email
-        - password
+      required: [email, password]
       properties:
-        email:
-          type: string
-          format: email
-          example: user@example.com
-        password:
-          type: string
-          format: password
-          example: SecurePassword123!
+        email: { type: string, format: email }
+        password: { type: string, format: password }
 
     RefreshRequest:
       type: object
-      required:
-        - refresh_token
+      required: [refresh_token]
       properties:
-        refresh_token:
-          type: string
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token: { type: string }
 
-    LogoutRequest:
+    AuthTokens:
       type: object
-      required:
-        - refresh_token
+      required: [access_token, refresh_token, expires_in]
       properties:
-        refresh_token:
-          type: string
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-    AuthResponse:
-      type: object
-      properties:
-        access_token:
-          type: string
-          description: JWT access token
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        refresh_token:
-          type: string
-          description: JWT refresh token
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        access_token: { type: string }
+        refresh_token: { type: string }
         expires_in:
           type: integer
-          format: int64
-          description: Access token expiration time in seconds
-          example: 3600
+          description: Access token lifetime in seconds
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string, format: password }
+        new_password: { type: string, format: password, minLength: 8 }
+
+    UserOrganization:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
 
     UserProfile:
       type: object
+      required: [id, email, name, organizations]
       properties:
-        id:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        organizations:
+          type: array
+          items: { $ref: '#/components/schemas/UserOrganization' }
+
+    Vault:
+      type: object
+      required: [id, organization_id, organization_name, name, description, user_role, secret_count, env_count, created_by_id, created_by, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        organization_id: { type: string, format: uuid }
+        organization_name: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        user_role:
+          $ref: '#/components/schemas/Role'
+        secret_count: { type: integer }
+        env_count: { type: integer }
+        created_by_id: { type: string, format: uuid, nullable: true }
+        created_by:
           type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        email:
-          type: string
-          format: email
-          example: user@example.com
-        name:
-          type: string
-          example: John Doe
+          description: Creator's display name; empty when unknown
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
 
     CreateVaultRequest:
       type: object
-      required:
-        - organization_id
-        - name
+      required: [name]
       properties:
-        organization_id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        name:
-          type: string
-          example: Production Vault
-        description:
-          type: string
-          nullable: true
-          example: Vault for production environment secrets
+        name: { type: string }
+        description: { type: string, nullable: true }
+        organization_id: { type: string, format: uuid }
 
     UpdateVaultRequest:
       type: object
-      required:
-        - name
+      required: [name]
       properties:
-        name:
-          type: string
-          example: Updated Vault Name
-        description:
-          type: string
-          nullable: true
-          example: Updated description
+        name: { type: string }
+        description: { type: string, nullable: true }
 
-    VaultResponse:
+    Environment:
       type: object
+      required: [id, vault_id, name, description, created_at, updated_at, secret_count]
       properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        organization_id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        name:
-          type: string
-          example: Production Vault
-        description:
-          type: string
-          nullable: true
-          example: Vault for production environment secrets
-        created_at:
-          type: string
-          format: date-time
-          example: 2025-01-28T10:00:00Z
-        updated_at:
-          type: string
-          format: date-time
-          example: 2025-01-28T12:00:00Z
+        id: { type: string, format: uuid }
+        vault_id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        secret_count:
+          type: integer
+          description: Live secrets; only filled in by the list endpoint
 
-    CreateEnvironmentRequest:
+    EnvironmentRequest:
       type: object
-      required:
-        - name
+      required: [name]
       properties:
         name:
           type: string
-          example: production
-        description:
-          type: string
-          nullable: true
-          example: Production environment
-
-    UpdateEnvironmentRequest:
-      type: object
-      required:
-        - name
-      properties:
-        name:
-          type: string
+          pattern: '^[a-z0-9][a-z0-9._-]{0,63}$'
           example: staging
-        description:
-          type: string
-          nullable: true
-          example: Staging environment
+        description: { type: string, nullable: true }
 
-    EnvironmentResponse:
+    RotationPolicy:
       type: object
+      required: [interval_days, last_rotated_at, next_rotation_at]
       properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        vault_id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        name:
-          type: string
-          example: production
-        description:
-          type: string
-          nullable: true
-          example: Production environment
-        created_at:
-          type: string
-          format: date-time
-          example: 2025-01-28T10:00:00Z
-        updated_at:
-          type: string
-          format: date-time
-          example: 2025-01-28T12:00:00Z
-
-    CreateSecretRequest:
-      type: object
-      required:
-        - key_name
-        - value
-      properties:
-        key_name:
-          type: string
-          example: DATABASE_PASSWORD
-        value:
-          type: string
-          example: super_secret_password_123
-        description:
-          type: string
-          nullable: true
-          example: Primary database password
-        rotation_interval_days:
-          type: integer
-          nullable: true
-          example: 90
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: 2025-12-31T23:59:59Z
-        metadata:
-          type: object
-          nullable: true
-          additionalProperties: true
-          example:
-            owner: backend-team
-            environment: production
-
-    UpdateSecretRequest:
-      type: object
-      required:
-        - value
-      properties:
-        value:
-          type: string
-          example: new_secret_value_456
-        description:
-          type: string
-          nullable: true
-          example: Updated description
-        rotation_interval_days:
-          type: integer
-          nullable: true
-          example: 60
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: 2025-12-31T23:59:59Z
-        metadata:
-          type: object
-          nullable: true
-          additionalProperties: true
-          example:
-            owner: devops-team
-            rotated: true
-
-    SecretMetadataResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        environment_id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        key_name:
-          type: string
-          example: DATABASE_PASSWORD
-        description:
-          type: string
-          nullable: true
-          example: Primary database password
-        rotation_interval_days:
-          type: integer
-          nullable: true
-          example: 90
-        expires_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: 2025-12-31T23:59:59Z
+        interval_days: { type: integer }
         last_rotated_at:
           type: string
           format: date-time
           nullable: true
-          example: 2025-01-28T10:00:00Z
+          description: When the value last changed; null if never since creation
+        next_rotation_at:
+          type: string
+          format: date-time
+          description: One interval after the last rotation, or after creation
+
+    SecretMetadata:
+      type: object
+      required: [id, environment_id, key_name, created_by, created_at, updated_at, last_updated_at, last_updated_by_id, last_updated_by, rotation_policy]
+      properties:
+        id: { type: string, format: uuid }
+        environment_id: { type: string, format: uuid }
+        key_name: { type: string }
+        description: { type: string }
+        rotation_interval_days: { type: integer }
+        expires_at: { type: string, format: date-time }
+        last_rotated_at: { type: string, format: date-time }
         metadata:
           type: object
-          nullable: true
           additionalProperties: true
-          example:
-            owner: backend-team
-            environment: production
-        created_by:
+        created_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        last_updated_at: { type: string, format: date-time }
+        last_updated_by_id: { type: string, format: uuid, nullable: true }
+        last_updated_by:
           type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        created_at:
-          type: string
-          format: date-time
-          example: 2025-01-28T10:00:00Z
-        updated_at:
-          type: string
-          format: date-time
-          example: 2025-01-28T12:00:00Z
+          description: Display name of the last editor
+        rotation_policy:
+          allOf:
+            - $ref: '#/components/schemas/RotationPolicy'
+          nullable: true
 
-    SecretRevealResponse:
+    CreateSecretRequest:
+      type: object
+      required: [key_name, value]
+      properties:
+        key_name: { type: string }
+        value: { type: string, format: password }
+        description: { type: string, nullable: true }
+        rotation_interval_days: { type: integer, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    UpdateSecretRequest:
       type: object
       properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        key_name:
-          type: string
-          example: DATABASE_PASSWORD
         value:
           type: string
-          example: super_secret_password_123
-
-    AuditEntry:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        timestamp:
-          type: string
-          format: date-time
-          example: 2025-01-28T10:00:00Z
-        user_id:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174000
-        organization_id:
-          type: string
-          format: uuid
-          nullable: true
-          example: 123e4567-e89b-12d3-a456-426614174000
-        vault_id:
-          type: string
-          format: uuid
-          nullable: true
-          example: 123e4567-e89b-12d3-a456-426614174000
-        action:
-          type: string
-          example: secret_reveal
-        resource_type:
-          type: string
-          example: secret
-        resource_id:
-          type: string
-          format: uuid
-          nullable: true
-          example: 123e4567-e89b-12d3-a456-426614174000
-        ip_address:
-          type: string
-          nullable: true
-          example: 192.168.1.100
-        user_agent:
-          type: string
-          nullable: true
-          example: Mozilla/5.0 (X11; Linux x86_64)...
+          format: password
+          description: New value; omit to keep the current one
+        description: { type: string, nullable: true }
+        rotation_interval_days: { type: integer, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
         metadata:
           type: object
           additionalProperties: true
-          example:
-            secret_key: DATABASE_PASSWORD
-            environment: production
+          nullable: true
 
-    ErrorResponse:
+    SecretReveal:
       type: object
+      required: [id, key_name, value, expires_in]
       properties:
-        error:
+        id: { type: string, format: uuid }
+        key_name: { type: string }
+        value: { type: string }
+        expires_in:
+          type: integer
+          description: Seconds clients should show the value before hiding it
+
+    MemberPermissions:
+      type: object
+      required: [can_read, can_write, can_reveal, can_manage_members, can_delete]
+      properties:
+        can_read: { type: boolean }
+        can_write: { type: boolean }
+        can_reveal: { type: boolean }
+        can_manage_members: { type: boolean }
+        can_delete: { type: boolean }
+
+    Member:
+      type: object
+      required: [user_id, email, name, role, permissions, added_at, added_by, added_by_id]
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        permissions: { $ref: '#/components/schemas/MemberPermissions' }
+        added_at: { type: string, format: date-time }
+        added_by:
           type: string
-          description: Error code
-          example: invalid_request
-        message:
+          description: Display name of whoever added the member; empty when unknown
+        added_by_id: { type: string, format: uuid, nullable: true }
+
+    AddMemberRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+
+    UpdateMemberRequest:
+      type: object
+      required: [role]
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+
+    AuditAction:
+      type: string
+      enum:
+        - login.success
+        - login.failure
+        - secret.created
+        - secret.updated
+        - secret.deleted
+        - secret.revealed
+        - member.added
+        - member.removed
+        - member.role_changed
+        - vault.created
+        - vault.updated
+        - vault.deleted
+        - env.created
+        - env.updated
+        - env.deleted
+
+    AuditEvent:
+      type: object
+      required: [id, timestamp, action, user_id, user_email, organization_id, vault_id, vault_name, environment_id, environment_name, target_type, target_id, target_name, ip_address, user_agent, metadata]
+      properties:
+        id: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        action: { $ref: '#/components/schemas/AuditAction' }
+        user_id: { type: string, format: uuid }
+        user_email: { type: string, format: email }
+        organization_id: { type: string, format: uuid, nullable: true }
+        vault_id: { type: string, format: uuid, nullable: true }
+        vault_name: { type: string, nullable: true }
+        environment_id: { type: string, format: uuid, nullable: true }
+        environment_name: { type: string, nullable: true }
+        target_type:
           type: string
-          description: Human-readable error message
-          example: Invalid request body
+          description: secret, environment, vault, member or user
+        target_id: { type: string, format: uuid, nullable: true }
+        target_name: { type: string, nullable: true }
+        ip_address: { type: string, nullable: true }
+        user_agent: { type: string, nullable: true }
+        metadata:
+          type: object
+          additionalProperties: true
 
-  responses:
-    BadRequest:
-      description: Bad request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: invalid_request
-            message: Invalid request body
+    AuditEventPage:
+      type: object
+      required: [data, total, page, limit, has_more]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AuditEvent' }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        has_more: { type: boolean }
 
-    Unauthorized:
-      description: Unauthorized - authentication required or token invalid
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: unauthorized
-            message: Authentication required
+    DashboardStats:
+      type: object
+      required: [vaults, environments, secrets, secrets_expired, secrets_expiring_soon, secrets_rotation_overdue, users, active_users, expiring_soon_days, active_window_days]
+      properties:
+        vaults: { type: integer }
+        environments: { type: integer }
+        secrets: { type: integer }
+        secrets_expired: { type: integer }
+        secrets_expiring_soon: { type: integer }
+        secrets_rotation_overdue: { type: integer }
+        users:
+          type: integer
+          description: People with access to the caller's vaults
+        active_users:
+          type: integer
+          description: Of those, how many logged in within active_window_days
+        expiring_soon_days: { type: integer }
+        active_window_days: { type: integer }
 
-    Forbidden:
-      description: Forbidden - insufficient permissions
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: forbidden
-            message: Insufficient permissions
+    DashboardAlert:
+      type: object
+      required: [type, severity, message, vault_id, vault_name, environment_name, target_id, target_name, due_at]
+      properties:
+        type:
+          type: string
+          enum: [secret_expired, secret_expiring, rotation_overdue, member_inactive]
+        severity:
+          type: string
+          enum: [high, medium, low]
+        message: { type: string }
+        vault_id: { type: string, format: uuid }
+        vault_name: { type: string }
+        environment_name: { type: string, nullable: true }
+        target_id: { type: string }
+        target_name: { type: string }
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expiry or rotation due date, or the member's last login (null if never)
 
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: not_found
-            message: Resource not found
-
-    InternalError:
-      description: Internal server error
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: internal_error
-            message: An unexpected error occurred
+    Health:
+      type: object
+      required: [status, database, migration_version, migration_dirty, started_at, uptime_seconds, version, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+        database:
+          type: string
+          example: ok
+        migration_version: { type: integer, nullable: true }
+        migration_dirty: { type: boolean }
+        started_at: { type: string, format: date-time }
+        uptime_seconds: { type: integer }
+        version: { type: string }
+        timestamp: { type: string, format: date-time }

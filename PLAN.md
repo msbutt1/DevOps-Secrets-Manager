@@ -139,7 +139,7 @@ These are things that exist in the UI or README but don't work.
 - [x] **Variable names.** Make the README's environment variable names match what the code reads: `APP_DATABASE_*`, `APP_JWT_SECRET`, `MASTER_KEK`. Commit: `docs: fix environment variable names`
 - [x] **Commands.** Check every command in the README and `apps/cli/QUICKSTART.md` by running it. Commit: `docs: verify setup and CLI instructions`
   - Ran the Makefile quick start from a wiped database and the whole QUICKSTART workflow against the local API. Docker commands could not be run here. Problems found and queued under CLI: `logout` never revokes the refresh token, `pull --out` writes a world-readable file, and `set` cannot update.
-- [ ] **OpenAPI spec.** Update `docs/openapi.yaml` to match the real API, including `/auth/me`, `/auth/change-password`, pagination and error formats. Commit: `docs(api): sync OpenAPI spec with handlers`
+- [x] **OpenAPI spec.** Update `docs/openapi.yaml` to match the real API, including `/auth/me`, `/auth/change-password`, pagination and error formats. Commit: `docs(api): sync OpenAPI spec with handlers`
 
 ---
 
