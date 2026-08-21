@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import type { VaultRole, VaultPermissions, ROLE_PERMISSIONS } from '@/types/api';
+import { ROLE_PERMISSIONS } from '@/types/api';
+import type { VaultRole, VaultPermissions } from '@/types/api';
 
 type PermissionKey = keyof VaultPermissions;
 
@@ -18,43 +18,8 @@ interface PermissionGateProps {
   showDisabled?: boolean;
 }
 
-const rolePermissions: Record<VaultRole, VaultPermissions> = {
-  owner: {
-    canRead: true,
-    canWrite: true,
-    canReveal: true,
-    canManageMembers: true,
-    canDelete: true,
-  },
-  admin: {
-    canRead: true,
-    canWrite: true,
-    canReveal: true,
-    canManageMembers: true,
-    canDelete: false,
-  },
-  developer: {
-    canRead: true,
-    canWrite: true,
-    canReveal: false,
-    canManageMembers: false,
-    canDelete: false,
-  },
-  oncall: {
-    canRead: true,
-    canWrite: false,
-    canReveal: true,
-    canManageMembers: false,
-    canDelete: false,
-  },
-  viewer: {
-    canRead: true,
-    canWrite: false,
-    canReveal: false,
-    canManageMembers: false,
-    canDelete: false,
-  },
-};
+// The matrix is shared with the API (a Go test compares them)
+const rolePermissions = ROLE_PERMISSIONS;
 
 export const PermissionGate = ({
   children,
