@@ -777,6 +777,15 @@ export interface components {
     };
   };
   responses: {
+    /** @description Unexpected server error (`internal_error`); details are logged, never returned */
+    InternalError: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['Error'];
+      };
+    };
     /** @description Invalid ID, query parameter or body (`invalid_request`) */
     BadRequest: {
       headers: {
@@ -852,6 +861,7 @@ export interface operations {
           'application/json': components['schemas']['Health'];
         };
       };
+      500: components['responses']['InternalError'];
       /** @description Unavailable */
       503: {
         headers: {
@@ -895,6 +905,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      500: components['responses']['InternalError'];
     };
   };
   verifyEmail: {
@@ -928,6 +939,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      500: components['responses']['InternalError'];
     };
   };
   login: {
@@ -971,6 +983,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      500: components['responses']['InternalError'];
     };
   };
   refreshTokens: {
@@ -1005,6 +1018,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      500: components['responses']['InternalError'];
     };
   };
   logout: {
@@ -1037,6 +1051,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      500: components['responses']['InternalError'];
     };
   };
   getMe: {
@@ -1058,6 +1073,7 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
     };
   };
   changePassword: {
@@ -1092,6 +1108,7 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
     };
   };
   listVaults: {
@@ -1113,6 +1130,7 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
     };
   };
   createVault: {
@@ -1141,6 +1159,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       409: components['responses']['Conflict'];
+      500: components['responses']['InternalError'];
     };
   };
   getVault: {
@@ -1166,6 +1185,7 @@ export interface operations {
       400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   updateVault: {
@@ -1197,6 +1217,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      500: components['responses']['InternalError'];
     };
   };
   deleteVault: {
@@ -1221,6 +1242,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   listEnvironments: {
@@ -1246,6 +1268,7 @@ export interface operations {
       400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   createEnvironment: {
@@ -1285,6 +1308,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      500: components['responses']['InternalError'];
     };
   };
   getEnvironment: {
@@ -1310,6 +1334,7 @@ export interface operations {
       400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   updateEnvironment: {
@@ -1341,6 +1366,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      500: components['responses']['InternalError'];
     };
   };
   deleteEnvironment: {
@@ -1365,6 +1391,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   listSecrets: {
@@ -1390,6 +1417,7 @@ export interface operations {
       400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   createSecret: {
@@ -1421,6 +1449,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      500: components['responses']['InternalError'];
     };
   };
   updateSecret: {
@@ -1451,6 +1480,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   deleteSecret: {
@@ -1475,6 +1505,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   revealSecret: {
@@ -1501,6 +1532,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   listMembers: {
@@ -1526,6 +1558,7 @@ export interface operations {
       400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   addMember: {
@@ -1573,6 +1606,7 @@ export interface operations {
         };
       };
       409: components['responses']['Conflict'];
+      500: components['responses']['InternalError'];
     };
   };
   updateMember: {
@@ -1604,6 +1638,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   removeMember: {
@@ -1629,6 +1664,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
     };
   };
   listAuditEvents: {
@@ -1667,6 +1703,7 @@ export interface operations {
       };
       400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
     };
   };
   getStats: {
@@ -1688,6 +1725,7 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
     };
   };
   listAlerts: {
@@ -1709,6 +1747,7 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
     };
   };
 }

@@ -44,6 +44,7 @@ paths:
       operationId: getHealth
       security: []
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Healthy
           content:
@@ -68,6 +69,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RegisterRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Registered
           content:
@@ -92,6 +94,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Verified
           content:
@@ -115,6 +118,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/LoginRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Logged in
           content:
@@ -145,6 +149,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: New tokens
           content:
@@ -170,6 +175,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '204':
           description: Logged out
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -185,6 +191,7 @@ paths:
       summary: Current user
       operationId: getMe
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: The authenticated user and their organizations
           content:
@@ -203,6 +210,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Password changed
           content:
@@ -222,6 +230,7 @@ paths:
       description: Vaults the caller is a member of, plus every vault in organizations they own or administer. Newest first.
       operationId: listVaults
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Vaults
           content:
@@ -241,6 +250,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreateVaultRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Created
           content:
@@ -260,6 +270,7 @@ paths:
       description: Requires read permission.
       operationId: getVault
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Vault
           content:
@@ -279,6 +290,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateVaultRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
           content:
@@ -295,6 +307,7 @@ paths:
       description: Requires delete permission (owners only). The vault is soft-deleted.
       operationId: deleteVault
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '204':
           description: Deleted
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -314,6 +327,7 @@ paths:
       description: Requires read permission. Newest first.
       operationId: listEnvironments
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Environments
           content:
@@ -335,6 +349,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EnvironmentRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Created
           content:
@@ -359,6 +374,7 @@ paths:
       description: Requires read permission on the environment's vault.
       operationId: getEnvironment
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Environment
           content:
@@ -378,6 +394,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EnvironmentRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
           content:
@@ -394,6 +411,7 @@ paths:
       description: Requires write permission. The environment is soft-deleted.
       operationId: deleteEnvironment
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '204':
           description: Deleted
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -410,6 +428,7 @@ paths:
       description: Returns metadata only, never values. Requires read permission.
       operationId: listSecrets
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Secrets
           content:
@@ -431,6 +450,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreateSecretRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Created
           content:
@@ -456,6 +476,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateSecretRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
           content:
@@ -471,6 +492,7 @@ paths:
       description: Requires write permission. The secret is soft-deleted.
       operationId: deleteSecret
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '204':
           description: Deleted
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -487,6 +509,7 @@ paths:
       description: Requires reveal permission (owner, admin or on-call). Every reveal is recorded in the audit log.
       operationId: revealSecret
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Decrypted value
           content:
@@ -506,6 +529,7 @@ paths:
       description: Explicit vault members. Requires read permission.
       operationId: listMembers
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Members
           content:
@@ -527,6 +551,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/AddMemberRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Added
           content:
@@ -564,6 +589,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateMemberRequest' }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
           content:
@@ -579,6 +605,7 @@ paths:
       description: Requires manage-members permission. Callers cannot remove themselves, only owners can remove an owner, and the last owner cannot be removed.
       operationId: removeMember
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '204':
           description: Removed
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -638,6 +665,7 @@ paths:
           description: Exclusive for timestamps; a YYYY-MM-DD day includes that whole day
           schema: { type: string }
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: One page of events
           content:
@@ -653,6 +681,7 @@ paths:
       description: Counts across the vaults the caller can access.
       operationId: getStats
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Statistics
           content:
@@ -667,6 +696,7 @@ paths:
       description: Expired and soon-expiring (7 days) secrets and overdue rotations in accessible vaults, and members without a login in 90 days in vaults the caller manages. Ordered by severity, at most 50.
       operationId: listAlerts
       responses:
+        '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Alerts
           content:
@@ -702,6 +732,11 @@ components:
       schema: { type: string, format: uuid }
 
   responses:
+    InternalError:
+      description: Unexpected server error (`internal_error`); details are logged, never returned
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     BadRequest:
       description: Invalid ID, query parameter or body (`invalid_request`)
       content:
