@@ -121,6 +121,10 @@ test-web: web-deps ## Web unit tests
 test-cli: ## CLI tests
 	cd apps/cli && cargo test
 
+.PHONY: test-e2e
+test-e2e: web-deps ## Browser tests against a running stack (start it with make dev; E2E_BASE_URL overrides)
+	cd apps/web && npx playwright test
+
 .PHONY: lint lint-api lint-web lint-cli
 lint: lint-api lint-web lint-cli ## Run all linters, formatters (check mode) and type checks
 

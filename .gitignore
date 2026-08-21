@@ -92,3 +92,7 @@ apps/cli/.git/
 
 # Machine-specific Makefile overrides
 local.mk
+
+# Playwright output
+apps/web/test-results/
+apps/web/playwright-report/
