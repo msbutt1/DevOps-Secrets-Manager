@@ -40,15 +40,153 @@ type UpdateOrganizationRequest struct {
 	Name string `json:"name"`
 }
 
+// InviteResponse is an open invitation
+type InviteResponse struct {
+	ID               uuid.UUID  `json:"id"`
+	OrganizationID   uuid.UUID  `json:"organization_id"`
+	OrganizationName string     `json:"organization_name"`
+	Email            string     `json:"email"`
+	Role             string     `json:"role"`
+	InvitedBy        string     `json:"invited_by"`
+	InvitedByID      *uuid.UUID `json:"invited_by_id"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ExpiresAt        time.Time  `json:"expires_at"`
+}
+
+// CreateInviteResponse is a new invitation and whether its email went out
+type CreateInviteResponse struct {
+	InviteResponse
+	EmailSent bool `json:"email_sent"`
+}
+
+// InviteLookupResponse describes an invitation to someone who has its token
+type InviteLookupResponse struct {
+	OrganizationName string    `json:"organization_name"`
+	Email            string    `json:"email"`
+	Role             string    `json:"role"`
+	InvitedBy        string    `json:"invited_by"`
+	ExpiresAt        time.Time `json:"expires_at"`
+	AccountExists    bool      `json:"account_exists"`
+}
+
+// CreateInviteRequest invites someone by email
+type CreateInviteRequest struct {
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
+
+// InviteTokenRequest carries an invitation token in the body, so it never appears in URLs or access logs
+type InviteTokenRequest struct {
+	Token string `json:"token"`
+}
+
 // OrganizationHandlers handles organization HTTP requests
 type OrganizationHandlers struct {
 	service organizations.Service
+	invites organizations.InviteService
 	logger  *zap.Logger
 }
 
 // NewOrganizationHandlers creates a new instance of OrganizationHandlers
-func NewOrganizationHandlers(service organizations.Service, logger *zap.Logger) *OrganizationHandlers {
-	return &OrganizationHandlers{service: service, logger: logger}
+func NewOrganizationHandlers(service organizations.Service, invites organizations.InviteService, logger *zap.Logger) *OrganizationHandlers {
+	return &OrganizationHandlers{service: service, invites: invites, logger: logger}
+}
+
+// HandleCreateInvite handles POST /orgs/{id}/invites
+func (h *OrganizationHandlers) HandleCreateInvite(w http.ResponseWriter, r *http.Request) {
+	callerID, orgID, ok := h.claimsAndOrg(w, r)
+	if !ok {
+		return
+	}
+	var req CreateInviteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+		return
+	}
+	if !policy.IsValidRole(req.Role) {
+		writeError(w, http.StatusBadRequest, "invalid_request", invalidRoleMessage)
+		return
+	}
+	invite, sent, err := h.invites.Create(r.Context(), callerID, orgID, req.Email, req.Role)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, CreateInviteResponse{InviteResponse: toInviteResponse(invite), EmailSent: sent})
+}
+
+// HandleListInvites handles GET /orgs/{id}/invites
+func (h *OrganizationHandlers) HandleListInvites(w http.ResponseWriter, r *http.Request) {
+	callerID, orgID, ok := h.claimsAndOrg(w, r)
+	if !ok {
+		return
+	}
+	invites, err := h.invites.ListOpen(r.Context(), callerID, orgID)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+	out := make([]InviteResponse, 0, len(invites))
+	for _, inv := range invites {
+		out = append(out, toInviteResponse(inv))
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// HandleRevokeInvite handles DELETE /orgs/{id}/invites/{inviteId}
+func (h *OrganizationHandlers) HandleRevokeInvite(w http.ResponseWriter, r *http.Request) {
+	callerID, orgID, ok := h.claimsAndOrg(w, r)
+	if !ok {
+		return
+	}
+	inviteID, err := uuid.Parse(chi.URLParam(r, "inviteId"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid invitation ID format")
+		return
+	}
+	if err := h.invites.Revoke(r.Context(), callerID, orgID, inviteID); err != nil {
+		h.handleError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleLookupInvite handles POST /invites/lookup (no authentication)
+func (h *OrganizationHandlers) HandleLookupInvite(w http.ResponseWriter, r *http.Request) {
+	var req InviteTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Token is required")
+		return
+	}
+	invite, accountExists, err := h.invites.Lookup(r.Context(), req.Token)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, InviteLookupResponse{
+		OrganizationName: invite.OrganizationName, Email: invite.Email, Role: invite.Role,
+		InvitedBy: invite.InvitedByName, ExpiresAt: invite.ExpiresAt, AccountExists: accountExists,
+	})
+}
+
+// HandleAcceptInvite handles POST /invites/accept for a logged-in user
+func (h *OrganizationHandlers) HandleAcceptInvite(w http.ResponseWriter, r *http.Request) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+	var req InviteTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Token is required")
+		return
+	}
+	org, err := h.invites.Accept(r.Context(), claims.UserID, req.Token)
+	if err != nil {
+		h.handleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toOrganizationResponse(org))
 }
 
 // HandleList handles GET /orgs
@@ -189,7 +327,13 @@ func (h *OrganizationHandlers) handleError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "not_found", "Member not found in this organization")
 	case errors.Is(err, organizations.ErrForbidden):
 		writeError(w, http.StatusForbidden, "forbidden", "Your organization role does not allow this action")
-	case errors.Is(err, organizations.ErrLastOwner), errors.Is(err, organizations.ErrInvalidName), errors.Is(err, organizations.ErrCannotRemoveSelf):
+	case errors.Is(err, organizations.ErrInviteNotFound):
+		writeError(w, http.StatusNotFound, "invalid_invite", "This invitation is invalid, expired or already used")
+	case errors.Is(err, organizations.ErrInviteEmailMismatch):
+		writeError(w, http.StatusForbidden, "invite_email_mismatch", "This invitation was sent to a different email address; log in with that account")
+	case errors.Is(err, organizations.ErrAlreadyMember):
+		writeError(w, http.StatusConflict, "already_member", err.Error())
+	case errors.Is(err, organizations.ErrLastOwner), errors.Is(err, organizations.ErrInvalidName), errors.Is(err, organizations.ErrCannotRemoveSelf), errors.Is(err, organizations.ErrInvalidEmail):
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 	default:
 		h.logger.Error("Unexpected organization error", zap.Error(err))
@@ -202,6 +346,14 @@ func toOrganizationResponse(o *organizations.Organization) OrganizationResponse 
 		ID: o.ID, Name: o.Name, Role: o.Role,
 		MemberCount: o.MemberCount, VaultCount: o.VaultCount,
 		CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
+	}
+}
+
+func toInviteResponse(inv *organizations.Invite) InviteResponse {
+	return InviteResponse{
+		ID: inv.ID, OrganizationID: inv.OrganizationID, OrganizationName: inv.OrganizationName,
+		Email: inv.Email, Role: inv.Role, InvitedBy: inv.InvitedByName, InvitedByID: inv.InvitedByID,
+		CreatedAt: inv.CreatedAt, ExpiresAt: inv.ExpiresAt,
 	}
 }
 

@@ -29,6 +29,9 @@ const (
 	ActionOrgUpdated           = "org.updated"
 	ActionOrgMemberRoleChanged = "org.member_role_changed"
 	ActionOrgMemberRemoved     = "org.member_removed"
+	ActionInviteCreated        = "invite.created"
+	ActionInviteRevoked        = "invite.revoked"
+	ActionInviteAccepted       = "invite.accepted"
 )
 
 // Actions lists every action the API records.
@@ -51,6 +54,9 @@ var Actions = []string{
 	ActionOrgUpdated,
 	ActionOrgMemberRoleChanged,
 	ActionOrgMemberRemoved,
+	ActionInviteCreated,
+	ActionInviteRevoked,
+	ActionInviteAccepted,
 }
 
 // Event describes something to record in the audit log.

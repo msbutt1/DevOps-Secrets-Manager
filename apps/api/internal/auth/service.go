@@ -7,12 +7,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/tokens"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
 
@@ -53,6 +55,16 @@ type RegisterRequest struct {
 	Email    string
 	Password string
 	Name     string
+	// InviteToken, when set, joins the invited organization instead of creating a personal one.
+	// The invitation proves the address, so no verification email is needed.
+	InviteToken string
+}
+
+// RegisterResult describes a new account.
+type RegisterResult struct {
+	UserID               uuid.UUID
+	VerificationRequired bool
+	OrganizationID       uuid.UUID
 }
 
 // AuthService defines the interface for authentication operations
@@ -61,7 +73,7 @@ type AuthService interface {
 	Refresh(ctx context.Context, refreshToken string) (*AuthResponse, error)
 	Logout(ctx context.Context, refreshToken string) error
 	Me(ctx context.Context, userID uuid.UUID) (*UserProfile, error)
-	Register(ctx context.Context, req RegisterRequest) (*uuid.UUID, error)
+	Register(ctx context.Context, req RegisterRequest) (*RegisterResult, error)
 	VerifyEmail(ctx context.Context, token string) error
 	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error
 }
@@ -78,6 +90,7 @@ type authService struct {
 	verificationTokenTTL  time.Duration
 	logger                *slog.Logger
 	auditService          audit.AuditService
+	invites               organizations.InviteService
 }
 
 // NewAuthService creates a new authentication service
@@ -92,6 +105,7 @@ func NewAuthService(
 	refreshTokenTTL time.Duration,
 	logger *slog.Logger,
 	auditService audit.AuditService,
+	invites organizations.InviteService,
 ) AuthService {
 	return &authService{
 		userRepo:              userRepo,
@@ -105,6 +119,7 @@ func NewAuthService(
 		verificationTokenTTL:  24 * time.Hour, // 24 hours
 		logger:                logger,
 		auditService:          auditService,
+		invites:               invites,
 	}
 }
 
@@ -315,8 +330,9 @@ func (s *authService) hashToken(token string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// Register creates a new user account and sends a verification email
-func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.UUID, error) {
+// Register creates a new user account. Without an invitation it also creates the user's own
+// organization and sends a verification email; with one it joins the invited organization.
+func (s *authService) Register(ctx context.Context, req RegisterRequest) (*RegisterResult, error) {
 	// Hash the password
 	passwordHash, err := crypto.HashPassword(req.Password)
 	if err != nil {
@@ -330,6 +346,8 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 	}
 	defer tx.Rollback(ctx)
 
+	invited := strings.TrimSpace(req.InviteToken) != ""
+
 	// Create user
 	userID := uuid.New()
 	user := &users.User{
@@ -337,7 +355,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 		Email:         users.NormalizeEmail(req.Email),
 		PasswordHash:  passwordHash,
 		Name:          req.Name,
-		EmailVerified: false,
+		EmailVerified: invited,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
@@ -347,6 +365,18 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 			return nil, ErrUserAlreadyExists
 		}
 		return nil, err
+	}
+
+	if invited {
+		invite, err := s.invites.ClaimForNewUser(ctx, tx, req.InviteToken, user.Email, userID)
+		if err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, err
+		}
+		s.invites.RecordAccepted(ctx, invite, userID)
+		return &RegisterResult{UserID: userID, OrganizationID: invite.OrganizationID}, nil
 	}
 
 	// Create auto-organization for the user
@@ -376,14 +406,11 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 		return nil, err
 	}
 
-	// Hash the verification token
-	tokenHash := s.hashToken(verificationToken)
-
-	// Store verification token
+	// Store the verification token hash
 	token := &email.VerificationToken{
 		ID:        uuid.New(),
 		UserID:    userID,
-		TokenHash: tokenHash,
+		TokenHash: s.hashToken(verificationToken),
 		ExpiresAt: time.Now().Add(s.verificationTokenTTL),
 		CreatedAt: time.Now(),
 	}
@@ -405,7 +432,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 		}
 	}()
 
-	return &userID, nil
+	return &RegisterResult{UserID: userID, VerificationRequired: true, OrganizationID: orgID}, nil
 }
 
 // VerifyEmail verifies a user's email using a verification token

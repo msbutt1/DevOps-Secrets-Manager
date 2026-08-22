@@ -72,6 +72,8 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 	vaultService := vaults.NewVaultService(vaultRepo, cfg.MasterKEK)
 	environmentService := environments.NewEnvironmentService(environmentRepo)
 	auditService := audit.NewAuditService(auditRepo, cfg.SLogger)
+	orgRepo := organizations.NewPostgresRepository(pool)
+	inviteService := organizations.NewInviteService(pool, orgRepo, cfg.Email, auditService, cfg.SLogger)
 	authService := auth.NewAuthService(
 		userRepo,
 		refreshTokenRepo,
@@ -83,6 +85,7 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 		cfg.RefreshTokenTTL,
 		cfg.SLogger,
 		auditService,
+		inviteService,
 	)
 	secretService := secrets.NewSecretService(secretRepo, environmentRepo, vaultRepo, auditService, cfg.MasterKEK)
 	policyService := policy.NewPolicyService(pool)
@@ -97,7 +100,7 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 
 	statsHandlers := httphandler.NewStatsHandlers(pool, cfg.Logger, startedAt, cfg.Version)
 	organizationHandlers := httphandler.NewOrganizationHandlers(
-		organizations.NewService(organizations.NewPostgresRepository(pool), auditService), cfg.Logger)
+		organizations.NewService(orgRepo, auditService), inviteService, cfg.Logger)
 
 	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, statsHandlers, organizationHandlers, cfg.JWTSecret)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/app"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/testutil"
 	"go.uber.org/zap"
 )
@@ -189,6 +190,12 @@ func (r *EmailRecorder) record(to, token string) {
 // SendVerificationEmail records the verification token.
 func (r *EmailRecorder) SendVerificationEmail(_ context.Context, to, _, token string) error {
 	r.record(to, token)
+	return nil
+}
+
+// SendInviteEmail records the invite token.
+func (r *EmailRecorder) SendInviteEmail(_ context.Context, invite email.Invite) error {
+	r.record(invite.To, invite.Token)
 	return nil
 }
 

@@ -40,7 +40,14 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		r.Get("/{id}/members", organizationHandlers.HandleListMembers)
 		r.Put("/{id}/members/{userId}", organizationHandlers.HandleUpdateMember)
 		r.Delete("/{id}/members/{userId}", organizationHandlers.HandleRemoveMember)
+		r.Get("/{id}/invites", organizationHandlers.HandleListInvites)
+		r.Post("/{id}/invites", organizationHandlers.HandleCreateInvite)
+		r.Delete("/{id}/invites/{inviteId}", organizationHandlers.HandleRevokeInvite)
 	})
+
+	// Invitation links: looking one up needs only the token; accepting needs a session
+	r.Post("/invites/lookup", organizationHandlers.HandleLookupInvite)
+	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Post("/invites/accept", organizationHandlers.HandleAcceptInvite)
 
 	// Vault routes (protected)
 	r.Route("/vaults", func(r chi.Router) {

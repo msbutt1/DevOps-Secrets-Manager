@@ -157,6 +157,7 @@ These are half-built or missing, but a team would need them.
   - Admins invite by email; the API creates a single-use, expiring token and sends an email (the SMTP service already exists). The link goes to a register-or-accept page.
   - Without this, nobody new can ever join an organization, so vault membership is limited to people already in it.
   - Commits: `feat(api): organization invites` + `feat(web): invite and accept flow`
+  - [x] API: create/list/revoke, lookup and accept, and register with `invite_token`.
 - [ ] **Organization settings page.** Members, roles, pending invites, remove a member. Commit: `feat(web): organization members page`
 - [ ] **Organization picker.** Users in more than one organization need a switcher. The audit handler currently picks the first organization. Commit: `feat(web): switch between organizations`
 

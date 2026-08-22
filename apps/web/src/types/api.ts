@@ -106,6 +106,9 @@ export const AUDIT_ACTIONS = [
   { value: 'org.updated', label: 'Organization Renamed' },
   { value: 'org.member_role_changed', label: 'Organization Role Changed' },
   { value: 'org.member_removed', label: 'Organization Member Removed' },
+  { value: 'invite.created', label: 'Invitation Sent' },
+  { value: 'invite.revoked', label: 'Invitation Revoked' },
+  { value: 'invite.accepted', label: 'Invitation Accepted' },
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];

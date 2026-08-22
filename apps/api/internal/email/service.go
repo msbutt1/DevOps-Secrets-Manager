@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"time"
 )
 
 // ErrNotConfigured is returned when SMTP is not configured outside development.
@@ -19,6 +20,17 @@ var ErrNotConfigured = errors.New("email delivery is not configured (set SMTP_HO
 // EmailService defines the interface for sending emails
 type EmailService interface {
 	SendVerificationEmail(ctx context.Context, to, name, token string) error
+	SendInviteEmail(ctx context.Context, invite Invite) error
+}
+
+// Invite describes an organization invitation email.
+type Invite struct {
+	To               string
+	OrganizationName string
+	InviterName      string
+	Role             string
+	Token            string
+	ExpiresAt        time.Time
 }
 
 // SMTPConfig holds SMTP configuration
@@ -88,6 +100,22 @@ func (s *emailService) SendVerificationEmail(ctx context.Context, to, name, toke
 	return s.deliver(to, "Verify your email address", body, link)
 }
 
+// SendInviteEmail sends an invitation to join an organization
+func (s *emailService) SendInviteEmail(ctx context.Context, invite Invite) error {
+	link := s.link("/invite", invite.Token)
+	body, err := render(inviteTemplate, map[string]string{
+		"Inviter":      invite.InviterName,
+		"Organization": invite.OrganizationName,
+		"Role":         invite.Role,
+		"Link":         link,
+		"Expires":      invite.ExpiresAt.UTC().Format("2 January 2006 15:04 MST"),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to render email template: %w", err)
+	}
+	return s.deliver(invite.To, invite.InviterName+" invited you to "+invite.OrganizationName, body, link)
+}
+
 // link builds an absolute web app URL carrying a token query parameter.
 func (s *emailService) link(path, token string) string {
 	return s.options.PublicURL + path + "?token=" + url.QueryEscape(token)
@@ -126,6 +154,22 @@ If you did not create an account, please ignore this email.
 
 Best regards,
 DevOps Secrets Manager Team
+`
+
+const inviteTemplate = `Hello,
+
+{{.Inviter}} has invited you to join {{.Organization}} on DevOps Secrets Manager as {{.Role}}.
+
+Open the link below to accept. If you do not have an account yet, you can create one there
+with this email address.
+
+{{.Link}}
+
+The invitation expires on {{.Expires}} and can only be used once.
+
+If you were not expecting this, you can ignore this email.
+
+DevOps Secrets Manager
 `
 
 func render(tmpl string, data map[string]string) (string, error) {
@@ -169,5 +213,11 @@ func (s *emailService) sendSMTP(to, subject, body string) error {
 
 // buildMessage constructs the email message
 func (s *emailService) buildMessage(from, to, subject, body string) string {
-	return fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s", from, to, subject, body)
+	return fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
+		headerValue(from), headerValue(to), headerValue(subject), body)
+}
+
+// headerValue removes line breaks so user-controlled text (names in subjects) cannot add headers.
+func headerValue(v string) string {
+	return strings.NewReplacer("\r", " ", "\n", " ").Replace(v)
 }

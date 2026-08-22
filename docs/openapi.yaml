@@ -343,6 +343,141 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /orgs/{id}/invites:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdPath'
+    get:
+      tags: [Organizations]
+      summary: List open invitations
+      description: Invitations not yet accepted, revoked or expired. Requires owner or admin.
+      operationId: listInvites
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Invite' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Organizations]
+      summary: Invite by email
+      description: |
+        Requires owner or admin; only owners can invite another owner. Emails a single-use link
+        that expires in 7 days (logged instead in development without SMTP). Inviting the same
+        address again replaces the earlier link. `email_sent` is false when the invitation was
+        stored but could not be delivered.
+      operationId: createInvite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateInviteRequest' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '201':
+          description: Invitation created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateInviteResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The person is already a member (`already_member`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /orgs/{id}/invites/{inviteId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdPath'
+      - name: inviteId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Organizations]
+      summary: Revoke invitation
+      description: Requires owner or admin. The link stops working.
+      operationId: revokeInvite
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '204':
+          description: Revoked
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /invites/lookup:
+    post:
+      tags: [Organizations]
+      summary: Look up an invitation
+      description: Describes an open invitation for the accept page. The token is sent in the body so it never appears in URLs or access logs. No authentication.
+      operationId: lookupInvite
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InviteTokenRequest' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Invitation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InviteLookup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404':
+          description: Unknown, expired, revoked or used invitation (`invalid_invite`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /invites/accept:
+    post:
+      tags: [Organizations]
+      summary: Accept an invitation
+      description: Adds the logged-in user to the organization. The account's email must match the invitation. New users accept by registering with `invite_token` instead.
+      operationId: acceptInvite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InviteTokenRequest' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Joined
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The invitation is for another address (`invite_email_mismatch`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Unknown, expired, revoked or used invitation (`invalid_invite`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Already a member (`already_member`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /vaults:
     get:
       tags: [Vaults]
@@ -918,13 +1053,19 @@ components:
         email: { type: string, format: email }
         password: { type: string, format: password }
         name: { type: string }
+        invite_token:
+          type: string
+          description: Joins the invited organization instead of creating a personal one; the email must match the invitation and no verification is needed
 
     RegisterResponse:
       type: object
-      required: [user_id, message]
+      required: [user_id, message, verification_required]
       properties:
         user_id: { type: string, format: uuid }
         message: { type: string }
+        verification_required:
+          type: boolean
+          description: False when an invitation was accepted and the account can log in straight away
 
     VerifyEmailRequest:
       type: object
@@ -994,6 +1135,61 @@ components:
         vault_count: { type: integer }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    Invite:
+      type: object
+      required: [id, organization_id, organization_name, email, role, invited_by, invited_by_id, created_at, expires_at]
+      properties:
+        id: { type: string, format: uuid }
+        organization_id: { type: string, format: uuid }
+        organization_name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+        invited_by: { type: string }
+        invited_by_id: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+
+    CreateInviteResponse:
+      type: object
+      required: [id, organization_id, organization_name, email, role, invited_by, invited_by_id, created_at, expires_at, email_sent]
+      properties:
+        id: { type: string, format: uuid }
+        organization_id: { type: string, format: uuid }
+        organization_name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+        invited_by: { type: string }
+        invited_by_id: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        email_sent: { type: boolean }
+
+    CreateInviteRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+
+    InviteTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    InviteLookup:
+      type: object
+      required: [organization_name, email, role, invited_by, expires_at, account_exists]
+      properties:
+        organization_name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/Role' }
+        invited_by: { type: string }
+        expires_at: { type: string, format: date-time }
+        account_exists:
+          type: boolean
+          description: Whether an account with the invited address exists (log in to accept) or not (register)
 
     UpdateOrganizationRequest:
       type: object
@@ -1212,6 +1408,9 @@ components:
         - org.updated
         - org.member_role_changed
         - org.member_removed
+        - invite.created
+        - invite.revoked
+        - invite.accepted
 
     AuditEvent:
       type: object
@@ -1229,7 +1428,7 @@ components:
         environment_name: { type: string, nullable: true }
         target_type:
           type: string
-          description: secret, environment, vault, member, organization or user
+          description: secret, environment, vault, member, organization, invite or user
         target_id: { type: string, format: uuid, nullable: true }
         target_name: { type: string, nullable: true }
         ip_address: { type: string, nullable: true }

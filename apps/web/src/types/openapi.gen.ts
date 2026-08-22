@@ -244,6 +244,98 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/orgs/{id}/invites': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    /**
+     * List open invitations
+     * @description Invitations not yet accepted, revoked or expired. Requires owner or admin.
+     */
+    get: operations['listInvites'];
+    put?: never;
+    /**
+     * Invite by email
+     * @description Requires owner or admin; only owners can invite another owner. Emails a single-use link
+     *     that expires in 7 days (logged instead in development without SMTP). Inviting the same
+     *     address again replaces the earlier link. `email_sent` is false when the invitation was
+     *     stored but could not be delivered.
+     */
+    post: operations['createInvite'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/orgs/{id}/invites/{inviteId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+        inviteId: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Revoke invitation
+     * @description Requires owner or admin. The link stops working.
+     */
+    delete: operations['revokeInvite'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/invites/lookup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Look up an invitation
+     * @description Describes an open invitation for the accept page. The token is sent in the body so it never appears in URLs or access logs. No authentication.
+     */
+    post: operations['lookupInvite'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/invites/accept': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Accept an invitation
+     * @description Adds the logged-in user to the organization. The account's email must match the invitation. New users accept by registering with `invite_token` instead.
+     */
+    post: operations['acceptInvite'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/vaults': {
     parameters: {
       query?: never;
@@ -567,11 +659,15 @@ export interface components {
       /** Format: password */
       password: string;
       name: string;
+      /** @description Joins the invited organization instead of creating a personal one; the email must match the invitation and no verification is needed */
+      invite_token?: string;
     };
     RegisterResponse: {
       /** Format: uuid */
       user_id: string;
       message: string;
+      /** @description False when an invitation was accepted and the account can log in straight away */
+      verification_required: boolean;
     };
     VerifyEmailRequest: {
       token: string;
@@ -624,6 +720,60 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       updated_at: string;
+    };
+    Invite: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      organization_id: string;
+      organization_name: string;
+      /** Format: email */
+      email: string;
+      role: components['schemas']['Role'];
+      invited_by: string;
+      /** Format: uuid */
+      invited_by_id: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      expires_at: string;
+    };
+    CreateInviteResponse: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      organization_id: string;
+      organization_name: string;
+      /** Format: email */
+      email: string;
+      role: components['schemas']['Role'];
+      invited_by: string;
+      /** Format: uuid */
+      invited_by_id: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      expires_at: string;
+      email_sent: boolean;
+    };
+    CreateInviteRequest: {
+      /** Format: email */
+      email: string;
+      role: components['schemas']['Role'];
+    };
+    InviteTokenRequest: {
+      token: string;
+    };
+    InviteLookup: {
+      organization_name: string;
+      /** Format: email */
+      email: string;
+      role: components['schemas']['Role'];
+      invited_by: string;
+      /** Format: date-time */
+      expires_at: string;
+      /** @description Whether an account with the invited address exists (log in to accept) or not (register) */
+      account_exists: boolean;
     };
     UpdateOrganizationRequest: {
       name: string;
@@ -814,7 +964,10 @@ export interface components {
       | 'env.deleted'
       | 'org.updated'
       | 'org.member_role_changed'
-      | 'org.member_removed';
+      | 'org.member_removed'
+      | 'invite.created'
+      | 'invite.revoked'
+      | 'invite.accepted';
     AuditEvent: {
       /** Format: uuid */
       id: string;
@@ -833,7 +986,7 @@ export interface components {
       /** Format: uuid */
       environment_id: string | null;
       environment_name: string | null;
-      /** @description secret, environment, vault, member, organization or user */
+      /** @description secret, environment, vault, member, organization, invite or user */
       target_type: string;
       /** Format: uuid */
       target_id: string | null;
@@ -1394,6 +1547,188 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  listInvites: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Invitations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Invite'][];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  createInvite: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateInviteRequest'];
+      };
+    };
+    responses: {
+      /** @description Invitation created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreateInviteResponse'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The person is already a member (`already_member`) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  revokeInvite: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+        inviteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Revoked */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  lookupInvite: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InviteTokenRequest'];
+      };
+    };
+    responses: {
+      /** @description Invitation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InviteLookup'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      /** @description Unknown, expired, revoked or used invitation (`invalid_invite`) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  acceptInvite: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['InviteTokenRequest'];
+      };
+    };
+    responses: {
+      /** @description Joined */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Organization'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      /** @description The invitation is for another address (`invite_email_mismatch`) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Unknown, expired, revoked or used invitation (`invalid_invite`) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Already a member (`already_member`) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
       500: components['responses']['InternalError'];
     };
   };

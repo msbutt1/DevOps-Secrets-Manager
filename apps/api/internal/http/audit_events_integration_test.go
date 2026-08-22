@@ -36,6 +36,16 @@ func TestEveryAuditActionIsRecorded(t *testing.T) {
 	colleague := f.member(t, "Cole Colleague", "developer", "", "")
 	api.MustDo(http.StatusOK, "PUT", "/orgs/"+org+"/members/"+colleague.ID.String(), f.owner.Token, map[string]any{"role": "viewer"})
 	api.MustDo(http.StatusNoContent, "DELETE", "/orgs/"+org+"/members/"+colleague.ID.String(), f.owner.Token, nil)
+	var inv struct {
+		ID string `json:"id"`
+	}
+	api.MustDo(http.StatusCreated, "POST", "/orgs/"+org+"/invites", f.owner.Token, map[string]any{"email": "revoked@example.test", "role": "viewer"}).Decode(t, &inv)
+	api.MustDo(http.StatusNoContent, "DELETE", "/orgs/"+org+"/invites/"+inv.ID, f.owner.Token, nil)
+	api.MustDo(http.StatusCreated, "POST", "/orgs/"+org+"/invites", f.owner.Token, map[string]any{"email": "joiner@example.test", "role": "viewer"})
+	api.MustDo(http.StatusCreated, "POST", "/auth/register", "", map[string]string{
+		"email": "joiner@example.test", "password": apitest.TestPassword, "name": "Joiner",
+		"invite_token": api.Email.WaitForToken(t, "joiner@example.test"),
+	})
 
 	var page auditPage
 	api.MustDo(http.StatusOK, "GET", "/audit?limit=200", f.owner.Token, nil).Decode(t, &page)

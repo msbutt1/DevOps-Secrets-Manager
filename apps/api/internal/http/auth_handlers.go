@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/auth"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
 	"go.uber.org/zap"
 )
 
@@ -21,9 +22,10 @@ type LoginRequest struct {
 }
 
 type RegisterRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Name     string `json:"name"`
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	Name        string `json:"name"`
+	InviteToken string `json:"invite_token"`
 }
 
 type VerifyEmailRequest struct {
@@ -51,8 +53,9 @@ type AuthResponseDTO struct {
 }
 
 type RegisterResponseDTO struct {
-	UserID  uuid.UUID `json:"user_id"`
-	Message string    `json:"message"`
+	UserID               uuid.UUID `json:"user_id"`
+	Message              string    `json:"message"`
+	VerificationRequired bool      `json:"verification_required"`
 }
 
 type VerifyEmailResponseDTO struct {
@@ -236,19 +239,25 @@ func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Register user
-	userID, err := h.authService.Register(r.Context(), auth.RegisterRequest{
-		Email:    req.Email,
-		Password: req.Password,
-		Name:     req.Name,
+	result, err := h.authService.Register(r.Context(), auth.RegisterRequest{
+		Email:       req.Email,
+		Password:    req.Password,
+		Name:        req.Name,
+		InviteToken: req.InviteToken,
 	})
 	if err != nil {
 		h.handleAuthError(w, err)
 		return
 	}
 
+	message := "Registration successful. Please check your email to verify your account."
+	if !result.VerificationRequired {
+		message = "Account created and invitation accepted. You can now log in."
+	}
 	h.respondJSON(w, http.StatusCreated, RegisterResponseDTO{
-		UserID:  *userID,
-		Message: "Registration successful. Please check your email to verify your account.",
+		UserID:               result.UserID,
+		Message:              message,
+		VerificationRequired: result.VerificationRequired,
 	})
 }
 
@@ -342,6 +351,10 @@ func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, err error) {
 		h.respondError(w, http.StatusBadRequest, "invalid_current_password", "Current password is incorrect")
 	case errors.Is(err, auth.ErrPasswordTooShort):
 		h.respondError(w, http.StatusBadRequest, "password_too_short", "Password must be at least 8 characters")
+	case errors.Is(err, organizations.ErrInviteNotFound):
+		h.respondError(w, http.StatusBadRequest, "invalid_invite", "This invitation is invalid, expired or already used")
+	case errors.Is(err, organizations.ErrInviteEmailMismatch):
+		h.respondError(w, http.StatusBadRequest, "invite_email_mismatch", "Register with the email address the invitation was sent to")
 	default:
 		h.logger.Error("Unexpected auth error", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")

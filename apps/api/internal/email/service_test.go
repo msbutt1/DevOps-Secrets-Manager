@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newTestService(t *testing.T, development bool) (EmailService, *bytes.Buffer) {
@@ -45,5 +47,27 @@ func TestSendVerificationEmailWithoutSMTPFailsOutsideDevelopment(t *testing.T) {
 	}
 	if strings.Contains(logs.String(), "secret-token") {
 		t.Fatalf("token must never be logged outside development, got %s", logs.String())
+	}
+}
+
+func TestSendInviteEmailDevelopmentFallbackLogsLink(t *testing.T) {
+	svc, logs := newTestService(t, true)
+	err := svc.SendInviteEmail(context.Background(), Invite{
+		To: "new@example.test", OrganizationName: "Acme", InviterName: "Olive", Role: "developer",
+		Token: "abc123", ExpiresAt: time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(logs.String(), `"link":"http://localhost:5173/invite?token=abc123"`) {
+		t.Fatalf("expected invite link in logs, got %s", logs.String())
+	}
+}
+
+func TestBuildMessageStripsHeaderInjection(t *testing.T) {
+	svc := NewEmailService(&SMTPConfig{}, Options{}, slog.New(slog.NewTextHandler(io.Discard, nil))).(*emailService)
+	msg := svc.buildMessage("from@example.test", "to@example.test", "Hi\r\nBcc: attacker@example.test", "body")
+	if strings.Contains(msg, "\r\nBcc:") {
+		t.Fatalf("header injection not neutralised: %q", msg)
 	}
 }
