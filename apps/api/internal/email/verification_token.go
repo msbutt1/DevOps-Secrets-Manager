@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/storage"
 )
 
 // Domain errors
@@ -33,10 +34,12 @@ type VerificationTokenRepository interface {
 	Create(ctx context.Context, token *VerificationToken) error
 	GetByTokenHash(ctx context.Context, tokenHash string) (*VerificationToken, error)
 	MarkAsUsed(ctx context.Context, id uuid.UUID) error
+	// WithTx returns a repository bound to the transaction.
+	WithTx(tx pgx.Tx) VerificationTokenRepository
 }
 
 type verificationTokenRepository struct {
-	pool *pgxpool.Pool
+	pool storage.Querier
 }
 
 // NewVerificationTokenRepository creates a new verification token repository
@@ -44,6 +47,11 @@ func NewVerificationTokenRepository(pool *pgxpool.Pool) VerificationTokenReposit
 	return &verificationTokenRepository{
 		pool: pool,
 	}
+}
+
+// WithTx returns a repository that runs its queries in the transaction.
+func (r *verificationTokenRepository) WithTx(tx pgx.Tx) VerificationTokenRepository {
+	return &verificationTokenRepository{pool: tx}
 }
 
 // Create inserts a new verification token into the database

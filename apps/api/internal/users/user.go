@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // Domain errors
@@ -35,4 +36,6 @@ type Repository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, userID uuid.UUID) error
 	UpdatePassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
+	// WithTx returns a repository bound to the transaction.
+	WithTx(tx pgx.Tx) Repository
 }

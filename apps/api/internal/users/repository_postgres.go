@@ -9,10 +9,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/storage"
 )
 
 type postgresRepository struct {
-	pool *pgxpool.Pool
+	pool storage.Querier
 }
 
 // NewPostgresRepository creates a new PostgreSQL-backed user repository
@@ -20,6 +21,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) Repository {
 	return &postgresRepository{
 		pool: pool,
 	}
+}
+
+// WithTx returns a repository that runs its queries in the transaction.
+func (r *postgresRepository) WithTx(tx pgx.Tx) Repository {
+	return &postgresRepository{pool: tx}
 }
 
 // GetByID retrieves a user by their ID

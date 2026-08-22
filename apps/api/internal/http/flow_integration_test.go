@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -117,4 +118,32 @@ func TestSecretLifecycleIsAudited(t *testing.T) {
 			t.Fatalf("audit trail step %d: got %q, want %q\nfull: %v", i, got[i], want[i], got)
 		}
 	}
+}
+
+// TestRegistrationIsAtomic makes the organization insert fail and checks that no user or
+// verification token is left behind, so the email can be registered again later.
+func TestRegistrationIsAtomic(t *testing.T) {
+	api := apitest.New(t)
+	ctx := context.Background()
+	if _, err := api.Pool.Exec(ctx, `
+		CREATE FUNCTION fail_org_insert() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'boom'; END $$ LANGUAGE plpgsql;
+		CREATE TRIGGER fail_org BEFORE INSERT ON organizations FOR EACH ROW EXECUTE FUNCTION fail_org_insert();`); err != nil {
+		t.Fatal(err)
+	}
+
+	body := map[string]string{"email": "atomic@example.test", "password": apitest.TestPassword, "name": "Atomic"}
+	api.MustDo(http.StatusInternalServerError, "POST", "/auth/register", "", body)
+
+	var users int
+	if err := api.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE email = 'atomic@example.test'`).Scan(&users); err != nil {
+		t.Fatal(err)
+	}
+	if users != 0 {
+		t.Fatalf("failed registration left %d user rows behind", users)
+	}
+
+	if _, err := api.Pool.Exec(ctx, `DROP TRIGGER fail_org ON organizations`); err != nil {
+		t.Fatal(err)
+	}
+	api.MustDo(http.StatusCreated, "POST", "/auth/register", "", body)
 }

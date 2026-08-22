@@ -160,6 +160,7 @@ These are half-built or missing, but a team would need them.
 - [ ] **Organization picker.** Users in more than one organization need a switcher. The audit handler currently picks the first organization. Commit: `feat(web): switch between organizations`
 
 ### Account
+- [x] **Registration was not atomic.** (Found while reading the code.) The user and verification token were written outside the transaction that creates the organization, so a failure left an account with no organization that could never register again. Commit: `fix(api): create user, organization and token in one transaction`
 - [ ] **Change password.** The route and page exist. Test the whole flow end to end, and revoke all refresh tokens after a change. Commit: `fix(api): revoke sessions after password change`
 - [ ] **Forgot password.** Emailed reset token, then a reset page. Commit: `feat: password reset by email`
 - [x] **Email verification in development.** Login is blocked until the email is verified, but local setups have no SMTP. Add a dev mode that logs the verification link (or a `APP_EMAIL_DISABLED=true` auto-verify switch that is off by default). Document it. Commit: `feat(api): log verification links when SMTP is not configured`

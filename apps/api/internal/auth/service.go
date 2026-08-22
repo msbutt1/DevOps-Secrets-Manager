@@ -342,7 +342,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 		UpdatedAt:     time.Now(),
 	}
 
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := s.userRepo.WithTx(tx).Create(ctx, user); err != nil {
 		if errors.Is(err, users.ErrDuplicate) {
 			return nil, ErrUserAlreadyExists
 		}
@@ -388,7 +388,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.verificationTokenRepo.Create(ctx, token); err != nil {
+	if err := s.verificationTokenRepo.WithTx(tx).Create(ctx, token); err != nil {
 		return nil, err
 	}
 
