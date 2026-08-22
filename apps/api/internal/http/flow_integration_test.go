@@ -147,3 +147,25 @@ func TestRegistrationIsAtomic(t *testing.T) {
 	}
 	api.MustDo(http.StatusCreated, "POST", "/auth/register", "", body)
 }
+
+func TestEmailAddressesAreCaseInsensitive(t *testing.T) {
+	api := apitest.New(t)
+	api.MustDo(http.StatusCreated, "POST", "/auth/register", "", map[string]string{"email": "  Mixed.Case@Example.TEST ", "password": apitest.TestPassword, "name": "Mixed"})
+	api.MustDo(http.StatusConflict, "POST", "/auth/register", "", map[string]string{"email": "mixed.case@example.test", "password": apitest.TestPassword, "name": "Dupe"})
+
+	token := api.Email.WaitForToken(t, "mixed.case@example.test")
+	api.MustDo(http.StatusOK, "POST", "/auth/verify-email", "", map[string]string{"token": token})
+	api.Login("MIXED.CASE@example.test", apitest.TestPassword)
+
+	owner := api.CreateUser("Case Owner")
+	var vault idResponse
+	api.MustDo(http.StatusCreated, "POST", "/vaults", owner.Token, map[string]any{"name": "case-vault"}).Decode(t, &vault)
+	var user struct {
+		ID string `json:"id"`
+	}
+	api.MustDo(http.StatusOK, "GET", "/auth/me", api.Login("mixed.case@example.test", apitest.TestPassword), nil).Decode(t, &user)
+	if _, err := api.Pool.Exec(context.Background(), `INSERT INTO user_organizations (user_id, organization_id, role) VALUES ($1, $2, 'developer')`, user.ID, owner.OrgID); err != nil {
+		t.Fatal(err)
+	}
+	api.MustDo(http.StatusCreated, "POST", "/vaults/"+vault.ID+"/members", owner.Token, map[string]any{"email": "Mixed.Case@EXAMPLE.test", "role": "viewer"})
+}

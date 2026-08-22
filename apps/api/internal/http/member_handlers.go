@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,6 +14,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
 	"go.uber.org/zap"
 )
@@ -118,7 +118,7 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
 		return
 	}
-	req.Email = strings.TrimSpace(req.Email)
+	req.Email = users.NormalizeEmail(req.Email)
 
 	if !policy.IsValidRole(req.Role) {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", invalidRoleMessage)
@@ -402,7 +402,7 @@ func (h *MemberHandlers) getVaultMember(ctx context.Context, vaultID, userID uui
 }
 
 func (h *MemberHandlers) getUserByEmail(ctx context.Context, email string) (*userInfo, error) {
-	query := `SELECT id, email, name FROM users WHERE lower(email) = lower($1) AND deleted_at IS NULL`
+	query := `SELECT id, email, name FROM users WHERE email = $1 AND deleted_at IS NULL`
 	var u userInfo
 	err := h.db.QueryRow(ctx, query, email).Scan(&u.ID, &u.Email, &u.Name)
 	if err != nil {

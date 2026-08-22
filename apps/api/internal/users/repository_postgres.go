@@ -67,7 +67,7 @@ func (r *postgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 	`
 
 	var user User
-	err := r.pool.QueryRow(ctx, query, email).Scan(
+	err := r.pool.QueryRow(ctx, query, NormalizeEmail(email)).Scan(
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
@@ -100,7 +100,7 @@ func (r *postgresRepository) Create(ctx context.Context, user *User) error {
 		ctx,
 		query,
 		user.ID,
-		user.Email,
+		NormalizeEmail(user.Email),
 		user.PasswordHash,
 		user.Name,
 		user.EmailVerified,

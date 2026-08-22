@@ -111,7 +111,7 @@ func NewAuthService(
 // Login authenticates a user and returns access and refresh tokens
 func (s *authService) Login(ctx context.Context, email, password string) (*AuthResponse, error) {
 	// Get user by email
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	user, err := s.userRepo.GetByEmail(ctx, users.NormalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, users.ErrNotFound) {
 			return nil, ErrInvalidCredentials
@@ -334,7 +334,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 	userID := uuid.New()
 	user := &users.User{
 		ID:            userID,
-		Email:         req.Email,
+		Email:         users.NormalizeEmail(req.Email),
 		PasswordHash:  passwordHash,
 		Name:          req.Name,
 		EmailVerified: false,
@@ -399,7 +399,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*uuid.
 
 	// Send verification email (async, don't block on this)
 	go func() {
-		if err := s.emailService.SendVerificationEmail(context.Background(), req.Email, req.Name, verificationToken); err != nil {
+		if err := s.emailService.SendVerificationEmail(context.Background(), user.Email, req.Name, verificationToken); err != nil {
 			// Log error but don't fail registration
 			s.logger.Error("failed to send verification email", slog.String("user_id", userID.String()), slog.Any("error", err))
 		}
