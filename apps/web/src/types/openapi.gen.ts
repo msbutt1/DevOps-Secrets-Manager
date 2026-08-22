@@ -152,6 +152,98 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/orgs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List organizations
+     * @description Organizations the caller belongs to, with their role, ordered by name.
+     */
+    get: operations['listOrganizations'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/orgs/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    /** Get organization */
+    get: operations['getOrganization'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Rename organization
+     * @description Requires the owner or admin role in the organization.
+     */
+    patch: operations['updateOrganization'];
+    trace?: never;
+  };
+  '/orgs/{id}/members': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    /**
+     * List organization members
+     * @description Any member can see who else is in the organization.
+     */
+    get: operations['listOrganizationMembers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/orgs/{id}/members/{userId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+        userId: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Change organization role
+     * @description Requires owner or admin. Only owners can grant or change the owner role, and the last owner cannot be demoted.
+     */
+    put: operations['updateOrganizationMember'];
+    post?: never;
+    /**
+     * Remove organization member
+     * @description Requires owner or admin. Also removes the person from every vault in the organization. Callers cannot remove themselves, only owners can remove an owner, and the last owner stays.
+     */
+    delete: operations['removeOrganizationMember'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/vaults': {
     parameters: {
       query?: never;
@@ -521,6 +613,33 @@ export interface components {
       created_at: string;
       organizations: components['schemas']['UserOrganization'][];
     };
+    Organization: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      role: components['schemas']['Role'];
+      member_count: number;
+      vault_count: number;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    UpdateOrganizationRequest: {
+      name: string;
+    };
+    OrganizationMember: {
+      /** Format: uuid */
+      user_id: string;
+      /** Format: email */
+      email: string;
+      name: string;
+      role: components['schemas']['Role'];
+      /** Format: date-time */
+      joined_at: string;
+      /** Format: date-time */
+      last_login_at: string | null;
+    };
     Vault: {
       /** Format: uuid */
       id: string;
@@ -692,7 +811,10 @@ export interface components {
       | 'vault.deleted'
       | 'env.created'
       | 'env.updated'
-      | 'env.deleted';
+      | 'env.deleted'
+      | 'org.updated'
+      | 'org.member_role_changed'
+      | 'org.member_removed';
     AuditEvent: {
       /** Format: uuid */
       id: string;
@@ -711,7 +833,7 @@ export interface components {
       /** Format: uuid */
       environment_id: string | null;
       environment_name: string | null;
-      /** @description secret, environment, vault, member or user */
+      /** @description secret, environment, vault, member, organization or user */
       target_type: string;
       /** Format: uuid */
       target_id: string | null;
@@ -833,6 +955,7 @@ export interface components {
     };
   };
   parameters: {
+    OrganizationIdPath: string;
     VaultIdPath: string;
     EnvironmentIdPath: string;
     SecretIdPath: string;
@@ -1108,6 +1231,169 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  listOrganizations: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Organizations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Organization'][];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  getOrganization: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Organization */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Organization'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  updateOrganization: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateOrganizationRequest'];
+      };
+    };
+    responses: {
+      /** @description Renamed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Organization'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  listOrganizationMembers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Members */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrganizationMember'][];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  updateOrganizationMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateMemberRequest'];
+      };
+    };
+    responses: {
+      /** @description Updated */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OrganizationMember'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  removeOrganizationMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['OrganizationIdPath'];
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Removed */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
       500: components['responses']['InternalError'];
     };
   };

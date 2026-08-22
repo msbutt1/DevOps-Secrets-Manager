@@ -13,6 +13,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
 	httphandler "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/secrets"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/tokens"
@@ -95,6 +96,8 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 	memberHandlers := httphandler.NewMemberHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 
 	statsHandlers := httphandler.NewStatsHandlers(pool, cfg.Logger, startedAt, cfg.Version)
+	organizationHandlers := httphandler.NewOrganizationHandlers(
+		organizations.NewService(organizations.NewPostgresRepository(pool), auditService), cfg.Logger)
 
-	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, statsHandlers, cfg.JWTSecret)
+	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, statsHandlers, organizationHandlers, cfg.JWTSecret)
 }

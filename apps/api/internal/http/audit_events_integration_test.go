@@ -31,6 +31,12 @@ func TestEveryAuditActionIsRecorded(t *testing.T) {
 
 	api.MustDo(http.StatusNoContent, "DELETE", "/vaults/"+f.createVault(t, "short-lived"), f.owner.Token, nil)
 
+	org := f.owner.OrgID.String()
+	api.MustDo(http.StatusOK, "PATCH", "/orgs/"+org, f.owner.Token, map[string]any{"name": "Renamed Org"})
+	colleague := f.member(t, "Cole Colleague", "developer", "", "")
+	api.MustDo(http.StatusOK, "PUT", "/orgs/"+org+"/members/"+colleague.ID.String(), f.owner.Token, map[string]any{"role": "viewer"})
+	api.MustDo(http.StatusNoContent, "DELETE", "/orgs/"+org+"/members/"+colleague.ID.String(), f.owner.Token, nil)
+
 	var page auditPage
 	api.MustDo(http.StatusOK, "GET", "/audit?limit=200", f.owner.Token, nil).Decode(t, &page)
 

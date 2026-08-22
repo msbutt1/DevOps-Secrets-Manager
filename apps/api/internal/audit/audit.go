@@ -25,6 +25,10 @@ const (
 	ActionEnvCreated        = "env.created"
 	ActionEnvUpdated        = "env.updated"
 	ActionEnvDeleted        = "env.deleted"
+
+	ActionOrgUpdated           = "org.updated"
+	ActionOrgMemberRoleChanged = "org.member_role_changed"
+	ActionOrgMemberRemoved     = "org.member_removed"
 )
 
 // Actions lists every action the API records.
@@ -44,6 +48,9 @@ var Actions = []string{
 	ActionEnvCreated,
 	ActionEnvUpdated,
 	ActionEnvDeleted,
+	ActionOrgUpdated,
+	ActionOrgMemberRoleChanged,
+	ActionOrgMemberRemoved,
 }
 
 // Event describes something to record in the audit log.

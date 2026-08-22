@@ -103,6 +103,9 @@ export const AUDIT_ACTIONS = [
   { value: 'env.created', label: 'Environment Created' },
   { value: 'env.updated', label: 'Environment Updated' },
   { value: 'env.deleted', label: 'Environment Deleted' },
+  { value: 'org.updated', label: 'Organization Renamed' },
+  { value: 'org.member_role_changed', label: 'Organization Role Changed' },
+  { value: 'org.member_removed', label: 'Organization Member Removed' },
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];

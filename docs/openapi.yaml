@@ -27,6 +27,7 @@ security:
 
 tags:
   - name: Authentication
+  - name: Organizations
   - name: Vaults
   - name: Environments
   - name: Secrets
@@ -222,6 +223,125 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /orgs:
+    get:
+      tags: [Organizations]
+      summary: List organizations
+      description: Organizations the caller belongs to, with their role, ordered by name.
+      operationId: listOrganizations
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Organizations
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Organization' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /orgs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdPath'
+    get:
+      tags: [Organizations]
+      summary: Get organization
+      operationId: getOrganization
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Organization
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Organizations]
+      summary: Rename organization
+      description: Requires the owner or admin role in the organization.
+      operationId: updateOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOrganizationRequest' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Renamed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /orgs/{id}/members:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdPath'
+    get:
+      tags: [Organizations]
+      summary: List organization members
+      description: Any member can see who else is in the organization.
+      operationId: listOrganizationMembers
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/OrganizationMember' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /orgs/{id}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationIdPath'
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [Organizations]
+      summary: Change organization role
+      description: Requires owner or admin. Only owners can grant or change the owner role, and the last owner cannot be demoted.
+      operationId: updateOrganizationMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMemberRequest' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrganizationMember' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Organizations]
+      summary: Remove organization member
+      description: Requires owner or admin. Also removes the person from every vault in the organization. Callers cannot remove themselves, only owners can remove an owner, and the last owner stays.
+      operationId: removeOrganizationMember
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '204':
+          description: Removed
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /vaults:
     get:
@@ -715,6 +835,11 @@ components:
       description: HS256 access token from /auth/login or /auth/refresh (15 minutes by default).
 
   parameters:
+    OrganizationIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     VaultIdPath:
       name: id
       in: path
@@ -856,6 +981,36 @@ components:
         organizations:
           type: array
           items: { $ref: '#/components/schemas/UserOrganization' }
+
+    Organization:
+      type: object
+      required: [id, name, role, member_count, vault_count, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role:
+          $ref: '#/components/schemas/Role'
+        member_count: { type: integer }
+        vault_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UpdateOrganizationRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+
+    OrganizationMember:
+      type: object
+      required: [user_id, email, name, role, joined_at, last_login_at]
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        joined_at: { type: string, format: date-time }
+        last_login_at: { type: string, format: date-time, nullable: true }
 
     Vault:
       type: object
@@ -1054,6 +1209,9 @@ components:
         - env.created
         - env.updated
         - env.deleted
+        - org.updated
+        - org.member_role_changed
+        - org.member_removed
 
     AuditEvent:
       type: object
@@ -1071,7 +1229,7 @@ components:
         environment_name: { type: string, nullable: true }
         target_type:
           type: string
-          description: secret, environment, vault, member or user
+          description: secret, environment, vault, member, organization or user
         target_id: { type: string, format: uuid, nullable: true }
         target_name: { type: string, nullable: true }
         ip_address: { type: string, nullable: true }

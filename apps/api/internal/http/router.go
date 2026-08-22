@@ -8,7 +8,7 @@ import (
 )
 
 // NewRouter creates and configures a new chi router
-func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, statsHandlers *StatsHandlers, jwtSecret string) *chi.Mux {
+func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, statsHandlers *StatsHandlers, organizationHandlers *OrganizationHandlers, jwtSecret string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middleware
@@ -29,6 +29,17 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		// Protected routes - require authentication
 		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/me", authHandlers.HandleMe)
 		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Post("/change-password", authHandlers.HandleChangePassword)
+	})
+
+	// Organization routes (protected)
+	r.Route("/orgs", func(r chi.Router) {
+		r.Use(authmiddleware.AuthMiddleware(jwtSecret))
+		r.Get("/", organizationHandlers.HandleList)
+		r.Get("/{id}", organizationHandlers.HandleGet)
+		r.Patch("/{id}", organizationHandlers.HandleUpdate)
+		r.Get("/{id}/members", organizationHandlers.HandleListMembers)
+		r.Put("/{id}/members/{userId}", organizationHandlers.HandleUpdateMember)
+		r.Delete("/{id}/members/{userId}", organizationHandlers.HandleRemoveMember)
 	})
 
 	// Vault routes (protected)

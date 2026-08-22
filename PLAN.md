@@ -148,10 +148,11 @@ These are things that exist in the UI or README but don't work.
 These are half-built or missing, but a team would need them.
 
 ### Organizations and people
-- [ ] **Organization API.**
+- [x] **Organization API.**
   - Endpoints: `GET /orgs`, `GET /orgs/{id}`, `PATCH /orgs/{id}` (rename), `GET /orgs/{id}/members`
   - Today an organization is created silently at registration and can't be managed.
   - Commit: `feat(api): add organization endpoints`
+  - Also `PUT`/`DELETE /orgs/{id}/members/{userId}` for the settings page; removing someone from an organization also removes them from its vaults.
 - [ ] **Invites.**
   - Admins invite by email; the API creates a single-use, expiring token and sends an email (the SMTP service already exists). The link goes to a register-or-accept page.
   - Without this, nobody new can ever join an organization, so vault membership is limited to people already in it.
