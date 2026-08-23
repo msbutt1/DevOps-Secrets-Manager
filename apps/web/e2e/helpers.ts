@@ -12,21 +12,27 @@ const apiLog =
 export const unique = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-/** Finds the newest development verification link logged for the address. */
-export async function verificationLink(email: string): Promise<string> {
+/** Finds the newest development link of a kind (verify-email, invite) logged for the address. */
+export async function loggedLink(email: string, path: string): Promise<string> {
   for (let attempt = 0; attempt < 50; attempt++) {
     const lines = readFileSync(apiLog, 'utf8').split('\n');
     for (let i = lines.length - 1; i >= 0; i--) {
       if (!lines[i].includes(email) || !lines[i].includes('"link"')) continue;
       const entry = JSON.parse(lines[i]) as { to?: string; link?: string };
-      if (entry.to === email && entry.link?.includes('/verify-email')) {
+      if (entry.to === email && entry.link?.includes(path)) {
         return entry.link;
       }
     }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  throw new Error(`No verification link for ${email} in ${apiLog}`);
+  throw new Error(`No ${path} link for ${email} in ${apiLog}`);
 }
+
+export const verificationLink = (email: string) => loggedLink(email, '/verify-email');
+export const inviteLink = async (email: string) => {
+  const url = new URL(await loggedLink(email, '/invite'));
+  return url.pathname + url.search;
+};
 
 /** Registers through the UI, verifies with the logged link and ends on the login page. */
 export async function registerAndVerify(page: Page, name: string, email: string) {

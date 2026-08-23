@@ -268,8 +268,8 @@ These are half-built or missing, but a team would need them.
   - Components: reveal dialog, permission gate, secret form validation.
   - Replace the placeholder `src/test/example.test.ts`.
   - Commit: `test(web): component tests for secrets and permissions`
-- [~] **Browser tests.** Playwright against Docker Compose: log in, create a vault, add a secret, reveal it, check the audit entry, and check a viewer can't reveal. Commit: `test: browser end-to-end tests`
-  - Owner flow done (register, verify, log in, vault, environment, secret, reveal, audit entry), run with `make test-e2e` against `make dev` since Docker is unavailable here. The viewer case needs a second user in the owner's organization, which only invites (Phase 2) make possible through the UI.
+- [x] **Browser tests.** Playwright against Docker Compose: log in, create a vault, add a secret, reveal it, check the audit entry, and check a viewer can't reveal. Commit: `test: browser end-to-end tests`
+  - Owner flow done (register, verify, log in, vault, environment, secret, reveal, audit entry), run with `make test-e2e` against `make dev` since Docker is unavailable here. The viewer case runs through the real invite flow: invite, register from the link, add to the vault as viewer, no reveal or delete controls, and the link cannot be reused.
 
 ---
 
