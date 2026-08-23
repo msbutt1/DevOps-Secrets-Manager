@@ -159,7 +159,7 @@ These are half-built or missing, but a team would need them.
   - Commits: `feat(api): organization invites` + `feat(web): invite and accept flow`
   - [x] API: create/list/revoke, lookup and accept, and register with `invite_token`.
   - [x] Web: `/invite` accept page (log in, create account, or accept), invite-aware registration, and an invite dialog from Settings.
-- [ ] **Organization settings page.** Members, roles, pending invites, remove a member. Commit: `feat(web): organization members page`
+- [x] **Organization settings page.** Members, roles, pending invites, remove a member. Commit: `feat(web): organization members page`
 - [ ] **Organization picker.** Users in more than one organization need a switcher. The audit handler currently picks the first organization. Commit: `feat(web): switch between organizations`
 
 ### Account

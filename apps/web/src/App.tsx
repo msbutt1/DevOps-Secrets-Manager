@@ -16,6 +16,7 @@ import VaultPage from './pages/VaultPage';
 import AccessPage from './pages/AccessPage';
 import AuditPage from './pages/AuditPage';
 import SettingsPage from './pages/SettingsPage';
+import OrganizationPage from './pages/OrganizationPage';
 import NotFound from './pages/NotFound';
 
 const App = () => (
@@ -67,6 +68,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <AuditPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/organization"
+              element={
+                <ProtectedRoute>
+                  <OrganizationPage />
                 </ProtectedRoute>
               }
             />

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/win95';
-import { Shield, Database, Users, FileText, LogOut, Home, Settings } from 'lucide-react';
+import { Shield, Database, Building, FileText, LogOut, Home, Settings } from 'lucide-react';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -12,6 +12,7 @@ const navItems = [
   { path: '/', label: 'Dashboard', icon: Home },
   { path: '/vaults', label: 'Vaults', icon: Database },
   { path: '/audit', label: 'Audit Log', icon: FileText },
+  { path: '/organization', label: 'Organization', icon: Building },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
