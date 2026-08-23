@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, Panel } from '@/components/win95';
 import { Shield, AlertTriangle, Check } from 'lucide-react';
-import { authApi } from '@/lib/api-client';
+import { authApi, invitesApi } from '@/lib/api-client';
 
 export const RegisterPage = () => {
   const [email, setEmail] = useState('');
@@ -13,6 +15,20 @@ export const RegisterPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
+
+  // Registering from an invitation link: the email is fixed to the invited address
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('invite') ?? '';
+  const { data: invite, error: inviteError } = useQuery({
+    queryKey: ['invite-lookup', inviteToken],
+    queryFn: () => invitesApi.lookup(inviteToken),
+    enabled: !!inviteToken,
+    retry: false,
+  });
+  useEffect(() => {
+    if (invite) setEmail(invite.email);
+  }, [invite]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +47,18 @@ export const RegisterPage = () => {
     setIsSubmitting(true);
 
     try {
-      await authApi.register({ email, password, name });
+      const result = await authApi.register({
+        email,
+        password,
+        name,
+        ...(inviteToken ? { inviteToken } : {}),
+      });
+      if (!result.verificationRequired) {
+        // Invited accounts are verified by the invitation; sign in and go straight to the team
+        await login({ email, password });
+        navigate('/', { replace: true });
+        return;
+      }
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
@@ -97,10 +124,27 @@ export const RegisterPage = () => {
         {/* Content */}
         <div className="p-win-md">
           <Panel className="mb-3">
-            <p className="text-win-body mb-2">
-              Create an account to access the secrets management console.
-            </p>
-            <p className="text-win-small text-muted-foreground">Email verification is required.</p>
+            {invite ? (
+              <p className="text-win-body">
+                Create your account to join <strong>{invite.organizationName}</strong> as{' '}
+                <strong>{invite.role}</strong>.
+              </p>
+            ) : (
+              <>
+                <p className="text-win-body mb-2">
+                  Create an account to access the secrets management console.
+                </p>
+                <p className="text-win-small text-muted-foreground">
+                  Email verification is required.
+                </p>
+              </>
+            )}
+            {inviteError && (
+              <p className="text-win-small text-warning mt-1">
+                This invitation is invalid, expired or already used. You can still register without
+                it.
+              </p>
+            )}
           </Panel>
 
           {/* Error Display */}
@@ -147,6 +191,7 @@ export const RegisterPage = () => {
                 required
                 autoComplete="email"
                 disabled={isSubmitting}
+                readOnly={!!invite}
               />
             </div>
 

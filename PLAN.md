@@ -153,11 +153,12 @@ These are half-built or missing, but a team would need them.
   - Today an organization is created silently at registration and can't be managed.
   - Commit: `feat(api): add organization endpoints`
   - Also `PUT`/`DELETE /orgs/{id}/members/{userId}` for the settings page; removing someone from an organization also removes them from its vaults.
-- [ ] **Invites.**
+- [x] **Invites.**
   - Admins invite by email; the API creates a single-use, expiring token and sends an email (the SMTP service already exists). The link goes to a register-or-accept page.
   - Without this, nobody new can ever join an organization, so vault membership is limited to people already in it.
   - Commits: `feat(api): organization invites` + `feat(web): invite and accept flow`
   - [x] API: create/list/revoke, lookup and accept, and register with `invite_token`.
+  - [x] Web: `/invite` accept page (log in, create account, or accept), invite-aware registration, and an invite dialog from Settings.
 - [ ] **Organization settings page.** Members, roles, pending invites, remove a member. Commit: `feat(web): organization members page`
 - [ ] **Organization picker.** Users in more than one organization need a switcher. The audit handler currently picks the first organization. Commit: `feat(web): switch between organizations`
 

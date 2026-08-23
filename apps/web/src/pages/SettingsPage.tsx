@@ -4,10 +4,13 @@ import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input } from '@/components/win95';
 import { User, Shield, Clock, Building, AlertTriangle, Check } from 'lucide-react';
 import { authApi } from '@/lib/api-client';
+import { InviteMemberDialog } from '@/components/InviteMemberDialog';
+import type { UserOrganization } from '@/types/api';
 
 export const SettingsPage = () => {
   const { user } = useAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [inviteOrg, setInviteOrg] = useState<UserOrganization | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -150,8 +153,22 @@ export const SettingsPage = () => {
                         idx % 2 === 1 ? 'bg-background' : ''
                       }`}
                     >
-                      <div className="text-win-body font-semibold">{org.name}</div>
-                      <div className="text-win-small text-muted-foreground">Role: {org.role}</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-win-body font-semibold">{org.name}</div>
+                          <div className="text-win-small text-muted-foreground">
+                            Role: {org.role}
+                          </div>
+                        </div>
+                        {(org.role === 'owner' || org.role === 'admin') && (
+                          <Button
+                            className="!min-w-0 !px-2 !py-[2px] text-win-small"
+                            onClick={() => setInviteOrg(org)}
+                          >
+                            Invite
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -283,6 +300,15 @@ export const SettingsPage = () => {
             </div>
           </div>
         </div>
+      )}
+      {inviteOrg && (
+        <InviteMemberDialog
+          isOpen
+          organizationId={inviteOrg.id}
+          organizationName={inviteOrg.name}
+          inviterRole={inviteOrg.role}
+          onClose={() => setInviteOrg(null)}
+        />
       )}
     </AppLayout>
   );

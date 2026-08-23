@@ -19,6 +19,13 @@ import type {
   SecretUpdateRequest,
   SecretRevealResponse,
   VaultMember,
+  Organization,
+  OrganizationMember,
+  UpdateOrganizationRequest,
+  Invite,
+  CreateInviteRequest,
+  CreateInviteResponse,
+  InviteLookup,
   AddMemberRequest,
   UpdateMemberRequest,
   AuditEvent,
@@ -200,6 +207,53 @@ export const authApi = {
   me: (): Promise<User> => apiFetch<User>('/auth/me'),
 
   refresh: refreshAccessToken,
+};
+
+// ============ ORGANIZATIONS API ============
+export const orgsApi = {
+  list: (): Promise<Organization[]> => apiFetch<Organization[]>('/orgs'),
+
+  get: (id: string): Promise<Organization> => apiFetch<Organization>(`/orgs/${id}`),
+
+  update: (id: string, data: UpdateOrganizationRequest): Promise<Organization> =>
+    apiFetch<Organization>(`/orgs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  listMembers: (id: string): Promise<OrganizationMember[]> =>
+    apiFetch<OrganizationMember[]>(`/orgs/${id}/members`),
+
+  updateMember: (
+    id: string,
+    userId: string,
+    data: UpdateMemberRequest,
+  ): Promise<OrganizationMember> =>
+    apiFetch<OrganizationMember>(`/orgs/${id}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  removeMember: (id: string, userId: string): Promise<void> =>
+    apiFetch<void>(`/orgs/${id}/members/${userId}`, { method: 'DELETE' }),
+
+  listInvites: (id: string): Promise<Invite[]> => apiFetch<Invite[]>(`/orgs/${id}/invites`),
+
+  createInvite: (id: string, data: CreateInviteRequest): Promise<CreateInviteResponse> =>
+    apiFetch<CreateInviteResponse>(`/orgs/${id}/invites`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  revokeInvite: (id: string, inviteId: string): Promise<void> =>
+    apiFetch<void>(`/orgs/${id}/invites/${inviteId}`, { method: 'DELETE' }),
+};
+
+// ============ INVITES API ============
+export const invitesApi = {
+  // Tokens are sent in the body so they stay out of URLs and access logs
+  lookup: (token: string): Promise<InviteLookup> =>
+    apiFetch<InviteLookup>('/invites/lookup', { method: 'POST', body: JSON.stringify({ token }) }),
+
+  accept: (token: string): Promise<Organization> =>
+    apiFetch<Organization>('/invites/accept', { method: 'POST', body: JSON.stringify({ token }) }),
 };
 
 // ============ VAULTS API ============

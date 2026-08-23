@@ -21,6 +21,15 @@ export type User = Schema<'UserProfile'>;
 export type UserOrganization = Schema<'UserOrganization'>;
 export type OrganizationRole = Schema<'Role'>;
 
+// Organization DTOs
+export type Organization = Schema<'Organization'>;
+export type OrganizationMember = Schema<'OrganizationMember'>;
+export type UpdateOrganizationRequest = Schema<'UpdateOrganizationRequest'>;
+export type Invite = Schema<'Invite'>;
+export type CreateInviteRequest = Schema<'CreateInviteRequest'>;
+export type CreateInviteResponse = Schema<'CreateInviteResponse'>;
+export type InviteLookup = Schema<'InviteLookup'>;
+
 // Vault DTOs
 export type Vault = Schema<'Vault'>;
 export type VaultCreateRequest = Schema<'CreateVaultRequest'>;

@@ -12,7 +12,9 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  // Return to the page that required login, including its query string (e.g. an invite token)
+  const fromLocation = (location.state as { from?: { pathname: string; search?: string } })?.from;
+  const from = fromLocation ? `${fromLocation.pathname}${fromLocation.search ?? ''}` : '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

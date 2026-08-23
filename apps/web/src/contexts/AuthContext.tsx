@@ -9,6 +9,8 @@ interface AuthContextType {
   error: string | null;
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
+  /** Reloads the profile, e.g. after joining an organization */
+  refreshUser: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -93,6 +95,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    setUser(await authApi.me());
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -106,6 +112,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         error,
         login,
         logout,
+        refreshUser,
         clearError,
       }}
     >
