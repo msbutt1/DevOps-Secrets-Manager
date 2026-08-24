@@ -7,13 +7,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"go.uber.org/zap"
 )
 
-// accessibleVaultsCTE selects the IDs of live vaults user $1 can access: vaults they are a
+// accessibleVaultsCTE selects the IDs of live vaults user $1 can access, limited to organization
+// $2 when it is not NULL: vaults they are a
 // member of while still in the vault's organization, and every vault in organizations they own
 // or administer. It matches policy.EffectiveVaultRole.
 const accessibleVaultsCTE = `
@@ -21,6 +23,7 @@ const accessibleVaultsCTE = `
 		SELECT v.id, v.organization_id FROM vaults v
 		JOIN user_organizations uo ON uo.organization_id = v.organization_id AND uo.user_id = $1
 		WHERE v.deleted_at IS NULL
+		  AND ($2::uuid IS NULL OR v.organization_id = $2::uuid)
 		  AND (uo.role IN ('owner', 'admin')
 		       OR EXISTS (SELECT 1 FROM vault_members vm WHERE vm.vault_id = v.id AND vm.user_id = $1))
 	)`
@@ -67,6 +70,10 @@ func (h *StatsHandlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
 		return
 	}
+	orgFilter, ok := organizationFilter(w, r)
+	if !ok {
+		return
+	}
 
 	stats := StatsResponse{
 		ExpiringSoonDays: int(expiringSoonWindow.Hours() / 24),
@@ -79,14 +86,14 @@ func (h *StatsHandlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 			COUNT(DISTINCT e.id),
 			COUNT(s.id),
 			COUNT(s.id) FILTER (WHERE s.expires_at <= now()),
-			COUNT(s.id) FILTER (WHERE s.expires_at > now() AND s.expires_at <= now() + $2::interval),
+			COUNT(s.id) FILTER (WHERE s.expires_at > now() AND s.expires_at <= now() + $3::interval),
 			COUNT(s.id) FILTER (WHERE s.rotation_interval_days > 0
 				AND COALESCE(s.last_rotated_at, s.created_at) + make_interval(days => s.rotation_interval_days) <= now())
 		FROM accessible a
 		LEFT JOIN environments e ON e.vault_id = a.id AND e.deleted_at IS NULL
 		LEFT JOIN secrets s ON s.environment_id = e.id AND s.deleted_at IS NULL
 	`
-	if err := h.db.QueryRow(r.Context(), secretsQuery, claims.UserID, expiringSoonWindow).Scan(
+	if err := h.db.QueryRow(r.Context(), secretsQuery, claims.UserID, orgFilter, expiringSoonWindow).Scan(
 		&stats.Vaults, &stats.Environments, &stats.Secrets,
 		&stats.SecretsExpired, &stats.SecretsExpiringSoon, &stats.SecretsRotationOverdue,
 	); err != nil {
@@ -108,10 +115,10 @@ func (h *StatsHandlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 		SELECT COUNT(*),
 			COUNT(*) FILTER (WHERE EXISTS (
 				SELECT 1 FROM audit_logs al
-				WHERE al.user_id = p.user_id AND al.action = 'login.success' AND al.timestamp > now() - $2::interval))
+				WHERE al.user_id = p.user_id AND al.action = 'login.success' AND al.timestamp > now() - $3::interval))
 		FROM people p
 	`
-	if err := h.db.QueryRow(r.Context(), usersQuery, claims.UserID, activeUserWindow).Scan(&stats.Users, &stats.ActiveUsers); err != nil {
+	if err := h.db.QueryRow(r.Context(), usersQuery, claims.UserID, orgFilter, activeUserWindow).Scan(&stats.Users, &stats.ActiveUsers); err != nil {
 		h.logger.Error("Failed to compute user statistics", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to load statistics")
 		return
@@ -151,6 +158,10 @@ func (h *StatsHandlers) HandleAlerts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
 		return
 	}
+	orgFilter, ok := organizationFilter(w, r)
+	if !ok {
+		return
+	}
 
 	query := `WITH` + accessibleVaultsCTE + `,
 		secret_rows AS (
@@ -175,7 +186,7 @@ func (h *StatsHandlers) HandleAlerts(w http.ResponseWriter, r *http.Request) {
 			FROM secret_rows WHERE expires_at <= now()
 			UNION ALL
 			SELECT 'secret_expiring', 2, vault_id, vault_name, env_name, secret_id::text, key_name, expires_at
-			FROM secret_rows WHERE expires_at > now() AND expires_at <= now() + $2::interval
+			FROM secret_rows WHERE expires_at > now() AND expires_at <= now() + $3::interval
 			UNION ALL
 			SELECT 'rotation_overdue', 2, vault_id, vault_name, env_name, secret_id::text, key_name, rotation_due
 			FROM secret_rows WHERE rotation_due <= now()
@@ -189,14 +200,14 @@ func (h *StatsHandlers) HandleAlerts(w http.ResponseWriter, r *http.Request) {
 			JOIN users u ON u.id = vm.user_id
 			WHERE u.id <> $1 AND NOT EXISTS (
 				SELECT 1 FROM audit_logs al
-				WHERE al.user_id = u.id AND al.action = 'login.success' AND al.timestamp > now() - $3::interval)
+				WHERE al.user_id = u.id AND al.action = 'login.success' AND al.timestamp > now() - $4::interval)
 		)
 		SELECT type, vault_id, vault_name, env_name, target_id, target_name, due_at
 		FROM alerts
 		ORDER BY rank, due_at NULLS FIRST, vault_name, target_name
-		LIMIT $4
+		LIMIT $5
 	`
-	rows, err := h.db.Query(r.Context(), query, claims.UserID, alertExpiringWindow, inactiveMemberWindow, maxAlerts)
+	rows, err := h.db.Query(r.Context(), query, claims.UserID, orgFilter, alertExpiringWindow, inactiveMemberWindow, maxAlerts)
 	if err != nil {
 		h.logger.Error("Failed to load alerts", zap.Error(err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to load alerts")
@@ -238,6 +249,24 @@ func describeAlert(a Alert) (severity, message string) {
 		}
 		return "low", a.TargetName + " has not logged in for over 90 days"
 	}
+}
+
+// organizationFilter reads the optional organizationId (or organization_id) query parameter.
+// It returns nil when absent and writes a 400 response for a malformed ID.
+func organizationFilter(w http.ResponseWriter, r *http.Request) (*uuid.UUID, bool) {
+	raw := r.URL.Query().Get("organizationId")
+	if raw == "" {
+		raw = r.URL.Query().Get("organization_id")
+	}
+	if raw == "" {
+		return nil, true
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid organizationId format")
+		return nil, false
+	}
+	return &id, true
 }
 
 // HealthResponse reports whether the API can serve requests

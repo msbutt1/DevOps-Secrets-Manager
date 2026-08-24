@@ -484,6 +484,11 @@ paths:
       summary: List vaults
       description: Vaults the caller is a member of, plus every vault in organizations they own or administer. Newest first.
       operationId: listVaults
+      parameters:
+        - name: organizationId
+          in: query
+          description: Only include this organization (snake_case `organization_id` is also accepted)
+          schema: { type: string, format: uuid }
       responses:
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
@@ -493,6 +498,7 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Vault' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [Vaults]
@@ -935,6 +941,11 @@ paths:
       summary: Dashboard statistics
       description: Counts across the vaults the caller can access.
       operationId: getStats
+      parameters:
+        - name: organizationId
+          in: query
+          description: Only include this organization (snake_case `organization_id` is also accepted)
+          schema: { type: string, format: uuid }
       responses:
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
@@ -942,6 +953,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DashboardStats' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /alerts:
@@ -950,6 +962,11 @@ paths:
       summary: Dashboard alerts
       description: Expired and soon-expiring (7 days) secrets and overdue rotations in accessible vaults, and members without a login in 90 days in vaults the caller manages. Ordered by severity, at most 50.
       operationId: listAlerts
+      parameters:
+        - name: organizationId
+          in: query
+          description: Only include this organization (snake_case `organization_id` is also accepted)
+          schema: { type: string, format: uuid }
       responses:
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
@@ -959,6 +976,7 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/DashboardAlert' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
 components:

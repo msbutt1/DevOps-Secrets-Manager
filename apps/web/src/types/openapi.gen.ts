@@ -1734,7 +1734,10 @@ export interface operations {
   };
   listVaults: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Only include this organization (snake_case `organization_id` is also accepted) */
+        organizationId?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -1750,6 +1753,7 @@ export interface operations {
           'application/json': components['schemas']['Vault'][];
         };
       };
+      400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       500: components['responses']['InternalError'];
     };
@@ -2329,7 +2333,10 @@ export interface operations {
   };
   getStats: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Only include this organization (snake_case `organization_id` is also accepted) */
+        organizationId?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -2345,13 +2352,17 @@ export interface operations {
           'application/json': components['schemas']['DashboardStats'];
         };
       };
+      400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       500: components['responses']['InternalError'];
     };
   };
   listAlerts: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Only include this organization (snake_case `organization_id` is also accepted) */
+        organizationId?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -2367,6 +2378,7 @@ export interface operations {
           'application/json': components['schemas']['DashboardAlert'][];
         };
       };
+      400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];
       500: components['responses']['InternalError'];
     };

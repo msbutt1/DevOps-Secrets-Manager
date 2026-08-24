@@ -95,3 +95,33 @@ func TestOrganizationEndpoints(t *testing.T) {
 		}
 	}
 }
+
+func TestOrganizationFilterScopesVaultsAndDashboard(t *testing.T) {
+	f := newFixture(t) // a vault with one secret in the owner's organization
+	dev := f.member(t, "Dual Member", "developer", f.vaultID, "developer")
+	var own idResponse
+	f.api.MustDo(http.StatusCreated, "POST", "/vaults", dev.Token, map[string]any{"name": "personal", "organization_id": dev.OrgID.String()}).Decode(t, &own)
+
+	count := func(query string) (vaults int, secrets int) {
+		var list []idResponse
+		f.api.MustDo(http.StatusOK, "GET", "/vaults"+query, dev.Token, nil).Decode(t, &list)
+		var stats statsResponse
+		f.api.MustDo(http.StatusOK, "GET", "/stats"+query, dev.Token, nil).Decode(t, &stats)
+		if stats.Vaults != len(list) {
+			t.Fatalf("%s: stats count %d differs from list %d", query, stats.Vaults, len(list))
+		}
+		return len(list), stats.Secrets
+	}
+
+	if v, _ := count(""); v != 2 {
+		t.Fatalf("without a filter expected both vaults, got %d", v)
+	}
+	if v, s := count("?organizationId=" + f.owner.OrgID.String()); v != 1 || s != 1 {
+		t.Fatalf("team organization: want 1 vault and 1 secret, got %d and %d", v, s)
+	}
+	if v, s := count("?organizationId=" + dev.OrgID.String()); v != 1 || s != 0 {
+		t.Fatalf("personal organization: want 1 vault and no secrets, got %d and %d", v, s)
+	}
+	f.api.MustDo(http.StatusOK, "GET", "/alerts?organizationId="+dev.OrgID.String(), dev.Token, nil)
+	f.api.MustDo(http.StatusBadRequest, "GET", "/vaults?organizationId=nope", dev.Token, nil)
+}

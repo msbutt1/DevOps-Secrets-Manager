@@ -150,7 +150,11 @@ func (h *VaultHandlers) HandleListVaults(w http.ResponseWriter, r *http.Request)
 		JOIN vaults v ON v.id = a.id
 		ORDER BY v.created_at DESC
 	`
-	rows, err := h.db.Query(r.Context(), query, claims.UserID)
+	orgFilter, ok := organizationFilter(w, r)
+	if !ok {
+		return
+	}
+	rows, err := h.db.Query(r.Context(), query, claims.UserID, orgFilter)
 	if err != nil {
 		h.logger.Error("Failed to query user vaults", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to list vaults")
