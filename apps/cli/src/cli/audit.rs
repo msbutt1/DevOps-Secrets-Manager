@@ -3,13 +3,11 @@ use crate::utils::TablePrinter;
 use anyhow::{bail, Result};
 use chrono::{DateTime, Duration, NaiveDate, SecondsFormat, TimeZone, Utc};
 
-pub async fn execute(vault: Option<&str>, since: Option<&str>) -> Result<()> {
+pub async fn execute(client: &ApiClient, vault: Option<&str>, since: Option<&str>) -> Result<()> {
     let start_date = since
         .map(|s| parse_since(s, Utc::now()))
         .transpose()?
         .map(|t| t.to_rfc3339_opts(SecondsFormat::Secs, true));
-
-    let client = ApiClient::new();
 
     // Resolve vault name to ID if provided
     let vault_id = if let Some(v) = vault {

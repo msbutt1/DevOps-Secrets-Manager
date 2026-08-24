@@ -2,9 +2,7 @@ use crate::api::ApiClient;
 use anyhow::{Context, Result};
 use std::fs;
 
-pub async fn execute(vault: &str, env: &str, out: Option<&str>) -> Result<()> {
-    let client = ApiClient::new();
-
+pub async fn execute(client: &ApiClient, vault: &str, env: &str, out: Option<&str>) -> Result<()> {
     // Resolve vault name to ID
     let vault_id = if let Some(v) = client.find_vault_by_name(vault).await? {
         v.id

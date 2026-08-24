@@ -1,5 +1,7 @@
 use anyhow::Result;
+use api::ApiClient;
 use clap::{Parser, Subcommand};
+use config::Settings;
 
 mod api;
 mod cli;
@@ -7,9 +9,13 @@ mod config;
 mod utils;
 
 #[derive(Parser)]
-#[command(name = "secrets")]
+#[command(name = "secrets", version)]
 #[command(about = "DevOps Secrets Manager CLI", long_about = None)]
 struct Cli {
+    /// API base URL [env: SECRETS_API_URL] (default: the URL saved at login, or http://localhost:8080)
+    #[arg(long, global = true, value_name = "URL")]
+    api_url: Option<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -127,32 +133,52 @@ enum EnvCommands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    let settings = Settings::load();
+    let env_url = std::env::var(config::settings::API_URL_ENV).ok();
+    let api_url =
+        config::settings::resolve_api_url(cli.api_url.as_deref(), env_url.as_deref(), &settings)?;
+    let client = ApiClient::new(api_url);
+
     match cli.command {
-        Commands::Login { email, password } => cli::login::execute(email, password).await,
-        Commands::Logout => cli::logout::execute().await,
+        Commands::Login { email, password } => {
+            // An explicit --api-url is remembered for later commands
+            let save_url = cli.api_url.is_some();
+            cli::login::execute(&client, email, password, save_url).await
+        }
+        Commands::Logout => cli::logout::execute(&client).await,
         Commands::Vault { command } => match command {
-            VaultCommands::List => cli::vault::list().await,
+            VaultCommands::List => cli::vault::list(&client).await,
         },
         Commands::Env { command } => match command {
-            EnvCommands::List { vault } => cli::env::list(&vault).await,
+            EnvCommands::List { vault } => cli::env::list(&client, &vault).await,
         },
         Commands::Pull { vault, env, out } => {
-            cli::pull::execute(&vault, &env, out.as_deref()).await
+            cli::pull::execute(&client, &vault, &env, out.as_deref()).await
         }
         Commands::Run {
             vault,
             env,
             command,
-        } => cli::run::execute(&vault, &env, &command).await,
+        } => cli::run::execute(&client, &vault, &env, &command).await,
         Commands::Set {
             secret,
             vault,
             env,
             description,
             rotation_days,
-        } => cli::set::execute(&secret, &vault, &env, description.as_deref(), rotation_days).await,
+        } => {
+            cli::set::execute(
+                &client,
+                &secret,
+                &vault,
+                &env,
+                description.as_deref(),
+                rotation_days,
+            )
+            .await
+        }
         Commands::Audit { vault, since } => {
-            cli::audit::execute(vault.as_deref(), since.as_deref()).await
+            cli::audit::execute(&client, vault.as_deref(), since.as_deref()).await
         }
     }
 }

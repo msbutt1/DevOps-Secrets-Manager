@@ -7,11 +7,15 @@ use std::path::PathBuf;
 const SERVICE_NAME: &str = "devops-secrets-manager";
 const ACCESS_TOKEN_KEY: &str = "access_token";
 const REFRESH_TOKEN_KEY: &str = "refresh_token";
+const API_URL_KEY: &str = "api_url";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tokens {
     pub access_token: String,
     pub refresh_token: String,
+    /// The API that issued these tokens. They are never sent to a different URL.
+    #[serde(default)]
+    pub api_url: Option<String>,
 }
 
 pub struct TokenStore;
@@ -58,6 +62,9 @@ impl TokenStore {
         let refresh_entry = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY)?;
         refresh_entry.set_password(&tokens.refresh_token)?;
 
+        let url_entry = Entry::new(SERVICE_NAME, API_URL_KEY)?;
+        url_entry.set_password(tokens.api_url.as_deref().unwrap_or_default())?;
+
         Ok(())
     }
 
@@ -68,9 +75,15 @@ impl TokenStore {
         let refresh_entry = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY)?;
         let refresh_token = refresh_entry.get_password()?;
 
+        let api_url = Entry::new(SERVICE_NAME, API_URL_KEY)?
+            .get_password()
+            .ok()
+            .filter(|u| !u.is_empty());
+
         Ok(Tokens {
             access_token,
             refresh_token,
+            api_url,
         })
     }
 
@@ -80,6 +93,9 @@ impl TokenStore {
 
         let refresh_entry = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY)?;
         let _ = refresh_entry.delete_password();
+
+        let url_entry = Entry::new(SERVICE_NAME, API_URL_KEY)?;
+        let _ = url_entry.delete_password();
 
         Ok(())
     }

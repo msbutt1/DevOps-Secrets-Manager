@@ -2,12 +2,12 @@ use crate::api::ApiClient;
 use crate::config::TokenStore;
 use anyhow::Result;
 
-pub async fn execute() -> Result<()> {
-    // Try to call logout endpoint
-    let client = ApiClient::new();
-    let _ = client.logout().await;
+pub async fn execute(client: &ApiClient) -> Result<()> {
+    // Revoke the session on the server; local tokens are cleared even if that fails
+    if let Err(e) = client.logout().await {
+        eprintln!("Warning: could not revoke the session on the server ({e})");
+    }
 
-    // Clear stored tokens
     TokenStore::clear()?;
 
     println!("Successfully logged out!");

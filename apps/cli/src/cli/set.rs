@@ -2,6 +2,7 @@ use crate::api::{client::CreateSecretRequest, ApiClient};
 use anyhow::{bail, Context, Result};
 
 pub async fn execute(
+    client: &ApiClient,
     secret: &str,
     vault: &str,
     env_name: &str,
@@ -20,8 +21,6 @@ pub async fn execute(
     if key_name.is_empty() {
         bail!("Key name cannot be empty");
     }
-
-    let client = ApiClient::new();
 
     // Resolve vault name to ID
     let vault_id = if let Some(v) = client.find_vault_by_name(vault).await? {

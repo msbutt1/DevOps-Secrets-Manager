@@ -1,28 +1,37 @@
-use anyhow::{Context, Result};
-use reqwest::{Client, StatusCode};
+use reqwest::{Client, Method, StatusCode};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;
 
 use crate::config::{TokenStore, Tokens};
-use tokio::sync::MutexGuard;
-
-const API_BASE_URL: &str = "http://localhost:8080";
 
 #[derive(Error, Debug)]
 pub enum ApiError {
     #[error("Authentication failed: {0}")]
     AuthError(String),
 
-    #[error("API error: {0}")]
-    Request(String),
+    #[error("{message} (HTTP {status})")]
+    Api {
+        status: u16,
+        code: String,
+        message: String,
+    },
 
     #[error("Network error: {0}")]
     NetworkError(#[from] reqwest::Error),
 
     #[error("Other error: {0}")]
     Other(#[from] anyhow::Error),
+}
+
+/// The API's error body: `{"error": "not_found", "message": "Vault not found"}`.
+#[derive(Deserialize)]
+struct ErrorBody {
+    #[serde(default)]
+    error: String,
+    #[serde(default)]
+    message: String,
 }
 
 // Request/Response structs
@@ -40,12 +49,6 @@ pub struct LoginResponse {
 
 #[derive(Serialize)]
 pub struct RefreshRequest {
-    pub refresh_token: String,
-}
-
-#[derive(Deserialize)]
-pub struct RefreshResponse {
-    pub access_token: String,
     pub refresh_token: String,
 }
 
@@ -105,14 +108,56 @@ pub struct AuditPage {
 
 pub struct ApiClient {
     client: Client,
-    tokens: Arc<Mutex<Option<Tokens>>>,
+    base_url: String,
+    tokens: Mutex<Option<Tokens>>,
 }
 
 impl ApiClient {
-    pub fn new() -> Self {
+    /// Creates a client for the API at `base_url` (already normalised, without a trailing slash).
+    pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             client: Client::new(),
-            tokens: Arc::new(Mutex::new(None)),
+            base_url: base_url.into(),
+            tokens: Mutex::new(None),
+        }
+    }
+
+    /// Creates a client that uses the given tokens instead of the token store.
+    #[cfg(test)]
+    pub fn with_tokens(base_url: impl Into<String>, tokens: Tokens) -> Self {
+        Self {
+            client: Client::new(),
+            base_url: base_url.into(),
+            tokens: Mutex::new(Some(tokens)),
+        }
+    }
+
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    fn url(&self, path: &str) -> String {
+        format!("{}{}", self.base_url, path)
+    }
+
+    async fn error_from(response: reqwest::Response) -> ApiError {
+        let status = response.status().as_u16();
+        let body = response.text().await.unwrap_or_default();
+        match serde_json::from_str::<ErrorBody>(&body) {
+            Ok(e) if !e.message.is_empty() => ApiError::Api {
+                status,
+                code: e.error,
+                message: e.message,
+            },
+            _ => ApiError::Api {
+                status,
+                code: String::new(),
+                message: if body.is_empty() {
+                    "Request failed".to_string()
+                } else {
+                    body
+                },
+            },
         }
     }
 
@@ -124,24 +169,23 @@ impl ApiClient {
 
         let response = self
             .client
-            .post(format!("{}/auth/login", API_BASE_URL))
+            .post(self.url("/auth/login"))
             .json(&request)
             .send()
             .await?;
 
         if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::AuthError(format!(
-                "Login failed with status {}: {}",
-                status, body
-            )));
+            return Err(match Self::error_from(response).await {
+                ApiError::Api { message, .. } => ApiError::AuthError(message),
+                other => other,
+            });
         }
 
         let login_response: LoginResponse = response.json().await?;
         let tokens = Tokens {
             access_token: login_response.access_token,
             refresh_token: login_response.refresh_token,
+            api_url: Some(self.base_url.clone()),
         };
 
         // Store tokens in memory
@@ -150,207 +194,147 @@ impl ApiClient {
         Ok(tokens)
     }
 
+    /// Revokes the stored refresh token on the server. Errors are ignored by callers: the local
+    /// tokens are cleared either way.
     pub async fn logout(&self) -> Result<(), ApiError> {
-        let tokens_guard: MutexGuard<Option<Tokens>> = self.tokens.lock().await;
-        if let Some(tokens) = tokens_guard.as_ref() {
-            let _ = self
-                .client
-                .post(format!("{}/auth/logout", API_BASE_URL))
-                .bearer_auth(&tokens.access_token)
-                .send()
-                .await;
+        let tokens = self.session_tokens().await?;
+        let response = self
+            .client
+            .post(self.url("/auth/logout"))
+            .json(&RefreshRequest {
+                refresh_token: tokens.refresh_token,
+            })
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(Self::error_from(response).await);
         }
         Ok(())
     }
 
-    async fn refresh_tokens(&self) -> Result<(), ApiError> {
-        let mut tokens_guard: MutexGuard<Option<Tokens>> = self.tokens.lock().await;
+    /// Loads session tokens for this API, refusing tokens issued by a different API URL.
+    async fn session_tokens(&self) -> Result<Tokens, ApiError> {
+        let mut guard = self.tokens.lock().await;
+        if guard.is_none() {
+            let stored = TokenStore::load().map_err(|_| {
+                ApiError::AuthError("Not logged in. Please run 'secrets login' first.".to_string())
+            })?;
+            *guard = Some(stored);
+        }
+        let tokens = guard.clone().expect("tokens loaded above");
+        if let Some(issuer) = &tokens.api_url {
+            if issuer != &self.base_url {
+                return Err(ApiError::AuthError(format!(
+                    "You are logged in to {issuer}, not {}. Run 'secrets login --api-url {}' first.",
+                    self.base_url, self.base_url
+                )));
+            }
+        }
+        Ok(tokens)
+    }
 
-        let current_tokens = tokens_guard
-            .as_ref()
-            .ok_or_else(|| ApiError::AuthError("No tokens available".to_string()))?;
-
-        let request = RefreshRequest {
-            refresh_token: current_tokens.refresh_token.clone(),
-        };
-
+    async fn refresh_tokens(&self, current: &Tokens) -> Result<Tokens, ApiError> {
         let response = self
             .client
-            .post(format!("{}/auth/refresh", API_BASE_URL))
-            .json(&request)
+            .post(self.url("/auth/refresh"))
+            .json(&RefreshRequest {
+                refresh_token: current.refresh_token.clone(),
+            })
             .send()
             .await?;
 
         if !response.status().is_success() {
             return Err(ApiError::AuthError(
-                "Token refresh failed. Please login again.".to_string(),
+                "Your session has expired. Please run 'secrets login' again.".to_string(),
             ));
         }
 
-        let refresh_response: RefreshResponse = response.json().await?;
+        let refreshed: LoginResponse = response.json().await?;
         let new_tokens = Tokens {
-            access_token: refresh_response.access_token,
-            refresh_token: refresh_response.refresh_token,
+            access_token: refreshed.access_token,
+            refresh_token: refreshed.refresh_token,
+            api_url: Some(self.base_url.clone()),
         };
 
-        // Save new tokens
-        TokenStore::save(&new_tokens)?;
-        *tokens_guard = Some(new_tokens);
+        // Save new tokens; a failure to persist should not fail the command
+        let _ = TokenStore::save(&new_tokens);
+        *self.tokens.lock().await = Some(new_tokens.clone());
 
-        Ok(())
+        Ok(new_tokens)
     }
 
-    async fn get_with_auth(&self, url: &str) -> Result<reqwest::Response, ApiError> {
-        self.request_with_auth("GET", url, None::<&()>).await
-    }
-
-    async fn post_with_auth<T: Serialize>(
+    /// Sends an authenticated request, refreshing the session once on 401, and returns the
+    /// successful response.
+    async fn send<B: Serialize + ?Sized>(
         &self,
-        url: &str,
-        body: &T,
+        method: Method,
+        path: &str,
+        body: Option<&B>,
     ) -> Result<reqwest::Response, ApiError> {
-        self.request_with_auth("POST", url, Some(body)).await
-    }
+        let mut tokens = self.session_tokens().await?;
 
-    async fn request_with_auth<T: Serialize>(
-        &self,
-        method: &str,
-        url: &str,
-        body: Option<&T>,
-    ) -> Result<reqwest::Response, ApiError> {
-        // Load tokens if not in memory
-        {
-            let tokens_guard: MutexGuard<Option<Tokens>> = self.tokens.lock().await;
-            if tokens_guard.is_none() {
-                drop(tokens_guard);
-                let stored_tokens = TokenStore::load()
-                    .context("Not logged in. Please run 'secrets login' first.")?;
-                *self.tokens.lock().await = Some(stored_tokens);
-            }
-        }
-
-        let tokens_guard: MutexGuard<Option<Tokens>> = self.tokens.lock().await;
-        let tokens = tokens_guard
-            .as_ref()
-            .ok_or_else(|| ApiError::AuthError("No tokens available".to_string()))?;
-
-        let mut request = match method {
-            "GET" => self.client.get(url),
-            "POST" => self.client.post(url),
-            _ => return Err(ApiError::Other(anyhow::anyhow!("Unsupported method"))),
-        };
-
-        request = request.bearer_auth(&tokens.access_token);
-
-        if let Some(body) = body {
-            request = request.json(body);
-        }
-
-        drop(tokens_guard);
-
-        let response = request.send().await?;
-
-        // Handle 401 by refreshing token and retrying
-        if response.status() == StatusCode::UNAUTHORIZED {
-            drop(response);
-            self.refresh_tokens().await?;
-
-            // Retry the request
-            let tokens_guard: MutexGuard<Option<Tokens>> = self.tokens.lock().await;
-            let tokens = tokens_guard.as_ref().unwrap();
-
-            let mut retry_request = match method {
-                "GET" => self.client.get(url),
-                "POST" => self.client.post(url),
-                _ => return Err(ApiError::Other(anyhow::anyhow!("Unsupported method"))),
-            };
-
-            retry_request = retry_request.bearer_auth(&tokens.access_token);
-
+        for attempt in 0..2 {
+            let mut request = self
+                .client
+                .request(method.clone(), self.url(path))
+                .bearer_auth(&tokens.access_token);
             if let Some(body) = body {
-                retry_request = retry_request.json(body);
+                request = request.json(body);
             }
+            let response = request.send().await?;
 
-            let retry_response = retry_request.send().await?;
-            return Ok(retry_response);
+            if response.status() == StatusCode::UNAUTHORIZED && attempt == 0 {
+                tokens = self.refresh_tokens(&tokens).await?;
+                continue;
+            }
+            if !response.status().is_success() {
+                return Err(Self::error_from(response).await);
+            }
+            return Ok(response);
         }
+        unreachable!("the loop returns on the second attempt")
+    }
 
-        Ok(response)
+    async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T, ApiError> {
+        Ok(self
+            .send::<()>(Method::GET, path, None)
+            .await?
+            .json()
+            .await?)
+    }
+
+    async fn post<B: Serialize + ?Sized, T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<T, ApiError> {
+        Ok(self
+            .send(Method::POST, path, Some(body))
+            .await?
+            .json()
+            .await?)
     }
 
     pub async fn list_vaults(&self) -> Result<Vec<Vault>, ApiError> {
-        let response = self
-            .get_with_auth(&format!("{}/vaults", API_BASE_URL))
-            .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::Request(format!(
-                "Failed to list vaults: {} - {}",
-                status, body
-            )));
-        }
-
-        let vaults: Vec<Vault> = response.json().await?;
-        Ok(vaults)
+        self.get("/vaults").await
     }
 
     pub async fn list_environments(&self, vault_id: &str) -> Result<Vec<Environment>, ApiError> {
-        let response = self
-            .get_with_auth(&format!("{}/vaults/{}/envs", API_BASE_URL, vault_id))
-            .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::Request(format!(
-                "Failed to list environments: {} - {}",
-                status, body
-            )));
-        }
-
-        let environments: Vec<Environment> = response.json().await?;
-        Ok(environments)
+        self.get(&format!("/vaults/{vault_id}/envs")).await
     }
 
     pub async fn list_secrets(&self, env_id: &str) -> Result<Vec<Secret>, ApiError> {
-        let response = self
-            .get_with_auth(&format!("{}/envs/{}/secrets", API_BASE_URL, env_id))
-            .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::Request(format!(
-                "Failed to list secrets: {} - {}",
-                status, body
-            )));
-        }
-
-        let secrets: Vec<Secret> = response.json().await?;
-        Ok(secrets)
+        self.get(&format!("/envs/{env_id}/secrets")).await
     }
 
     pub async fn reveal_secret(&self, secret_id: &str) -> Result<String, ApiError> {
-        let response = self
-            .post_with_auth::<()>(
-                &format!("{}/secrets/{}/reveal", API_BASE_URL, secret_id),
-                &(),
+        let response: RevealSecretResponse = self
+            .post(
+                &format!("/secrets/{secret_id}/reveal"),
+                &serde_json::json!({}),
             )
             .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::Request(format!(
-                "Failed to reveal secret: {} - {}",
-                status, body
-            )));
-        }
-
-        let reveal_response: RevealSecretResponse = response.json().await?;
-        Ok(reveal_response.value)
+        Ok(response.value)
     }
 
     pub async fn create_secret(
@@ -358,24 +342,8 @@ impl ApiClient {
         env_id: &str,
         request: CreateSecretRequest,
     ) -> Result<Secret, ApiError> {
-        let response = self
-            .post_with_auth(
-                &format!("{}/envs/{}/secrets", API_BASE_URL, env_id),
-                &request,
-            )
-            .await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::Request(format!(
-                "Failed to create secret: {} - {}",
-                status, body
-            )));
-        }
-
-        let secret: Secret = response.json().await?;
-        Ok(secret)
+        self.post(&format!("/envs/{env_id}/secrets"), &request)
+            .await
     }
 
     pub async fn get_audit_logs(
@@ -383,7 +351,7 @@ impl ApiClient {
         vault_id: Option<&str>,
         start_date: Option<&str>,
     ) -> Result<AuditPage, ApiError> {
-        let mut url = reqwest::Url::parse(&format!("{}/audit", API_BASE_URL))
+        let mut url = reqwest::Url::parse("http://placeholder/audit")
             .map_err(|e| ApiError::Other(e.into()))?;
         {
             let mut query = url.query_pairs_mut();
@@ -395,21 +363,8 @@ impl ApiClient {
                 query.append_pair("startDate", start);
             }
         }
-        let url = url.to_string();
-
-        let response = self.get_with_auth(&url).await?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(ApiError::Request(format!(
-                "Failed to get audit logs: {} - {}",
-                status, body
-            )));
-        }
-
-        let page: AuditPage = response.json().await?;
-        Ok(page)
+        let path = format!("/audit?{}", url.query().unwrap_or_default());
+        self.get(&path).await
     }
 
     pub async fn find_vault_by_name(&self, name: &str) -> Result<Option<Vault>, ApiError> {
@@ -424,5 +379,118 @@ impl ApiClient {
     ) -> Result<Option<Environment>, ApiError> {
         let environments = self.list_environments(vault_id).await?;
         Ok(environments.into_iter().find(|e| e.name == name))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{body_json, header, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn tokens_for(url: &str) -> Tokens {
+        Tokens {
+            access_token: "access-1".into(),
+            refresh_token: "refresh-1".into(),
+            api_url: Some(url.to_string()),
+        }
+    }
+
+    #[tokio::test]
+    async fn requests_go_to_the_configured_base_url_with_the_access_token() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/vaults"))
+            .and(header("authorization", "Bearer access-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+                {"id": "v1", "name": "payments", "description": null, "created_at": "2026-01-01T00:00:00Z"}
+            ])))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = ApiClient::with_tokens(server.uri(), tokens_for(&server.uri()));
+        let vaults = client.list_vaults().await.unwrap();
+        assert_eq!(vaults[0].name, "payments");
+    }
+
+    #[tokio::test]
+    async fn refuses_to_send_tokens_issued_by_another_api() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(0)
+            .mount(&server)
+            .await;
+
+        let client = ApiClient::with_tokens(server.uri(), tokens_for("https://other.example"));
+        let err = client.list_vaults().await.unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("logged in to https://other.example"),
+            "{err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn refreshes_once_on_401_and_retries() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/vaults"))
+            .and(header("authorization", "Bearer access-1"))
+            .respond_with(ResponseTemplate::new(401))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/auth/refresh"))
+            .and(body_json(serde_json::json!({"refresh_token": "refresh-1"})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({"access_token": "access-2", "refresh_token": "refresh-2"}),
+            ))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/vaults"))
+            .and(header("authorization", "Bearer access-2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([])))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = ApiClient::with_tokens(server.uri(), tokens_for(&server.uri()));
+        assert!(client.list_vaults().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn api_error_messages_are_surfaced() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/vaults/v1/envs"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(
+                serde_json::json!({"error": "not_found", "message": "Vault not found"}),
+            ))
+            .mount(&server)
+            .await;
+
+        let client = ApiClient::with_tokens(server.uri(), tokens_for(&server.uri()));
+        let err = client.list_environments("v1").await.unwrap_err();
+        assert_eq!(err.to_string(), "Vault not found (HTTP 404)");
+    }
+
+    #[tokio::test]
+    async fn logout_revokes_the_refresh_token() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/auth/logout"))
+            .and(body_json(serde_json::json!({"refresh_token": "refresh-1"})))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = ApiClient::with_tokens(server.uri(), tokens_for(&server.uri()));
+        client.logout().await.unwrap();
     }
 }

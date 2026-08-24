@@ -2,8 +2,7 @@ use crate::api::ApiClient;
 use crate::utils::TablePrinter;
 use anyhow::Result;
 
-pub async fn list() -> Result<()> {
-    let client = ApiClient::new();
+pub async fn list(client: &ApiClient) -> Result<()> {
     let vaults = client.list_vaults().await?;
 
     if vaults.is_empty() {

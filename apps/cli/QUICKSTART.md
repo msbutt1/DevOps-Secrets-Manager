@@ -5,7 +5,7 @@ Get up and running with the DevOps Secrets Manager CLI in 5 minutes.
 ## Prerequisites
 
 - Rust toolchain installed (rustc, cargo)
-- DevOps Secrets Manager API server running at localhost:8080 (`make dev` from the repository root)
+- A DevOps Secrets Manager API: `make dev` from the repository root serves one at http://localhost:8080 (the default); for another server use `secrets login --api-url <url>`
 - A verified account (after `make seed`: `salaar@demo.dev` / `Demo-Passw0rd!2026`)
 - A vault with at least one environment; the CLI cannot create them yet
 
@@ -176,7 +176,7 @@ Run `secrets login` to authenticate.
 
 ### "Connection refused"
 
-Make sure the API server is running at localhost:8080.
+Make sure the API server is running at the URL you use (`--api-url`, `SECRETS_API_URL`, the URL saved by `secrets login --api-url`, or http://localhost:8080).
 
 ### Keyring errors on Linux
 

@@ -2,9 +2,7 @@ use crate::api::ApiClient;
 use crate::utils::TablePrinter;
 use anyhow::{Context, Result};
 
-pub async fn list(vault: &str) -> Result<()> {
-    let client = ApiClient::new();
-
+pub async fn list(client: &ApiClient, vault: &str) -> Result<()> {
     // Try to find vault by name first, then use as ID
     let vault_id = if let Some(v) = client.find_vault_by_name(vault).await? {
         v.id

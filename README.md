@@ -94,7 +94,9 @@ cargo install --path apps/cli  # optional: puts `secrets` on your PATH
 
 ### CLI Commands
 
-The CLI talks to the API at `http://localhost:8080`.
+The CLI talks to `http://localhost:8080` by default. Point it elsewhere with `--api-url`, the
+`SECRETS_API_URL` variable, or `secrets login --api-url https://secrets.example.com`, which
+remembers the URL. Sessions are tied to the API that issued them and are never sent to another URL.
 
 ```bash
 # Authenticate

@@ -3,12 +3,15 @@ use anyhow::{bail, Context, Result};
 use std::env;
 use std::process::Command;
 
-pub async fn execute(vault: &str, env_name: &str, command: &[String]) -> Result<()> {
+pub async fn execute(
+    client: &ApiClient,
+    vault: &str,
+    env_name: &str,
+    command: &[String],
+) -> Result<()> {
     if command.is_empty() {
         bail!("No command provided. Usage: secrets run --vault <vault> --env <env> -- <command>");
     }
-
-    let client = ApiClient::new();
 
     // Resolve vault name to ID
     let vault_id = if let Some(v) = client.find_vault_by_name(vault).await? {
