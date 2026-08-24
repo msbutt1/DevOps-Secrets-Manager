@@ -1,6 +1,7 @@
 use crate::api::ApiClient;
+use crate::utils::write_private;
 use anyhow::{Context, Result};
-use std::fs;
+use std::path::Path;
 
 pub async fn execute(client: &ApiClient, vault: &str, env: &str, out: Option<&str>) -> Result<()> {
     // Resolve vault name to ID
@@ -37,10 +38,10 @@ pub async fn execute(client: &ApiClient, vault: &str, env: &str, out: Option<&st
         output.push_str(&format!("{}={}\n", secret.key_name, value));
     }
 
-    // Write to file or stdout
+    // Write to file (readable only by you) or stdout
     if let Some(file_path) = out {
-        fs::write(file_path, output)?;
-        println!("Secrets written to {}", file_path);
+        write_private(Path::new(file_path), &output)?;
+        println!("Secrets written to {} (mode 600)", file_path);
     } else {
         print!("{}", output);
     }
