@@ -8,6 +8,7 @@ import { isProductionEnvironment } from '@/lib/environments';
 import type { AuditEvent, AuditAction } from '@/types/api';
 import { useAuditLogs } from '@/hooks/use-audit';
 import { useVaults } from '@/hooks/use-vaults';
+import { useCurrentOrganization } from '@/contexts/OrganizationContext';
 
 const actionOptions: { value: string; label: string }[] = [
   { value: '', label: 'All Actions' },
@@ -83,10 +84,12 @@ export const AuditPage = () => {
   const pageSize = 25;
 
   // Fetch vaults for filter dropdown
-  const { data: vaults } = useVaults();
+  const { currentOrganization } = useCurrentOrganization();
+  const { data: vaults } = useVaults(currentOrganization?.id);
 
   // Build API filters from UI state
   const apiFilters = {
+    organizationId: currentOrganization?.id,
     vaultId: filters.vault || undefined,
     action: (filters.action as AuditAction) || undefined,
     userEmail: filters.user || undefined,

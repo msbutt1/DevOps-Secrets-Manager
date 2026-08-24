@@ -259,8 +259,7 @@ export const invitesApi = {
 // ============ VAULTS API ============
 export const vaultsApi = {
   list: (organizationId?: string): Promise<Vault[]> => {
-    const params = organizationId ? `?organization_id=${organizationId}` : '';
-    return apiFetch<Vault[]>(`/vaults${params}`);
+    return apiFetch<Vault[]>(`/vaults${orgQuery(organizationId)}`);
   },
 
   get: (id: string): Promise<Vault> => apiFetch<Vault>(`/vaults/${id}`),
@@ -369,10 +368,15 @@ export const auditApi = {
   },
 };
 
+const orgQuery = (organizationId?: string) =>
+  organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : '';
+
 // ============ DASHBOARD API ============
 export const statsApi = {
-  get: (): Promise<DashboardStats> => apiFetch<DashboardStats>('/stats'),
-  alerts: (): Promise<DashboardAlert[]> => apiFetch<DashboardAlert[]>('/alerts'),
+  get: (organizationId?: string): Promise<DashboardStats> =>
+    apiFetch<DashboardStats>(`/stats${orgQuery(organizationId)}`),
+  alerts: (organizationId?: string): Promise<DashboardAlert[]> =>
+    apiFetch<DashboardAlert[]>(`/alerts${orgQuery(organizationId)}`),
 };
 
 // ============ HEALTH API ============

@@ -7,6 +7,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { RoleBadge } from '@/components/RoleBadge';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentOrganization } from '@/contexts/OrganizationContext';
 import { useToast } from '@/hooks/use-toast';
 import {
   useInvites,
@@ -36,14 +37,8 @@ const describeError = (err: unknown) => (err instanceof Error ? err.message : 'A
 export const OrganizationPage = () => {
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
-  const { data: organizations = [], isLoading, error } = useOrganizations();
-  const [selectedId, setSelectedId] = useState<string>('');
-
-  useEffect(() => {
-    if (!selectedId && organizations.length > 0) setSelectedId(organizations[0].id);
-  }, [organizations, selectedId]);
-
-  const org = organizations.find((o) => o.id === selectedId);
+  const { error } = useOrganizations();
+  const { currentOrganization: org, isLoading } = useCurrentOrganization();
   const canManage = org?.role === 'owner' || org?.role === 'admin';
 
   const { data: members = [], isLoading: membersLoading } = useOrganizationMembers(org?.id);
@@ -186,20 +181,6 @@ export const OrganizationPage = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {organizations.length > 1 && (
-              <>
-                <label htmlFor="org-select" className="text-win-body">
-                  Organization:
-                </label>
-                <Select
-                  id="org-select"
-                  value={org.id}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                  options={organizations.map((o) => ({ value: o.id, label: o.name }))}
-                  className="w-[200px]"
-                />
-              </>
-            )}
             {canManage && (
               <Button className="flex items-center gap-1" onClick={() => setShowInvite(true)}>
                 <Plus size={12} strokeWidth={1.5} />

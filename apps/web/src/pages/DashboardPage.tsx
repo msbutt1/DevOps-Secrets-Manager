@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentOrganization } from '@/contexts/OrganizationContext';
+import { canCreateVaults } from '@/lib/organizations';
 import { Panel, Button } from '@/components/win95';
 import { VaultFormDialog } from '@/components/VaultFormDialog';
 import { AppLayout } from '@/components/AppLayout';
@@ -68,16 +70,19 @@ export const DashboardPage = () => {
   const [showCreateVault, setShowCreateVault] = useState(false);
 
   // Fetch real data
-  const { data: vaults = [], isLoading: vaultsLoading, error: vaultsError } = useVaults();
+  const { currentOrganization } = useCurrentOrganization();
+  const orgId = currentOrganization?.id;
+  const { data: vaults = [], isLoading: vaultsLoading, error: vaultsError } = useVaults(orgId);
   // Recent changes and reveals; logins would crowd everything else out
   const { data: auditData, isLoading: auditLoading } = useAuditLogs({
     limit: 5,
     page: 1,
     excludeAction: ['login.success', 'login.failure'],
+    organizationId: orgId,
   });
-  const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
+  const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats(orgId);
   const { data: health, isError: healthError } = useHealth();
-  const { data: alerts = [], isError: alertsError } = useDashboardAlerts();
+  const { data: alerts = [], isError: alertsError } = useDashboardAlerts(orgId);
   const createVaultMutation = useCreateVault();
   const apiHealthy = !healthError && health?.status === 'ok';
 
@@ -193,12 +198,14 @@ export const DashboardPage = () => {
                   <Database size={14} strokeWidth={1.5} />
                   <h2 className="text-win-section font-semibold">Accessible Vaults</h2>
                 </div>
-                <Button
-                  className="!min-w-0 !px-2 !py-1 text-win-small"
-                  onClick={() => setShowCreateVault(true)}
-                >
-                  + New Vault
-                </Button>
+                {canCreateVaults(currentOrganization?.role) && (
+                  <Button
+                    className="!min-w-0 !px-2 !py-1 text-win-small"
+                    onClick={() => setShowCreateVault(true)}
+                  >
+                    + New Vault
+                  </Button>
+                )}
               </div>
 
               <div className="win-border-sunken bg-input">
@@ -428,7 +435,7 @@ export const DashboardPage = () => {
         onSave={async (data) => {
           await createVaultMutation.mutateAsync({
             ...(data as VaultCreateRequest),
-            organizationId: user?.organizations?.[0]?.id,
+            organizationId: orgId,
           });
           setShowCreateVault(false);
         }}

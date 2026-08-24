@@ -160,7 +160,7 @@ These are half-built or missing, but a team would need them.
   - [x] API: create/list/revoke, lookup and accept, and register with `invite_token`.
   - [x] Web: `/invite` accept page (log in, create account, or accept), invite-aware registration, and an invite dialog from Settings.
 - [x] **Organization settings page.** Members, roles, pending invites, remove a member. Commit: `feat(web): organization members page`
-- [ ] **Organization picker.** Users in more than one organization need a switcher. The audit handler currently picks the first organization. Commit: `feat(web): switch between organizations`
+- [x] **Organization picker.** Users in more than one organization need a switcher. The audit handler currently picks the first organization. Commit: `feat(web): switch between organizations`
 
 ### Account
 - [x] **Registration was not atomic.** (Found while reading the code.) The user and verification token were written outside the transaction that creates the organization, so a failure left an account with no organization that could never register again. Commit: `fix(api): create user, organization and token in one transaction`

@@ -10,6 +10,8 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { useVaults, useCreateVault, useUpdateVault, useDeleteVault } from '@/hooks/use-vaults';
+import { useCurrentOrganization } from '@/contexts/OrganizationContext';
+import { canCreateVaults } from '@/lib/organizations';
 import { Database, Plus, ChevronRight, Search, Pencil, Trash2, Layers, Key } from 'lucide-react';
 import type { Vault, VaultCreateRequest, VaultUpdateRequest } from '@/types/api';
 
@@ -20,15 +22,16 @@ export const VaultsListPage = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   // Fetch vaults
-  const { data: vaults = [], isLoading, error } = useVaults();
+  const { currentOrganization } = useCurrentOrganization();
+  const { data: vaults = [], isLoading, error } = useVaults(currentOrganization?.id);
 
   // Mutations
   const createVault = useCreateVault();
   const updateVault = useUpdateVault();
   const deleteVault = useDeleteVault();
 
-  // For global permission check (create new vaults)
-  const canCreateVault = true; // In real app, check organization role
+  // Creating vaults depends on the role in the current organization
+  const canCreateVault = canCreateVaults(currentOrganization?.role);
 
   const filteredVaults = vaults.filter(
     (vault) =>
@@ -37,11 +40,14 @@ export const VaultsListPage = () => {
   );
 
   const handleCreate = (data: VaultCreateRequest) => {
-    createVault.mutate(data, {
-      onSuccess: () => {
-        setShowCreateDialog(false);
+    createVault.mutate(
+      { ...data, organizationId: currentOrganization?.id },
+      {
+        onSuccess: () => {
+          setShowCreateDialog(false);
+        },
       },
-    });
+    );
   };
 
   const handleEdit = (data: VaultUpdateRequest) => {

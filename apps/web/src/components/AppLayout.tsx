@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/win95';
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { Shield, Database, Building, FileText, LogOut, Home, Settings } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -32,6 +33,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         <span className="text-win-body font-semibold">Vault Console</span>
         <span className="text-win-body text-muted-foreground">— Secrets Management System</span>
         <div className="flex-1" />
+        <OrganizationSwitcher />
         {user && <span className="text-win-body text-muted-foreground">{user.email}</span>}
       </header>
 

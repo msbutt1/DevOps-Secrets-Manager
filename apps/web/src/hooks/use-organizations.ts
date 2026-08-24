@@ -10,8 +10,8 @@ export const orgKeys = {
   invites: (id: string) => [...orgKeys.all, 'invites', id] as const,
 };
 
-export function useOrganizations() {
-  return useQuery({ queryKey: orgKeys.list(), queryFn: orgsApi.list });
+export function useOrganizations(enabled = true) {
+  return useQuery({ queryKey: orgKeys.list(), queryFn: orgsApi.list, enabled });
 }
 
 export function useOrganizationMembers(orgId: string | undefined) {
