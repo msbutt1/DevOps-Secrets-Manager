@@ -110,6 +110,8 @@ pub struct ApiClient {
     client: Client,
     base_url: String,
     tokens: Mutex<Option<Tokens>>,
+    /// Whether refreshed tokens are written to the token store (off for injected test tokens).
+    persist_tokens: bool,
 }
 
 impl ApiClient {
@@ -119,6 +121,7 @@ impl ApiClient {
             client: Client::new(),
             base_url: base_url.into(),
             tokens: Mutex::new(None),
+            persist_tokens: true,
         }
     }
 
@@ -129,6 +132,7 @@ impl ApiClient {
             client: Client::new(),
             base_url: base_url.into(),
             tokens: Mutex::new(Some(tokens)),
+            persist_tokens: false,
         }
     }
 
@@ -257,7 +261,9 @@ impl ApiClient {
         };
 
         // Save new tokens; a failure to persist should not fail the command
-        let _ = TokenStore::save(&new_tokens);
+        if self.persist_tokens {
+            let _ = TokenStore::save(&new_tokens);
+        }
         *self.tokens.lock().await = Some(new_tokens.clone());
 
         Ok(new_tokens)
