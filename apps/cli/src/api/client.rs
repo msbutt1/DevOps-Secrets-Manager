@@ -385,6 +385,19 @@ impl ApiClient {
             .await?)
     }
 
+    pub async fn create_vault(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        organization_id: Option<&str>,
+    ) -> Result<Vault, ApiError> {
+        let mut body = serde_json::json!({"name": name, "description": description});
+        if let Some(org) = organization_id {
+            body["organization_id"] = serde_json::Value::String(org.to_string());
+        }
+        self.post("/vaults", &body).await
+    }
+
     pub async fn create_environment(
         &self,
         vault_id: &str,

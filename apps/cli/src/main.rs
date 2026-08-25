@@ -144,6 +144,20 @@ enum Commands {
 enum VaultCommands {
     /// List all vaults
     List,
+
+    /// Create a vault (you become its owner)
+    Create {
+        /// Vault name
+        name: String,
+
+        /// Description
+        #[arg(long)]
+        description: Option<String>,
+
+        /// Organization ID (default: your first organization)
+        #[arg(long, value_name = "ID")]
+        org: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -189,6 +203,11 @@ async fn main() -> Result<()> {
         Commands::Logout => cli::logout::execute(&client).await,
         Commands::Vault { command } => match command {
             VaultCommands::List => cli::vault::list(&client).await,
+            VaultCommands::Create {
+                name,
+                description,
+                org,
+            } => cli::vault::create(&client, &name, description.as_deref(), org.as_deref()).await,
         },
         Commands::Env { command } => match command {
             EnvCommands::List { vault } => cli::env::list(&client, &vault).await,

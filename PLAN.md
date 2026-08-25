@@ -210,7 +210,7 @@ These are half-built or missing, but a team would need them.
 - [ ] **Missing commands.**
   - [x] `secrets delete`
   - [x] `secrets env create`
-  - `secrets vault create`
+  - [x] `secrets vault create`
   - `secrets members list/add/remove`
   - `secrets import .env`
   - Commit per command, e.g. `feat(cli): add delete command`
