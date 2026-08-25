@@ -1,3 +1,4 @@
+pub mod dotenv;
 pub mod private_file;
 pub mod table;
 

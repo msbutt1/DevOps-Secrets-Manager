@@ -1,5 +1,5 @@
 use crate::api::ApiClient;
-use crate::utils::write_private;
+use crate::utils::{dotenv, write_private};
 use anyhow::{Context, Result};
 use std::path::Path;
 
@@ -29,14 +29,15 @@ pub async fn execute(client: &ApiClient, vault: &str, env: &str, out: Option<&st
     }
 
     // Reveal all secret values
-    let mut output = String::new();
+    let mut pairs = Vec::with_capacity(secrets.len());
     for secret in &secrets {
         let value = client
             .reveal_secret(&secret.id)
             .await
             .context(format!("Failed to reveal secret '{}'", secret.key_name))?;
-        output.push_str(&format!("{}={}\n", secret.key_name, value));
+        pairs.push((secret.key_name.clone(), value));
     }
+    let output = dotenv::format(&pairs);
 
     // Write to file (readable only by you) or stdout
     if let Some(file_path) = out {
