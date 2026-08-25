@@ -72,6 +72,27 @@ pub struct Environment {
 pub struct Secret {
     pub id: String,
     pub key_name: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub rotation_interval_days: Option<i32>,
+    #[serde(default)]
+    pub expires_at: Option<String>,
+    #[serde(default)]
+    pub metadata: Option<serde_json::Value>,
+}
+
+/// Body for PUT /secrets/{id}. The API replaces description, rotation interval, expiry and
+/// metadata with what is sent, so callers pass the current values for anything unchanged. A
+/// missing value keeps the stored secret value.
+#[derive(Serialize, Debug, Default)]
+pub struct UpdateSecretRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    pub description: Option<String>,
+    pub rotation_interval_days: Option<i32>,
+    pub expires_at: Option<String>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -350,6 +371,18 @@ impl ApiClient {
     ) -> Result<Secret, ApiError> {
         self.post(&format!("/envs/{env_id}/secrets"), &request)
             .await
+    }
+
+    pub async fn update_secret(
+        &self,
+        secret_id: &str,
+        request: &UpdateSecretRequest,
+    ) -> Result<Secret, ApiError> {
+        Ok(self
+            .send(Method::PUT, &format!("/secrets/{secret_id}"), Some(request))
+            .await?
+            .json()
+            .await?)
     }
 
     pub async fn get_audit_logs(

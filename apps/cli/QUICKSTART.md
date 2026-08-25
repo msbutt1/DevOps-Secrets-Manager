@@ -95,7 +95,8 @@ secrets run --vault deploy --env prod -- ./deploy.sh
 
 ### Adding Secrets
 
-`set` creates a new secret; it fails if the key already exists in that environment.
+`set` creates the secret, or updates its value when the key already exists (keeping its description,
+rotation interval, expiry and labels). Add `--create-only` or `--update-only` to restrict it.
 
 ```bash
 # Add a new secret

@@ -114,7 +114,7 @@ secrets pull --vault my-app --env production --out .env
 # Run a command with injected secrets
 secrets run --vault my-app --env production -- npm start
 
-# Create a secret (the key must not exist yet)
+# Create a secret, or update its value if the key exists (--create-only / --update-only to restrict)
 secrets set "API_KEY=sk-123" --vault my-app --env production
 
 # View audit log

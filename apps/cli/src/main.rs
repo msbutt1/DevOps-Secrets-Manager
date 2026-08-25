@@ -78,7 +78,7 @@ enum Commands {
         command: Vec<String>,
     },
 
-    /// Set a secret value
+    /// Create a secret, or update its value if the key already exists
     Set {
         /// Secret in KEY=value format
         #[arg(value_name = "KEY=VALUE")]
@@ -99,6 +99,14 @@ enum Commands {
         /// Rotation interval in days
         #[arg(long)]
         rotation_days: Option<i32>,
+
+        /// Fail instead of updating when the key already exists
+        #[arg(long, conflicts_with = "update_only")]
+        create_only: bool,
+
+        /// Fail instead of creating when the key does not exist
+        #[arg(long)]
+        update_only: bool,
     },
 
     /// View audit logs
@@ -166,6 +174,8 @@ async fn main() -> Result<()> {
             env,
             description,
             rotation_days,
+            create_only,
+            update_only,
         } => {
             cli::set::execute(
                 &client,
@@ -174,6 +184,7 @@ async fn main() -> Result<()> {
                 &env,
                 description.as_deref(),
                 rotation_days,
+                cli::set::SetMode::from_flags(create_only, update_only),
             )
             .await
         }
