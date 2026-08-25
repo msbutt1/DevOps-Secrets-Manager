@@ -385,6 +385,19 @@ impl ApiClient {
             .await?)
     }
 
+    pub async fn create_environment(
+        &self,
+        vault_id: &str,
+        name: &str,
+        description: Option<&str>,
+    ) -> Result<Environment, ApiError> {
+        self.post(
+            &format!("/vaults/{vault_id}/envs"),
+            &serde_json::json!({"name": name, "description": description}),
+        )
+        .await
+    }
+
     pub async fn delete_secret(&self, secret_id: &str) -> Result<(), ApiError> {
         self.send::<()>(Method::DELETE, &format!("/secrets/{secret_id}"), None)
             .await?;

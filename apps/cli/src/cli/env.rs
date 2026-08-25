@@ -1,4 +1,5 @@
 use crate::api::ApiClient;
+use crate::cli::resolve;
 use crate::utils::TablePrinter;
 use anyhow::{Context, Result};
 
@@ -21,5 +22,29 @@ pub async fn list(client: &ApiClient, vault: &str) -> Result<()> {
     }
 
     TablePrinter::print_environments(&environments);
+    Ok(())
+}
+
+pub async fn create(
+    client: &ApiClient,
+    vault: &str,
+    name: &str,
+    description: Option<&str>,
+) -> Result<()> {
+    let vault = resolve::vault(client, vault).await?;
+    let env = client
+        .create_environment(&vault.id, name, description)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to create environment '{name}' in vault '{}'",
+                vault.name
+            )
+        })?;
+    println!(
+        "Created environment '{}' in vault '{}'.",
+        env.name, vault.name
+    );
+    println!("ID: {}", env.id);
     Ok(())
 }

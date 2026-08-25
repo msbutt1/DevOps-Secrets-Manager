@@ -154,6 +154,20 @@ enum EnvCommands {
         #[arg(long)]
         vault: String,
     },
+
+    /// Create an environment in a vault
+    Create {
+        /// Environment name (lowercase letters, digits, dots, hyphens, underscores)
+        name: String,
+
+        /// Vault name or ID
+        #[arg(long)]
+        vault: String,
+
+        /// Description
+        #[arg(long)]
+        description: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -178,6 +192,11 @@ async fn main() -> Result<()> {
         },
         Commands::Env { command } => match command {
             EnvCommands::List { vault } => cli::env::list(&client, &vault).await,
+            EnvCommands::Create {
+                name,
+                vault,
+                description,
+            } => cli::env::create(&client, &vault, &name, description.as_deref()).await,
         },
         Commands::Pull { vault, env, out } => {
             cli::pull::execute(&client, &vault, &env, out.as_deref()).await

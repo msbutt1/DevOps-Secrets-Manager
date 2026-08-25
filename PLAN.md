@@ -209,7 +209,7 @@ These are half-built or missing, but a team would need them.
 - [x] **Update existing secrets.** `secrets set` only creates. Make it update an existing key (with `--create-only` / `--update-only` flags). Commit: `feat(cli): update existing secrets with set`
 - [ ] **Missing commands.**
   - [x] `secrets delete`
-  - `secrets env create`
+  - [x] `secrets env create`
   - `secrets vault create`
   - `secrets members list/add/remove`
   - `secrets import .env`
