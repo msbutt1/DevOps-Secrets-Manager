@@ -109,6 +109,25 @@ enum Commands {
         update_only: bool,
     },
 
+    /// Delete a secret from an environment
+    Delete {
+        /// Key name of the secret
+        #[arg(value_name = "KEY")]
+        key: String,
+
+        /// Vault name or ID
+        #[arg(long)]
+        vault: String,
+
+        /// Environment name
+        #[arg(long)]
+        env: String,
+
+        /// Skip the confirmation prompt (required when not running in a terminal)
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
+
     /// View audit logs
     Audit {
         /// Filter by vault name
@@ -188,6 +207,12 @@ async fn main() -> Result<()> {
             )
             .await
         }
+        Commands::Delete {
+            key,
+            vault,
+            env,
+            yes,
+        } => cli::delete::execute(&client, &key, &vault, &env, yes).await,
         Commands::Audit { vault, since } => {
             cli::audit::execute(&client, vault.as_deref(), since.as_deref()).await
         }

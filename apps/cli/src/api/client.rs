@@ -385,6 +385,12 @@ impl ApiClient {
             .await?)
     }
 
+    pub async fn delete_secret(&self, secret_id: &str) -> Result<(), ApiError> {
+        self.send::<()>(Method::DELETE, &format!("/secrets/{secret_id}"), None)
+            .await?;
+        Ok(())
+    }
+
     pub async fn get_audit_logs(
         &self,
         vault_id: Option<&str>,
@@ -516,6 +522,19 @@ mod tests {
         let client = ApiClient::with_tokens(server.uri(), tokens_for(&server.uri()));
         let err = client.list_environments("v1").await.unwrap_err();
         assert_eq!(err.to_string(), "Vault not found (HTTP 404)");
+    }
+
+    #[tokio::test]
+    async fn delete_secret_sends_delete() {
+        let server = MockServer::start().await;
+        Mock::given(method("DELETE"))
+            .and(path("/secrets/s1"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let client = ApiClient::with_tokens(server.uri(), tokens_for(&server.uri()));
+        client.delete_secret("s1").await.unwrap();
     }
 
     #[tokio::test]
