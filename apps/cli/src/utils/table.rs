@@ -122,4 +122,25 @@ impl TablePrinter {
         }
         println!("{}", table);
     }
+
+    pub fn print_secrets(secrets: &[crate::api::client::Secret]) {
+        let mut table = Table::new();
+        table.set_content_arrangement(ContentArrangement::Dynamic);
+        table.set_header(
+            ["Key", "Description", "Rotation", "Expires"]
+                .iter()
+                .map(|h| Cell::new(h).fg(Color::Green).add_attribute(Attribute::Bold)),
+        );
+        for s in secrets {
+            table.add_row(vec![
+                s.key_name.clone(),
+                s.description.clone().unwrap_or_else(|| "-".into()),
+                s.rotation_interval_days
+                    .map(|d| format!("every {d}d"))
+                    .unwrap_or_else(|| "-".into()),
+                s.expires_at.clone().unwrap_or_else(|| "-".into()),
+            ]);
+        }
+        println!("{}", table);
+    }
 }

@@ -81,6 +81,17 @@ enum Commands {
         dry_run: bool,
     },
 
+    /// List secret names in an environment (values are not shown)
+    List {
+        /// Vault name or ID
+        #[arg(long)]
+        vault: String,
+
+        /// Environment name
+        #[arg(long)]
+        env: String,
+    },
+
     /// Pull secrets from an environment
     Pull {
         /// Vault name or ID
@@ -304,6 +315,9 @@ async fn main() -> Result<()> {
             overwrite,
             dry_run,
         } => cli::import::execute(&client, &file, &vault, &env, overwrite, dry_run).await,
+        Commands::List { vault, env } => {
+            cli::list::execute(&client, &vault, &env, cli.output).await
+        }
         Commands::Pull { vault, env, out } => {
             cli::pull::execute(&client, &vault, &env, out.as_deref()).await
         }
