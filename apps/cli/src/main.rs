@@ -101,6 +101,10 @@ enum Commands {
         #[arg(long)]
         env: String,
 
+        /// Replace secret values that appear in the command's output with [MASKED]
+        #[arg(long)]
+        mask: bool,
+
         /// Command to run with arguments
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         command: Vec<String>,
@@ -301,8 +305,9 @@ async fn main() -> Result<()> {
         Commands::Run {
             vault,
             env,
+            mask,
             command,
-        } => cli::run::execute(&client, &vault, &env, &command).await,
+        } => cli::run::execute(&client, &vault, &env, &command, mask).await,
         Commands::Set {
             secret,
             vault,

@@ -111,7 +111,7 @@ secrets env list --vault my-app
 # Pull secrets to a .env file
 secrets pull --vault my-app --env production --out .env
 
-# Run a command with injected secrets
+# Run a command with injected secrets (exits with the command's code; --mask hides values it prints)
 secrets run --vault my-app --env production -- npm start
 
 # Create a secret, or update its value if the key exists (--create-only / --update-only to restrict)
