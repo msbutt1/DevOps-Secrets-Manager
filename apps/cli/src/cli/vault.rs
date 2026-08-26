@@ -1,9 +1,12 @@
 use crate::api::ApiClient;
-use crate::utils::TablePrinter;
+use crate::utils::{print_json, OutputFormat, TablePrinter};
 use anyhow::{Context, Result};
 
-pub async fn list(client: &ApiClient) -> Result<()> {
+pub async fn list(client: &ApiClient, output: OutputFormat) -> Result<()> {
     let vaults = client.list_vaults().await?;
+    if output == OutputFormat::Json {
+        return print_json(&vaults);
+    }
 
     if vaults.is_empty() {
         println!("No vaults found.");

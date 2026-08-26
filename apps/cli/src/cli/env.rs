@@ -1,9 +1,9 @@
 use crate::api::ApiClient;
 use crate::cli::resolve;
-use crate::utils::TablePrinter;
+use crate::utils::{print_json, OutputFormat, TablePrinter};
 use anyhow::{Context, Result};
 
-pub async fn list(client: &ApiClient, vault: &str) -> Result<()> {
+pub async fn list(client: &ApiClient, vault: &str, output: OutputFormat) -> Result<()> {
     // Try to find vault by name first, then use as ID
     let vault_id = if let Some(v) = client.find_vault_by_name(vault).await? {
         v.id
@@ -15,6 +15,10 @@ pub async fn list(client: &ApiClient, vault: &str) -> Result<()> {
         .list_environments(&vault_id)
         .await
         .context(format!("Failed to list environments for vault '{}'", vault))?;
+
+    if output == OutputFormat::Json {
+        return print_json(&environments);
+    }
 
     if environments.is_empty() {
         println!("No environments found in vault '{}'.", vault);

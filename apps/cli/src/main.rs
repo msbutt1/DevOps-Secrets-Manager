@@ -2,6 +2,7 @@ use anyhow::Result;
 use api::ApiClient;
 use clap::{Parser, Subcommand};
 use config::Settings;
+use utils::OutputFormat;
 
 mod api;
 mod cli;
@@ -15,6 +16,10 @@ struct Cli {
     /// API base URL [env: SECRETS_API_URL] (default: the URL saved at login, or http://localhost:8080)
     #[arg(long, global = true, value_name = "URL")]
     api_url: Option<String>,
+
+    /// Output format for list commands
+    #[arg(long, short = 'o', global = true, value_enum, default_value_t = OutputFormat::Table)]
+    output: OutputFormat,
 
     #[command(subcommand)]
     command: Commands,
@@ -268,7 +273,7 @@ async fn main() -> Result<()> {
         }
         Commands::Logout => cli::logout::execute(&client).await,
         Commands::Vault { command } => match command {
-            VaultCommands::List => cli::vault::list(&client).await,
+            VaultCommands::List => cli::vault::list(&client, cli.output).await,
             VaultCommands::Create {
                 name,
                 description,
@@ -276,7 +281,7 @@ async fn main() -> Result<()> {
             } => cli::vault::create(&client, &name, description.as_deref(), org.as_deref()).await,
         },
         Commands::Env { command } => match command {
-            EnvCommands::List { vault } => cli::env::list(&client, &vault).await,
+            EnvCommands::List { vault } => cli::env::list(&client, &vault, cli.output).await,
             EnvCommands::Create {
                 name,
                 vault,
@@ -284,7 +289,7 @@ async fn main() -> Result<()> {
             } => cli::env::create(&client, &vault, &name, description.as_deref()).await,
         },
         Commands::Members { command } => match command {
-            MemberCommands::List { vault } => cli::members::list(&client, &vault).await,
+            MemberCommands::List { vault } => cli::members::list(&client, &vault, cli.output).await,
             MemberCommands::Add { email, role, vault } => {
                 cli::members::add(&client, &vault, &email, &role).await
             }
@@ -335,7 +340,7 @@ async fn main() -> Result<()> {
             yes,
         } => cli::delete::execute(&client, &key, &vault, &env, yes).await,
         Commands::Audit { vault, since } => {
-            cli::audit::execute(&client, vault.as_deref(), since.as_deref()).await
+            cli::audit::execute(&client, vault.as_deref(), since.as_deref(), cli.output).await
         }
     }
 }

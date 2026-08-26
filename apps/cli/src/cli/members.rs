@@ -1,13 +1,16 @@
 use crate::api::ApiClient;
 use crate::cli::resolve;
-use crate::utils::TablePrinter;
+use crate::utils::{print_json, OutputFormat, TablePrinter};
 use anyhow::{bail, Context, Result};
 
 pub const ROLES: [&str; 5] = ["owner", "admin", "developer", "oncall", "viewer"];
 
-pub async fn list(client: &ApiClient, vault: &str) -> Result<()> {
+pub async fn list(client: &ApiClient, vault: &str, output: OutputFormat) -> Result<()> {
     let vault = resolve::vault(client, vault).await?;
     let members = client.list_members(&vault.id).await?;
+    if output == OutputFormat::Json {
+        return print_json(&members);
+    }
     if members.is_empty() {
         println!("Vault '{}' has no members.", vault.name);
         return Ok(());

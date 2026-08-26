@@ -1,9 +1,14 @@
 use crate::api::ApiClient;
-use crate::utils::TablePrinter;
+use crate::utils::{print_json, OutputFormat, TablePrinter};
 use anyhow::{bail, Result};
 use chrono::{DateTime, Duration, NaiveDate, SecondsFormat, TimeZone, Utc};
 
-pub async fn execute(client: &ApiClient, vault: Option<&str>, since: Option<&str>) -> Result<()> {
+pub async fn execute(
+    client: &ApiClient,
+    vault: Option<&str>,
+    since: Option<&str>,
+    output: OutputFormat,
+) -> Result<()> {
     let start_date = since
         .map(|s| parse_since(s, Utc::now()))
         .transpose()?
@@ -26,6 +31,10 @@ pub async fn execute(client: &ApiClient, vault: Option<&str>, since: Option<&str
         .get_audit_logs(vault_id.as_deref(), start_date.as_deref())
         .await?;
     let logs = page.data;
+
+    if output == OutputFormat::Json {
+        return print_json(&logs);
+    }
 
     if logs.is_empty() {
         println!("No audit logs found.");

@@ -52,7 +52,7 @@ pub struct RefreshRequest {
     pub refresh_token: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Vault {
     pub id: String,
     pub name: String,
@@ -60,7 +60,7 @@ pub struct Vault {
     pub created_at: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Environment {
     pub id: String,
     pub name: String,
@@ -68,7 +68,7 @@ pub struct Environment {
     pub description: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Secret {
     pub id: String,
     pub key_name: String,
@@ -95,7 +95,7 @@ pub struct UpdateSecretRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Member {
     pub user_id: String,
     pub email: String,
@@ -121,7 +121,7 @@ pub struct RevealSecretResponse {
     pub value: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AuditLog {
     pub action: String,
     pub user_email: String,
