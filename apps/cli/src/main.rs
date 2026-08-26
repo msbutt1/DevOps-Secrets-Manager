@@ -54,6 +54,28 @@ enum Commands {
         command: MemberCommands,
     },
 
+    /// Import KEY=value pairs from a .env file into an environment
+    Import {
+        /// Path to the .env file, or - for standard input
+        file: String,
+
+        /// Vault name or ID
+        #[arg(long)]
+        vault: String,
+
+        /// Environment name
+        #[arg(long)]
+        env: String,
+
+        /// Update keys that already exist (by default they are skipped)
+        #[arg(long)]
+        overwrite: bool,
+
+        /// Show what would change without changing anything
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Pull secrets from an environment
     Pull {
         /// Vault name or ID
@@ -266,6 +288,13 @@ async fn main() -> Result<()> {
                 cli::members::remove(&client, &vault, &email).await
             }
         },
+        Commands::Import {
+            file,
+            vault,
+            env,
+            overwrite,
+            dry_run,
+        } => cli::import::execute(&client, &file, &vault, &env, overwrite, dry_run).await,
         Commands::Pull { vault, env, out } => {
             cli::pull::execute(&client, &vault, &env, out.as_deref()).await
         }

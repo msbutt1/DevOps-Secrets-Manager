@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod delete;
 pub mod env;
+pub mod import;
 pub mod login;
 pub mod logout;
 pub mod members;
