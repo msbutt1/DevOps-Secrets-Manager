@@ -48,6 +48,12 @@ enum Commands {
         command: EnvCommands,
     },
 
+    /// Vault membership
+    Members {
+        #[command(subcommand)]
+        command: MemberCommands,
+    },
+
     /// Pull secrets from an environment
     Pull {
         /// Vault name or ID
@@ -161,6 +167,40 @@ enum VaultCommands {
 }
 
 #[derive(Subcommand)]
+enum MemberCommands {
+    /// List a vault's members and their roles
+    List {
+        /// Vault name or ID
+        #[arg(long)]
+        vault: String,
+    },
+
+    /// Add someone from the vault's organization to the vault
+    Add {
+        /// Their account email
+        email: String,
+
+        /// Role on the vault
+        #[arg(long, value_parser = clap::builder::PossibleValuesParser::new(cli::members::ROLES))]
+        role: String,
+
+        /// Vault name or ID
+        #[arg(long)]
+        vault: String,
+    },
+
+    /// Remove someone from the vault
+    Remove {
+        /// Their account email
+        email: String,
+
+        /// Vault name or ID
+        #[arg(long)]
+        vault: String,
+    },
+}
+
+#[derive(Subcommand)]
 enum EnvCommands {
     /// List environments in a vault
     List {
@@ -216,6 +256,15 @@ async fn main() -> Result<()> {
                 vault,
                 description,
             } => cli::env::create(&client, &vault, &name, description.as_deref()).await,
+        },
+        Commands::Members { command } => match command {
+            MemberCommands::List { vault } => cli::members::list(&client, &vault).await,
+            MemberCommands::Add { email, role, vault } => {
+                cli::members::add(&client, &vault, &email, &role).await
+            }
+            MemberCommands::Remove { email, vault } => {
+                cli::members::remove(&client, &vault, &email).await
+            }
         },
         Commands::Pull { vault, env, out } => {
             cli::pull::execute(&client, &vault, &env, out.as_deref()).await

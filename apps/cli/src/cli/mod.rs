@@ -3,6 +3,7 @@ pub mod delete;
 pub mod env;
 pub mod login;
 pub mod logout;
+pub mod members;
 pub mod pull;
 pub mod resolve;
 pub mod run;

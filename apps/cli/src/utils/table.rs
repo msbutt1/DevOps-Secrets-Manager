@@ -98,4 +98,28 @@ impl TablePrinter {
 
         println!("{}", table);
     }
+
+    pub fn print_members(members: &[crate::api::client::Member]) {
+        let mut table = Table::new();
+        table.set_content_arrangement(ContentArrangement::Dynamic);
+        table.set_header(
+            ["Email", "Name", "Role", "Added By", "Added At"]
+                .iter()
+                .map(|h| Cell::new(h).fg(Color::Green).add_attribute(Attribute::Bold)),
+        );
+        for m in members {
+            table.add_row(vec![
+                m.email.as_str(),
+                m.name.as_str(),
+                m.role.as_str(),
+                if m.added_by.is_empty() {
+                    "-"
+                } else {
+                    m.added_by.as_str()
+                },
+                m.added_at.as_str(),
+            ]);
+        }
+        println!("{}", table);
+    }
 }

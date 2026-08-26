@@ -211,7 +211,7 @@ These are half-built or missing, but a team would need them.
   - [x] `secrets delete`
   - [x] `secrets env create`
   - [x] `secrets vault create`
-  - `secrets members list/add/remove`
+  - [x] `secrets members list/add/remove`
   - `secrets import .env`
   - Commit per command, e.g. `feat(cli): add delete command`
 - [x] **Logout and file safety.** (Found while checking the docs.) `secrets logout` sends no refresh token, so the session stays valid on the server; `pull --out` creates the `.env` file readable by everyone. Revoke on logout and write files with mode 0600. Commit: `fix(cli): revoke session on logout and write .env files privately` (revocation shipped with the API URL client rewrite; this commit adds private files)

@@ -95,6 +95,17 @@ pub struct UpdateSecretRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct Member {
+    pub user_id: String,
+    pub email: String,
+    pub name: String,
+    pub role: String,
+    #[serde(default)]
+    pub added_by: String,
+    pub added_at: String,
+}
+
 #[derive(Serialize)]
 pub struct CreateSecretRequest {
     pub key_name: String,
@@ -409,6 +420,33 @@ impl ApiClient {
             &serde_json::json!({"name": name, "description": description}),
         )
         .await
+    }
+
+    pub async fn list_members(&self, vault_id: &str) -> Result<Vec<Member>, ApiError> {
+        self.get(&format!("/vaults/{vault_id}/members")).await
+    }
+
+    pub async fn add_member(
+        &self,
+        vault_id: &str,
+        email: &str,
+        role: &str,
+    ) -> Result<Member, ApiError> {
+        self.post(
+            &format!("/vaults/{vault_id}/members"),
+            &serde_json::json!({"email": email, "role": role}),
+        )
+        .await
+    }
+
+    pub async fn remove_member(&self, vault_id: &str, user_id: &str) -> Result<(), ApiError> {
+        self.send::<()>(
+            Method::DELETE,
+            &format!("/vaults/{vault_id}/members/{user_id}"),
+            None,
+        )
+        .await?;
+        Ok(())
     }
 
     pub async fn delete_secret(&self, secret_id: &str) -> Result<(), ApiError> {
