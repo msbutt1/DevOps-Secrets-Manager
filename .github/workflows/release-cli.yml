@@ -1,0 +1,91 @@
+name: Release CLI
+
+# Builds the `secrets` CLI for Linux, macOS and Windows when a version tag is pushed and
+# attaches the archives, with SHA-256 checksums, to a GitHub Release for that tag.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/cli
+          key: ${{ matrix.target }}
+      - name: Test
+        if: matrix.target != 'x86_64-apple-darwin'
+        working-directory: apps/cli
+        run: cargo test --locked --target ${{ matrix.target }}
+      - name: Build
+        working-directory: apps/cli
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Package
+        id: package
+        run: |
+          name="secrets-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          dir="apps/cli/target/${{ matrix.target }}/release"
+          mkdir -p dist
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            cp "$dir/secrets.exe" dist/
+            (cd dist && 7z a "$name.zip" secrets.exe >/dev/null && rm secrets.exe)
+            file="dist/$name.zip"
+          else
+            tar -czf "dist/$name.tar.gz" -C "$dir" secrets
+            file="dist/$name.tar.gz"
+          fi
+          if command -v sha256sum >/dev/null; then
+            (cd dist && sha256sum "$(basename "$file")" > "$(basename "$file").sha256")
+          else
+            (cd dist && shasum -a 256 "$(basename "$file")" > "$(basename "$file").sha256")
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: secrets-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          generate_release_notes: true

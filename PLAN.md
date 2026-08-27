@@ -219,7 +219,8 @@ These are half-built or missing, but a team would need them.
 - [x] **Scripting output.** `--output json` on list commands. Commit: `feat(cli): JSON output`
 - [x] **Shell completions.** Generate them with `clap_complete`. Commit: `feat(cli): shell completions`
 - [x] **CLI tests.** The CLI has no tests. Add tests for argument parsing, `.env` writing and quoting, and the API client against a mock server. Commit: `test(cli): add unit and client tests`
-- [ ] **Release binaries.** Build Linux, macOS and Windows binaries on tag push and attach them to a GitHub Release. Commit: `ci(cli): build release binaries`
+- [x] **Release binaries.** Build Linux, macOS and Windows binaries on tag push and attach them to a GitHub Release. Commit: `ci(cli): build release binaries`
+  - Written and syntax-checked; only the Linux build could be run locally, so the macOS and Windows jobs are unverified until the first tag push.
 
 ### Machine access (for CI/CD, the "DevOps" in the name)
 - [ ] **Service tokens.**
