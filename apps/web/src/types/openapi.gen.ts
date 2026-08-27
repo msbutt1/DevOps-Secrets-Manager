@@ -472,6 +472,71 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/envs/{id}/tokens': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    /**
+     * List service tokens
+     * @description Active tokens for the environment (never their values). Requires manage-members permission on the vault.
+     */
+    get: operations['listServiceTokens'];
+    put?: never;
+    /**
+     * Create a service token
+     * @description Issues a read-only token for this environment. The `token` value is returned only in this response; the API stores a SHA-256 hash. Requires manage-members permission on the vault.
+     */
+    post: operations['createServiceToken'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/tokens/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Revoke a service token */
+    delete: operations['revokeServiceToken'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/token/secrets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read secrets with a service token
+     * @description Returns every secret in the token's environment. Authenticate with `Authorization Bearer dsm_st_...`. Each call is audited as `env.exported` by `token:<name>`. Responses are marked `Cache-Control no-store`.
+     */
+    get: operations['readTokenSecrets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/secrets/{id}': {
     parameters: {
       query?: never;
@@ -945,6 +1010,60 @@ export interface components {
     UpdateMemberRequest: {
       role: components['schemas']['Role'];
     };
+    ServiceToken: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @description The first characters of the token, to recognise it */
+      prefix: string;
+      /** Format: uuid */
+      environment_id: string;
+      environment_name: string;
+      /** Format: uuid */
+      vault_id: string;
+      vault_name: string;
+      created_by: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      expires_at: string | null;
+      /** Format: date-time */
+      last_used_at: string | null;
+    };
+    CreatedServiceToken: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      prefix: string;
+      /** Format: uuid */
+      environment_id: string;
+      environment_name: string;
+      /** Format: uuid */
+      vault_id: string;
+      vault_name: string;
+      created_by: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      expires_at: string | null;
+      /** Format: date-time */
+      last_used_at: string | null;
+      /** @description The token itself. Shown only once. */
+      token: string;
+    };
+    CreateServiceTokenRequest: {
+      name: string;
+      expires_in_days?: number | null;
+    };
+    TokenSecrets: {
+      vault_name: string;
+      environment_name: string;
+      token_name: string;
+      secrets: {
+        key: string;
+        value: string;
+      }[];
+    };
     /** @enum {string} */
     AuditAction:
       | 'login.success'
@@ -967,17 +1086,25 @@ export interface components {
       | 'org.member_removed'
       | 'invite.created'
       | 'invite.revoked'
-      | 'invite.accepted';
+      | 'invite.accepted'
+      | 'token.created'
+      | 'token.revoked'
+      | 'env.exported';
     AuditEvent: {
       /** Format: uuid */
       id: string;
       /** Format: date-time */
       timestamp: string;
       action: components['schemas']['AuditAction'];
-      /** Format: uuid */
-      user_id: string;
-      /** Format: email */
+      /**
+       * Format: uuid
+       * @description Null when a service token acted
+       */
+      user_id: string | null;
+      /** @description The actor's email, or token:<name> for a service token */
       user_email: string;
+      /** Format: uuid */
+      service_token_id: string | null;
       /** Format: uuid */
       organization_id: string | null;
       /** Format: uuid */
@@ -986,7 +1113,7 @@ export interface components {
       /** Format: uuid */
       environment_id: string | null;
       environment_name: string | null;
-      /** @description secret, environment, vault, member, organization, invite or user */
+      /** @description secret, environment, vault, member, organization, invite, service_token or user */
       target_type: string;
       /** Format: uuid */
       target_id: string | null;
@@ -2074,6 +2201,111 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  listServiceTokens: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tokens */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ServiceToken'][];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  createServiceToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateServiceTokenRequest'];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatedServiceToken'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  revokeServiceToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Revoked */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  readTokenSecrets: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Secrets */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TokenSecrets'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
       500: components['responses']['InternalError'];
     };
   };

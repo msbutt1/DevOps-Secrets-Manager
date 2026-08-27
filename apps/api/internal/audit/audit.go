@@ -32,6 +32,10 @@ const (
 	ActionInviteCreated        = "invite.created"
 	ActionInviteRevoked        = "invite.revoked"
 	ActionInviteAccepted       = "invite.accepted"
+	ActionTokenCreated         = "token.created"
+	ActionTokenRevoked         = "token.revoked"
+	// ActionEnvExported records reading every value in an environment at once (service tokens).
+	ActionEnvExported = "env.exported"
 )
 
 // Actions lists every action the API records.
@@ -57,11 +61,16 @@ var Actions = []string{
 	ActionInviteCreated,
 	ActionInviteRevoked,
 	ActionInviteAccepted,
+	ActionTokenCreated,
+	ActionTokenRevoked,
+	ActionEnvExported,
 }
 
-// Event describes something to record in the audit log.
+// Event describes something to record in the audit log. The actor is UserID, or ServiceTokenID
+// for machine access (UserID is then uuid.Nil).
 type Event struct {
 	UserID         uuid.UUID
+	ServiceTokenID *uuid.UUID
 	Action         string
 	TargetType     string
 	TargetID       *uuid.UUID
@@ -76,7 +85,8 @@ type Event struct {
 type AuditEntry struct {
 	ID             uuid.UUID
 	Timestamp      time.Time
-	UserID         uuid.UUID
+	UserID         uuid.UUID // uuid.Nil when a service token acted
+	ServiceTokenID *uuid.UUID
 	OrganizationID *uuid.UUID
 	VaultID        *uuid.UUID
 	EnvironmentID  *uuid.UUID
@@ -88,7 +98,8 @@ type AuditEntry struct {
 	UserAgent      *string
 	Metadata       map[string]interface{}
 
-	// Joined for display; empty when the row does not reference them.
+	// Joined for display; empty when the row does not reference them. For service tokens
+	// UserEmail is "token:<name>".
 	UserEmail       string
 	VaultName       *string
 	EnvironmentName *string

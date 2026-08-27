@@ -8,7 +8,7 @@ import (
 )
 
 // NewRouter creates and configures a new chi router
-func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, statsHandlers *StatsHandlers, organizationHandlers *OrganizationHandlers, jwtSecret string) *chi.Mux {
+func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, statsHandlers *StatsHandlers, organizationHandlers *OrganizationHandlers, serviceTokenHandlers *ServiceTokenHandlers, jwtSecret string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middleware
@@ -79,6 +79,10 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		// Secret routes nested under environments
 		r.Get("/{id}/secrets", secretHandlers.HandleListSecrets)
 		r.Post("/{id}/secrets", secretHandlers.HandleCreateSecret)
+
+		// Service tokens scoped to the environment
+		r.Get("/{id}/tokens", serviceTokenHandlers.HandleList)
+		r.Post("/{id}/tokens", serviceTokenHandlers.HandleCreate)
 	})
 
 	// Secret routes (protected)
@@ -92,6 +96,10 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	// Dashboard statistics (protected)
 	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/stats", statsHandlers.HandleStats)
 	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/alerts", statsHandlers.HandleAlerts)
+
+	// Service tokens: revocation by users, reading by the token itself
+	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Delete("/tokens/{id}", serviceTokenHandlers.HandleRevoke)
+	r.Get("/token/secrets", serviceTokenHandlers.HandleTokenSecrets)
 
 	// Audit routes (protected)
 	r.Route("/audit", func(r chi.Router) {

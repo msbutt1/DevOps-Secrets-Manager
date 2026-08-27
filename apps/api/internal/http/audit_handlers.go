@@ -42,8 +42,9 @@ type AuditEventResponse struct {
 	ID              uuid.UUID              `json:"id"`
 	Timestamp       time.Time              `json:"timestamp"`
 	Action          string                 `json:"action"`
-	UserID          uuid.UUID              `json:"user_id"`
+	UserID          *uuid.UUID             `json:"user_id"`
 	UserEmail       string                 `json:"user_email"`
+	ServiceTokenID  *uuid.UUID             `json:"service_token_id"`
 	OrganizationID  *uuid.UUID             `json:"organization_id"`
 	VaultID         *uuid.UUID             `json:"vault_id"`
 	VaultName       *string                `json:"vault_name"`
@@ -206,12 +207,17 @@ func toAuditEventResponse(entry *audit.AuditEntry) AuditEventResponse {
 	if metadata == nil {
 		metadata = map[string]interface{}{}
 	}
+	var userID *uuid.UUID
+	if entry.UserID != uuid.Nil {
+		userID = &entry.UserID
+	}
 	return AuditEventResponse{
 		ID:              entry.ID,
 		Timestamp:       entry.Timestamp,
 		Action:          entry.Action,
-		UserID:          entry.UserID,
+		UserID:          userID,
 		UserEmail:       entry.UserEmail,
+		ServiceTokenID:  entry.ServiceTokenID,
 		OrganizationID:  entry.OrganizationID,
 		VaultID:         entry.VaultID,
 		VaultName:       entry.VaultName,

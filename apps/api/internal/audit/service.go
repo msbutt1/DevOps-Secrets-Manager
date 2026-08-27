@@ -82,6 +82,7 @@ func (s *auditService) Record(ctx context.Context, event Event) error {
 		ID:             uuid.New(),
 		Timestamp:      time.Now(),
 		UserID:         event.UserID,
+		ServiceTokenID: event.ServiceTokenID,
 		OrganizationID: event.OrganizationID,
 		VaultID:        event.VaultID,
 		EnvironmentID:  event.EnvironmentID,

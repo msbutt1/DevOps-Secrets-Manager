@@ -36,6 +36,13 @@ func TestEveryAuditActionIsRecorded(t *testing.T) {
 	colleague := f.member(t, "Cole Colleague", "developer", "", "")
 	api.MustDo(http.StatusOK, "PUT", "/orgs/"+org+"/members/"+colleague.ID.String(), f.owner.Token, map[string]any{"role": "viewer"})
 	api.MustDo(http.StatusNoContent, "DELETE", "/orgs/"+org+"/members/"+colleague.ID.String(), f.owner.Token, nil)
+	var tok struct {
+		ID    string `json:"id"`
+		Token string `json:"token"`
+	}
+	api.MustDo(http.StatusCreated, "POST", "/envs/"+f.envID+"/tokens", f.owner.Token, map[string]any{"name": "ci"}).Decode(t, &tok)
+	api.MustDo(http.StatusOK, "GET", "/token/secrets", tok.Token, nil)
+	api.MustDo(http.StatusNoContent, "DELETE", "/tokens/"+tok.ID, f.owner.Token, nil)
 	var inv struct {
 		ID string `json:"id"`
 	}

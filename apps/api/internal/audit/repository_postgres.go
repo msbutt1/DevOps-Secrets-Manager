@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,9 +28,9 @@ func (r *postgresRepository) Append(ctx context.Context, entry *AuditEntry) erro
 	query := `
 		INSERT INTO audit_logs (
 			id, timestamp, user_id, organization_id, vault_id, environment_id, action,
-			resource_type, resource_id, target_name, ip_address, user_agent, metadata
+			resource_type, resource_id, target_name, ip_address, user_agent, metadata, service_token_id
 		)
-		VALUES ($1, $2, $3, COALESCE($4, (SELECT organization_id FROM vaults WHERE id = $5)), $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, COALESCE($4, (SELECT organization_id FROM vaults WHERE id = $5)), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id, timestamp
 	`
 
@@ -47,7 +49,7 @@ func (r *postgresRepository) Append(ctx context.Context, entry *AuditEntry) erro
 		query,
 		entry.ID,
 		entry.Timestamp,
-		entry.UserID,
+		nullableUser(entry.UserID),
 		entry.OrganizationID,
 		entry.VaultID,
 		entry.EnvironmentID,
@@ -58,6 +60,7 @@ func (r *postgresRepository) Append(ctx context.Context, entry *AuditEntry) erro
 		entry.IPAddress,
 		entry.UserAgent,
 		metadataJSON,
+		entry.ServiceTokenID,
 	).Scan(&entry.ID, &entry.Timestamp)
 
 	if err != nil {
@@ -95,7 +98,7 @@ func (r *postgresRepository) Query(ctx context.Context, filters QueryFilters) ([
 		conditions = append(conditions, "a.user_id = "+arg(*filters.UserID))
 	}
 	if filters.UserEmail != nil {
-		conditions = append(conditions, "u.email ILIKE "+arg("%"+escapeLike(*filters.UserEmail)+"%"))
+		conditions = append(conditions, "COALESCE(u.email, 'token:' || st.name) ILIKE "+arg("%"+escapeLike(*filters.UserEmail)+"%"))
 	}
 	if filters.OrgID != nil {
 		conditions = append(conditions, "a.organization_id = "+arg(*filters.OrgID))
@@ -124,7 +127,8 @@ func (r *postgresRepository) Query(ctx context.Context, filters QueryFilters) ([
 
 	from := `
 		FROM audit_logs a
-		JOIN users u ON u.id = a.user_id
+		LEFT JOIN users u ON u.id = a.user_id
+		LEFT JOIN service_tokens st ON st.id = a.service_token_id
 		LEFT JOIN vaults v ON v.id = a.vault_id
 		LEFT JOIN environments e ON e.id = a.environment_id
 	`
@@ -139,9 +143,9 @@ func (r *postgresRepository) Query(ctx context.Context, filters QueryFilters) ([
 	}
 
 	query := `
-		SELECT a.id, a.timestamp, a.user_id, a.organization_id, a.vault_id, a.environment_id, a.action,
+		SELECT a.id, a.timestamp, a.user_id, a.service_token_id, a.organization_id, a.vault_id, a.environment_id, a.action,
 		       a.resource_type, a.resource_id, a.target_name, host(a.ip_address), a.user_agent, a.metadata,
-		       u.email, v.name, e.name` + from + where + " ORDER BY a.timestamp DESC, a.id"
+		       COALESCE(u.email, 'token:' || st.name, 'deleted token'), v.name, e.name` + from + where + " ORDER BY a.timestamp DESC, a.id"
 	if filters.Limit > 0 {
 		query += " LIMIT " + arg(filters.Limit)
 	}
@@ -159,11 +163,13 @@ func (r *postgresRepository) Query(ctx context.Context, filters QueryFilters) ([
 	for rows.Next() {
 		var entry AuditEntry
 		var metadataJSON []byte
+		var userID *uuid.UUID
 
 		err := rows.Scan(
 			&entry.ID,
 			&entry.Timestamp,
-			&entry.UserID,
+			&userID,
+			&entry.ServiceTokenID,
 			&entry.OrganizationID,
 			&entry.VaultID,
 			&entry.EnvironmentID,
@@ -182,6 +188,10 @@ func (r *postgresRepository) Query(ctx context.Context, filters QueryFilters) ([
 			return nil, 0, fmt.Errorf("failed to scan audit entry: %w", err)
 		}
 
+		if userID != nil {
+			entry.UserID = *userID
+		}
+
 		// Unmarshal metadata if present
 		if metadataJSON != nil {
 			if err := json.Unmarshal(metadataJSON, &entry.Metadata); err != nil {
@@ -197,6 +207,14 @@ func (r *postgresRepository) Query(ctx context.Context, filters QueryFilters) ([
 	}
 
 	return entries, total, nil
+}
+
+// nullableUser stores events performed by a service token with no user.
+func nullableUser(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
+	}
+	return &id
 }
 
 // escapeLike escapes LIKE wildcards in user input.

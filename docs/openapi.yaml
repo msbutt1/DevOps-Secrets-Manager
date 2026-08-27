@@ -32,6 +32,7 @@ tags:
   - name: Environments
   - name: Secrets
   - name: Members
+  - name: Service tokens
   - name: Audit
   - name: Dashboard
   - name: Health
@@ -723,6 +724,85 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /envs/{id}/tokens:
+    parameters:
+      - $ref: '#/components/parameters/EnvironmentIdPath'
+    get:
+      tags: [Service tokens]
+      summary: List service tokens
+      description: Active tokens for the environment (never their values). Requires manage-members permission on the vault.
+      operationId: listServiceTokens
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ServiceToken' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Service tokens]
+      summary: Create a service token
+      description: Issues a read-only token for this environment. The `token` value is returned only in this response; the API stores a SHA-256 hash. Requires manage-members permission on the vault.
+      operationId: createServiceToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateServiceTokenRequest' }
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreatedServiceToken' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /tokens/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Service tokens]
+      summary: Revoke a service token
+      operationId: revokeServiceToken
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '204':
+          description: Revoked
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /token/secrets:
+    get:
+      tags: [Service tokens]
+      summary: Read secrets with a service token
+      description: Returns every secret in the token's environment. Authenticate with `Authorization Bearer dsm_st_...`. Each call is audited as `env.exported` by `token:<name>`. Responses are marked `Cache-Control no-store`.
+      operationId: readTokenSecrets
+      security:
+        - serviceToken: []
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Secrets
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenSecrets' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /secrets/{id}:
     parameters:
       - $ref: '#/components/parameters/SecretIdPath'
@@ -981,6 +1061,10 @@ paths:
 
 components:
   securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      description: A service token (dsm_st_...) created for one environment.
     bearerAuth:
       type: http
       scheme: bearer
@@ -1405,6 +1489,66 @@ components:
       properties:
         role: { $ref: '#/components/schemas/Role' }
 
+    ServiceToken:
+      type: object
+      required: [id, name, prefix, environment_id, environment_name, vault_id, vault_name, created_by, created_at, expires_at, last_used_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix:
+          type: string
+          description: The first characters of the token, to recognise it
+        environment_id: { type: string, format: uuid }
+        environment_name: { type: string }
+        vault_id: { type: string, format: uuid }
+        vault_name: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
+        last_used_at: { type: string, format: date-time, nullable: true }
+
+    CreatedServiceToken:
+      type: object
+      required: [id, name, prefix, environment_id, environment_name, vault_id, vault_name, created_by, created_at, expires_at, last_used_at, token]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix: { type: string }
+        environment_id: { type: string, format: uuid }
+        environment_name: { type: string }
+        vault_id: { type: string, format: uuid }
+        vault_name: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, nullable: true }
+        last_used_at: { type: string, format: date-time, nullable: true }
+        token:
+          type: string
+          description: The token itself. Shown only once.
+
+    CreateServiceTokenRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        expires_in_days: { type: integer, minimum: 1, maximum: 365, nullable: true }
+
+    TokenSecrets:
+      type: object
+      required: [vault_name, environment_name, token_name, secrets]
+      properties:
+        vault_name: { type: string }
+        environment_name: { type: string }
+        token_name: { type: string }
+        secrets:
+          type: array
+          items:
+            type: object
+            required: [key, value]
+            properties:
+              key: { type: string }
+              value: { type: string }
+
     AuditAction:
       type: string
       enum:
@@ -1429,16 +1573,26 @@ components:
         - invite.created
         - invite.revoked
         - invite.accepted
+        - token.created
+        - token.revoked
+        - env.exported
 
     AuditEvent:
       type: object
-      required: [id, timestamp, action, user_id, user_email, organization_id, vault_id, vault_name, environment_id, environment_name, target_type, target_id, target_name, ip_address, user_agent, metadata]
+      required: [id, timestamp, action, user_id, user_email, service_token_id, organization_id, vault_id, vault_name, environment_id, environment_name, target_type, target_id, target_name, ip_address, user_agent, metadata]
       properties:
         id: { type: string, format: uuid }
         timestamp: { type: string, format: date-time }
         action: { $ref: '#/components/schemas/AuditAction' }
-        user_id: { type: string, format: uuid }
-        user_email: { type: string, format: email }
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null when a service token acted
+        user_email:
+          type: string
+          description: The actor's email, or token:<name> for a service token
+        service_token_id: { type: string, format: uuid, nullable: true }
         organization_id: { type: string, format: uuid, nullable: true }
         vault_id: { type: string, format: uuid, nullable: true }
         vault_name: { type: string, nullable: true }
@@ -1446,7 +1600,7 @@ components:
         environment_name: { type: string, nullable: true }
         target_type:
           type: string
-          description: secret, environment, vault, member, organization, invite or user
+          description: secret, environment, vault, member, organization, invite, service_token or user
         target_id: { type: string, format: uuid, nullable: true }
         target_name: { type: string, nullable: true }
         ip_address: { type: string, nullable: true }

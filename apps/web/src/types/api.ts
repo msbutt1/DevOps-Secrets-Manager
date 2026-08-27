@@ -118,6 +118,9 @@ export const AUDIT_ACTIONS = [
   { value: 'invite.created', label: 'Invitation Sent' },
   { value: 'invite.revoked', label: 'Invitation Revoked' },
   { value: 'invite.accepted', label: 'Invitation Accepted' },
+  { value: 'token.created', label: 'Service Token Created' },
+  { value: 'token.revoked', label: 'Service Token Revoked' },
+  { value: 'env.exported', label: 'Environment Exported' },
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];

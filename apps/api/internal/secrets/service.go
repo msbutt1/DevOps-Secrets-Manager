@@ -25,6 +25,15 @@ type SecretService interface {
 	UpdateSecret(ctx context.Context, secretID uuid.UUID, newPlaintextValue *string, description *string, rotationDays *int, expiresAt *time.Time, metadata map[string]interface{}, updatedBy uuid.UUID) (*Secret, error)
 	DeleteSecret(ctx context.Context, secretID, deletedBy uuid.UUID) error
 	RevealSecret(ctx context.Context, secretID, requestedBy uuid.UUID) (string, error)
+	// ExportEnvironment decrypts every secret in an environment. It records one env.exported
+	// audit event for the given actor (a user, or a service token with uuid.Nil as user).
+	ExportEnvironment(ctx context.Context, envID uuid.UUID, actor audit.Event) ([]KeyValue, error)
+}
+
+// KeyValue is a decrypted secret.
+type KeyValue struct {
+	Key   string
+	Value string
 }
 
 type secretService struct {
@@ -304,6 +313,51 @@ func (s *secretService) RevealSecret(ctx context.Context, secretID, requestedBy 
 	})
 
 	return string(plaintext), nil
+}
+
+func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, actor audit.Event) ([]KeyValue, error) {
+	env, err := s.envRepo.GetByID(ctx, envID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+	vault, err := s.vaultRepo.GetByID(ctx, env.VaultID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vault: %w", err)
+	}
+	dek, err := crypto.DecryptDEK(vault.EncryptedDEK, s.masterKEK)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
+	}
+	secrets, err := s.secretRepo.ListByEnvironmentID(ctx, envID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %w", err)
+	}
+
+	values := make([]KeyValue, 0, len(secrets))
+	keys := make([]string, 0, len(secrets))
+	for _, secret := range secrets {
+		plaintext, err := s.decryptValue(secret.EncryptedValue, secret.Nonce, dek)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt secret %s: %w", secret.KeyName, err)
+		}
+		values = append(values, KeyValue{Key: secret.KeyName, Value: string(plaintext)})
+		keys = append(keys, secret.KeyName)
+	}
+
+	actor.Action = audit.ActionEnvExported
+	actor.TargetType = "environment"
+	actor.TargetID = &env.ID
+	actor.TargetName = env.Name
+	actor.OrganizationID = &vault.OrganizationID
+	actor.VaultID = &vault.ID
+	actor.EnvironmentID = &env.ID
+	if actor.Metadata == nil {
+		actor.Metadata = map[string]interface{}{}
+	}
+	actor.Metadata["keys"] = keys
+	s.record(ctx, actor)
+
+	return values, nil
 }
 
 // encryptValue encrypts plaintext using AES-256-GCM with the provided DEK
