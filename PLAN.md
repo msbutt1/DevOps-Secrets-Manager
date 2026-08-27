@@ -217,7 +217,7 @@ These are half-built or missing, but a team would need them.
 - [x] **Logout and file safety.** (Found while checking the docs.) `secrets logout` sends no refresh token, so the session stays valid on the server; `pull --out` creates the `.env` file readable by everyone. Revoke on logout and write files with mode 0600. Commit: `fix(cli): revoke session on logout and write .env files privately` (revocation shipped with the API URL client rewrite; this commit adds private files)
 - [x] **`secrets run` safety.** Never print values. Mask secrets that appear in the child process's output (optional flag). Exit with the child's exit code. Commit: `fix(cli): propagate exit code and mask values in run`
 - [x] **Scripting output.** `--output json` on list commands. Commit: `feat(cli): JSON output`
-- [ ] **Shell completions.** Generate them with `clap_complete`. Commit: `feat(cli): shell completions`
+- [x] **Shell completions.** Generate them with `clap_complete`. Commit: `feat(cli): shell completions`
 - [ ] **CLI tests.** The CLI has no tests. Add tests for argument parsing, `.env` writing and quoting, and the API client against a mock server. Commit: `test(cli): add unit and client tests`
 - [ ] **Release binaries.** Build Linux, macOS and Windows binaries on tag push and attach them to a GitHub Release. Commit: `ci(cli): build release binaries`
 

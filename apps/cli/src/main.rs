@@ -1,6 +1,6 @@
 use anyhow::Result;
 use api::ApiClient;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use config::Settings;
 use utils::OutputFormat;
 
@@ -176,6 +176,12 @@ enum Commands {
         yes: bool,
     },
 
+    /// Print a shell completion script (e.g. `secrets completions fish > ~/.config/fish/completions/secrets.fish`)
+    Completions {
+        /// Shell to generate completions for
+        shell: clap_complete::Shell,
+    },
+
     /// View audit logs
     Audit {
         /// Filter by vault name
@@ -270,6 +276,18 @@ enum EnvCommands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Completions need no configuration or network access
+    if let Commands::Completions { shell } = cli.command {
+        let mut script = Vec::new();
+        clap_complete::generate(shell, &mut Cli::command(), "secrets", &mut script);
+        use std::io::Write;
+        return match std::io::stdout().write_all(&script) {
+            // A closed pipe (e.g. `| head`) is not an error worth reporting
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => Ok(()),
+            other => Ok(other?),
+        };
+    }
+
     let settings = Settings::load();
     let env_url = std::env::var(config::settings::API_URL_ENV).ok();
     let api_url =
@@ -353,8 +371,100 @@ async fn main() -> Result<()> {
             env,
             yes,
         } => cli::delete::execute(&client, &key, &vault, &env, yes).await,
+        Commands::Completions { .. } => unreachable!("handled before configuration is loaded"),
         Commands::Audit { vault, since } => {
             cli::audit::execute(&client, vault.as_deref(), since.as_deref(), cli.output).await
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_definition_is_valid() {
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn parses_run_with_trailing_command_and_flags() {
+        let cli = Cli::try_parse_from([
+            "secrets",
+            "--api-url",
+            "https://api.example",
+            "run",
+            "--vault",
+            "app",
+            "--env",
+            "production",
+            "--mask",
+            "--",
+            "npm",
+            "run",
+            "deploy",
+            "--prod",
+        ])
+        .unwrap();
+        assert_eq!(cli.api_url.as_deref(), Some("https://api.example"));
+        match cli.command {
+            Commands::Run {
+                vault,
+                env,
+                mask,
+                command,
+            } => {
+                assert_eq!(
+                    (vault.as_str(), env.as_str(), mask),
+                    ("app", "production", true)
+                );
+                assert_eq!(command, ["npm", "run", "deploy", "--prod"]);
+            }
+            _ => panic!("expected run"),
+        }
+    }
+
+    #[test]
+    fn global_flags_work_after_the_subcommand() {
+        let cli = Cli::try_parse_from(["secrets", "vault", "list", "-o", "json"]).unwrap();
+        assert_eq!(cli.output, OutputFormat::Json);
+    }
+
+    #[test]
+    fn rejects_conflicting_and_missing_arguments() {
+        assert!(Cli::try_parse_from([
+            "secrets",
+            "set",
+            "A=1",
+            "--vault",
+            "v",
+            "--env",
+            "e",
+            "--create-only",
+            "--update-only"
+        ])
+        .is_err());
+        assert!(Cli::try_parse_from(["secrets", "pull", "--vault", "v"]).is_err());
+        assert!(Cli::try_parse_from([
+            "secrets", "members", "add", "a@b.c", "--vault", "v", "--role", "root"
+        ])
+        .is_err());
+    }
+
+    #[test]
+    fn completions_are_generated_for_each_shell() {
+        for shell in [
+            clap_complete::Shell::Bash,
+            clap_complete::Shell::Fish,
+            clap_complete::Shell::Zsh,
+        ] {
+            let mut buf = Vec::new();
+            clap_complete::generate(shell, &mut Cli::command(), "secrets", &mut buf);
+            let script = String::from_utf8(buf).unwrap();
+            assert!(
+                script.contains("import"),
+                "{shell:?} completions should mention subcommands"
+            );
         }
     }
 }

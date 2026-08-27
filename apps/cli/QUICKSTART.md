@@ -120,6 +120,14 @@ sudo cp target/release/secrets /usr/local/bin/
 
 Now you can use `secrets` instead of `./target/release/secrets`.
 
+## Shell Completions
+
+```bash
+secrets completions fish > ~/.config/fish/completions/secrets.fish
+secrets completions bash > ~/.local/share/bash-completion/completions/secrets
+secrets completions zsh > "${fpath[1]}/_secrets"
+```
+
 ## What Makes This CLI Special?
 
 1. **Zero-Disk Secrets**: The `run` command never writes secrets to disk
