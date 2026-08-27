@@ -230,6 +230,7 @@ These are half-built or missing, but a team would need them.
   - The CLI accepts the token through `SECRETS_TOKEN`.
   - Commits: `feat(api): environment service tokens` + `feat(web): manage service tokens` + `feat(cli): authenticate with service token`
   - [x] API: create/list/revoke per environment, `GET /token/secrets`, audited as `token:<name>`.
+  - [x] Web: Service Tokens dialog on the vault page for owners and admins.
 - [ ] **GitHub Actions example.** Pull secrets in a workflow using a service token (`docs/ci-github-actions.md`). Commit: `docs: GitHub Actions usage example`
 
 ---

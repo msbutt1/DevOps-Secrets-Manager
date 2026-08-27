@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SecretFormDialog } from '@/components/SecretFormDialog';
 import { EnvironmentFormDialog } from '@/components/EnvironmentFormDialog';
 import { RevealSecretDialog } from '@/components/RevealSecretDialog';
+import { ServiceTokensDialog } from '@/components/ServiceTokensDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { RoleBadge } from '@/components/RoleBadge';
 import { PermissionGate, usePermission } from '@/components/PermissionGate';
@@ -40,6 +41,7 @@ import {
   Copy,
   Check,
   Loader2,
+  KeyRound,
 } from 'lucide-react';
 import type { Secret, Environment, EnvironmentName } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
@@ -78,6 +80,7 @@ export const VaultPage = () => {
   const [editSecret, setEditSecret] = useState<Secret | null>(null);
   const [showCreateSecret, setShowCreateSecret] = useState(false);
   const [showCreateEnv, setShowCreateEnv] = useState(false);
+  const [showTokens, setShowTokens] = useState(false);
 
   // Copy to clipboard state
   const [copyingSecretId, setCopyingSecretId] = useState<string | null>(null);
@@ -365,6 +368,20 @@ export const VaultPage = () => {
                 )}
 
                 <div className="flex-1" />
+
+                <PermissionGate
+                  permission="canManageMembers"
+                  userRole={vault?.userRole || 'viewer'}
+                >
+                  <Button
+                    className="!min-w-0 flex items-center gap-1"
+                    onClick={() => setShowTokens(true)}
+                    disabled={!currentEnvId}
+                  >
+                    <KeyRound size={12} strokeWidth={1.5} />
+                    Service Tokens
+                  </Button>
+                </PermissionGate>
 
                 <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
                   <Button
@@ -665,6 +682,15 @@ export const VaultPage = () => {
           );
         }}
       />
+      {vault && currentEnvId && (
+        <ServiceTokensDialog
+          isOpen={showTokens}
+          vaultName={vault.name}
+          environmentId={currentEnvId}
+          environmentName={activeEnv}
+          onClose={() => setShowTokens(false)}
+        />
+      )}
     </AppLayout>
   );
 };

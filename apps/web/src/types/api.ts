@@ -49,6 +49,11 @@ export type SecretUpdateRequest = Schema<'UpdateSecretRequest'>;
 export type SecretRevealResponse = Schema<'SecretReveal'>;
 export type RotationPolicy = Schema<'RotationPolicy'>;
 
+// Service token DTOs
+export type ServiceToken = Schema<'ServiceToken'>;
+export type CreatedServiceToken = Schema<'CreatedServiceToken'>;
+export type CreateServiceTokenRequest = Schema<'CreateServiceTokenRequest'>;
+
 // Access Control DTOs
 export type VaultRole = Schema<'Role'>;
 export type VaultMember = Schema<'Member'>;

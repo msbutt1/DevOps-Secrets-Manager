@@ -26,6 +26,9 @@ import type {
   CreateInviteRequest,
   CreateInviteResponse,
   InviteLookup,
+  ServiceToken,
+  CreatedServiceToken,
+  CreateServiceTokenRequest,
   AddMemberRequest,
   UpdateMemberRequest,
   AuditEvent,
@@ -324,6 +327,21 @@ export const secretsApi = {
     apiFetch<SecretRevealResponse>(`/secrets/${secretId}/reveal`, {
       method: 'POST',
     }),
+};
+
+// ============ SERVICE TOKENS API ============
+export const serviceTokensApi = {
+  list: (envId: string): Promise<ServiceToken[]> =>
+    apiFetch<ServiceToken[]>(`/envs/${envId}/tokens`),
+
+  create: (envId: string, data: CreateServiceTokenRequest): Promise<CreatedServiceToken> =>
+    apiFetch<CreatedServiceToken>(`/envs/${envId}/tokens`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  revoke: (tokenId: string): Promise<void> =>
+    apiFetch<void>(`/tokens/${tokenId}`, { method: 'DELETE' }),
 };
 
 // ============ ACCESS API ============
