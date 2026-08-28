@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/clientip"
 )
 
 // Context keys for extracting IP and User-Agent
@@ -20,15 +21,19 @@ const (
 )
 
 // RequestContext is HTTP middleware that stores the client IP and User-Agent in the request
-// context so audit events record where an action came from. The IP is taken from the
-// connection; set up a trusted proxy's real-IP handling in front of this if needed.
+// context so audit events record where an action came from. It uses the address resolved by the
+// clientip middleware (trusted proxies), falling back to the connection's address.
 func RequestContext(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-			ctx = context.WithValue(ctx, ContextKeyIPAddress, host)
-		} else if r.RemoteAddr != "" {
-			ctx = context.WithValue(ctx, ContextKeyIPAddress, r.RemoteAddr)
+		ip := clientip.FromContext(ctx)
+		if ip == "" {
+			if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+				ip = host
+			}
+		}
+		if ip != "" {
+			ctx = context.WithValue(ctx, ContextKeyIPAddress, ip)
 		}
 		if ua := r.UserAgent(); ua != "" {
 			if len(ua) > 512 {

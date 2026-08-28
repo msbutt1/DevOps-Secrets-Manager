@@ -71,6 +71,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RegisterRequest' }
       responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Registered
@@ -96,6 +97,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
       responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Verified
@@ -120,6 +122,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/LoginRequest' }
       responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Logged in
@@ -151,6 +154,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: New tokens
@@ -430,6 +434,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/InviteTokenRequest' }
       responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Invitation
@@ -795,6 +800,7 @@ paths:
       security:
         - serviceToken: []
       responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Secrets
@@ -850,6 +856,7 @@ paths:
       description: Requires reveal permission (owner, admin or on-call). Every reveal is recorded in the audit log.
       operationId: revealSecret
       responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Decrypted value
@@ -1096,6 +1103,14 @@ components:
   responses:
     InternalError:
       description: Unexpected server error (`internal_error`); details are logged, never returned
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Rate limit exceeded (`rate_limited`); retry after the number of seconds in Retry-After
+      headers:
+        Retry-After:
+          schema: { type: integer }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

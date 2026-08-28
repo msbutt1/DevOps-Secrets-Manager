@@ -84,7 +84,7 @@ func main() {
 		logger.Fatal("Refusing to start: APP_JWT_SECRET must differ from MASTER_KEK")
 	}
 
-	router := app.New(pool, app.Config{
+	router, err := app.New(pool, app.Config{
 		MasterKEK:       masterKEK,
 		JWTSecret:       jwtSecret,
 		AccessTokenTTL:  viper.GetDuration("jwt.access_token_ttl"),
@@ -95,7 +95,11 @@ func main() {
 
 		RevealAutoHideSeconds: viper.GetInt("reveal_auto_hide_seconds"),
 		Version:               version,
+		TrustedProxies:        trustedProxies(),
 	})
+	if err != nil {
+		logger.Fatal("Invalid configuration", zap.Error(err))
+	}
 
 	// Configure HTTP server
 	port := viper.GetInt("server.port")
@@ -135,4 +139,14 @@ func main() {
 	}
 
 	logger.Info("Server exited gracefully")
+}
+
+// trustedProxies reads APP_TRUSTED_PROXIES, a comma-separated list of CIDR ranges whose
+// X-Forwarded-For header is trusted. Unset means loopback and private networks.
+func trustedProxies() []string {
+	raw := viper.GetString("trusted_proxies")
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	return strings.Split(raw, ",")
 }

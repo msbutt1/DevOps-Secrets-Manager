@@ -13,6 +13,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
 	httphandler "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/clientip"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/secrets"
@@ -37,10 +38,14 @@ type Config struct {
 	RevealAutoHideSeconds int
 	// Version is reported by /health (set at build time; "dev" when empty).
 	Version string
+	// TrustedProxies are CIDR ranges whose X-Forwarded-For is believed (default: loopback and private ranges).
+	TrustedProxies []string
+	// DisableRateLimits turns rate limiting off; only for tests.
+	DisableRateLimits bool
 }
 
 // New builds the API's HTTP handler.
-func New(pool *pgxpool.Pool, cfg Config) http.Handler {
+func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 	startedAt := time.Now()
 	if cfg.Version == "" {
 		cfg.Version = "dev"
@@ -104,5 +109,17 @@ func New(pool *pgxpool.Pool, cfg Config) http.Handler {
 	organizationHandlers := httphandler.NewOrganizationHandlers(
 		organizations.NewService(orgRepo, auditService), inviteService, cfg.Logger)
 
-	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, statsHandlers, organizationHandlers, serviceTokenHandlers, cfg.JWTSecret)
+	if cfg.TrustedProxies == nil {
+		cfg.TrustedProxies = clientip.DefaultTrustedProxies
+	}
+	resolver, err := clientip.NewResolver(cfg.TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
+
+	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, statsHandlers, organizationHandlers, serviceTokenHandlers, httphandler.RouterOptions{
+		JWTSecret:         cfg.JWTSecret,
+		ClientIP:          resolver,
+		DisableRateLimits: cfg.DisableRateLimits,
+	}), nil
 }

@@ -43,20 +43,36 @@ type User struct {
 	Token string
 }
 
+// Options adjust the test server.
+type Options struct {
+	// RateLimits keeps the production rate limits enabled.
+	RateLimits bool
+}
+
 // New starts the API on a fresh, migrated database.
 func New(t *testing.T) *Server {
+	return NewWithOptions(t, Options{})
+}
+
+// NewWithOptions starts the API with options.
+func NewWithOptions(t *testing.T, opts Options) *Server {
 	t.Helper()
 	pool := testutil.NewDatabase(t)
 
 	kek, _ := hex.DecodeString("7f3a9c1e5b2d8f406a1c3e5b7d9f02468ace13579bdf02468ace13579bdf0246")
 	recorder := &EmailRecorder{}
-	handler := app.New(pool, app.Config{
+	handler, err := app.New(pool, app.Config{
 		MasterKEK: kek,
 		JWTSecret: "integration-test-jwt-secret-5f8e2a9c4b7d1e3f",
 		Email:     recorder,
 		Logger:    zap.NewNop(),
 		SLogger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		// Tests make many requests from one address; TestRateLimits builds its own server.
+		DisableRateLimits: !opts.RateLimits,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Every request made through the harness is checked against docs/openapi.yaml.
 	srv := httptest.NewServer(contractMiddleware(t, handler))

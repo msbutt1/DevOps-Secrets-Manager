@@ -1,0 +1,37 @@
+package http_test
+
+import (
+	"net/http"
+	"testing"
+
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/apitest"
+)
+
+func TestRateLimits(t *testing.T) {
+	api := apitest.NewWithOptions(t, apitest.Options{RateLimits: true})
+	victim := api.CreateUser("Victim Account")
+	other := api.CreateUser("Other Account")
+
+	// Guessing one account's password is limited per account (10 per 5 minutes)...
+	wrong := map[string]string{"email": victim.Email, "password": "not-the-password"}
+	for i := 0; i < 9; i++ { // CreateUser already logged in once
+		api.MustDo(http.StatusUnauthorized, "POST", "/auth/login", "", wrong)
+	}
+	limited := api.MustDo(http.StatusTooManyRequests, "POST", "/auth/login", "", wrong)
+	if limited.Header.Get("Retry-After") == "" {
+		t.Error("429 responses must include Retry-After")
+	}
+	var body struct {
+		Error string `json:"error"`
+	}
+	limited.Decode(t, &body)
+	if body.Error != "rate_limited" {
+		t.Errorf("unexpected error code %q", body.Error)
+	}
+	// ...even with a different capitalisation of the address
+	api.MustDo(http.StatusTooManyRequests, "POST", "/auth/login", "", map[string]string{"email": "  " + victim.Email, "password": apitest.TestPassword})
+
+	// Other accounts are unaffected
+	api.Login(other.Email, apitest.TestPassword)
+
+}

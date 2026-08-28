@@ -1,19 +1,37 @@
 package http
 
 import (
+	"time"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/clientip"
 	authmiddleware "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 )
 
+// RouterOptions configures cross-cutting behaviour of the router.
+type RouterOptions struct {
+	JWTSecret string
+	// ClientIP resolves client addresses behind trusted proxies (required).
+	ClientIP *clientip.Resolver
+	// DisableRateLimits turns rate limiting off; only for tests.
+	DisableRateLimits bool
+}
+
+// maxJSONBodyBytes caps request bodies read by the API.
+const maxJSONBodyBytes = 1 << 20
+
 // NewRouter creates and configures a new chi router
-func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, statsHandlers *StatsHandlers, organizationHandlers *OrganizationHandlers, serviceTokenHandlers *ServiceTokenHandlers, jwtSecret string) *chi.Mux {
+func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environmentHandlers *EnvironmentHandlers, secretHandlers *SecretHandlers, auditHandlers *AuditHandlers, memberHandlers *MemberHandlers, statsHandlers *StatsHandlers, organizationHandlers *OrganizationHandlers, serviceTokenHandlers *ServiceTokenHandlers, opts RouterOptions) *chi.Mux {
 	r := chi.NewRouter()
+	jwtSecret := opts.JWTSecret
+	rl := rateLimiter{disabled: opts.DisableRateLimits}
 
 	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(opts.ClientIP.Middleware)
 	r.Use(audit.RequestContext)
 
 	// Health check endpoint
@@ -21,10 +39,13 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 
 	// Auth routes
 	r.Route("/auth", func(r chi.Router) {
-		r.Post("/register", authHandlers.HandleRegister)
-		r.Post("/verify-email", authHandlers.HandleVerifyEmail)
-		r.Post("/login", authHandlers.HandleLogin)
-		r.Post("/refresh", authHandlers.HandleRefresh)
+		r.With(rl.limit("register", 10, time.Hour, byIP)).Post("/register", authHandlers.HandleRegister)
+		r.With(rl.limit("verify", 20, time.Minute, byIP)).Post("/verify-email", authHandlers.HandleVerifyEmail)
+		r.With(
+			rl.limit("login-ip", 20, time.Minute, byIP),
+			rl.limit("login-account", 10, 5*time.Minute, byLoginEmail),
+		).Post("/login", authHandlers.HandleLogin)
+		r.With(rl.limit("refresh", 30, time.Minute, byIP)).Post("/refresh", authHandlers.HandleRefresh)
 		r.Post("/logout", authHandlers.HandleLogout)
 		// Protected routes - require authentication
 		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/me", authHandlers.HandleMe)
@@ -46,7 +67,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	})
 
 	// Invitation links: looking one up needs only the token; accepting needs a session
-	r.Post("/invites/lookup", organizationHandlers.HandleLookupInvite)
+	r.With(rl.limit("invite-lookup", 20, time.Minute, byIP)).Post("/invites/lookup", organizationHandlers.HandleLookupInvite)
 	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Post("/invites/accept", organizationHandlers.HandleAcceptInvite)
 
 	// Vault routes (protected)
@@ -90,7 +111,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		r.Use(authmiddleware.AuthMiddleware(jwtSecret))
 		r.Put("/{id}", secretHandlers.HandleUpdateSecret)
 		r.Delete("/{id}", secretHandlers.HandleDeleteSecret)
-		r.Post("/{id}/reveal", secretHandlers.HandleRevealSecret)
+		r.With(rl.limit("reveal", 60, time.Minute, byUser)).Post("/{id}/reveal", secretHandlers.HandleRevealSecret)
 	})
 
 	// Dashboard statistics (protected)
@@ -99,7 +120,10 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 
 	// Service tokens: revocation by users, reading by the token itself
 	r.With(authmiddleware.AuthMiddleware(jwtSecret)).Delete("/tokens/{id}", serviceTokenHandlers.HandleRevoke)
-	r.Get("/token/secrets", serviceTokenHandlers.HandleTokenSecrets)
+	r.With(
+		rl.limit("token-ip", 60, time.Minute, byIP),
+		rl.limit("token", 30, time.Minute, byBearer),
+	).Get("/token/secrets", serviceTokenHandlers.HandleTokenSecrets)
 
 	// Audit routes (protected)
 	r.Route("/audit", func(r chi.Router) {

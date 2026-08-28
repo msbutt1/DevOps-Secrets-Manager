@@ -1188,6 +1188,16 @@ export interface components {
         'application/json': components['schemas']['Error'];
       };
     };
+    /** @description Rate limit exceeded (`rate_limited`); retry after the number of seconds in Retry-After */
+    TooManyRequests: {
+      headers: {
+        'Retry-After'?: number;
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['Error'];
+      };
+    };
     /** @description Invalid ID, query parameter or body (`invalid_request`) */
     BadRequest: {
       headers: {
@@ -1308,6 +1318,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1342,6 +1353,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1386,6 +1398,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1421,6 +1434,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1802,6 +1816,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2306,6 +2321,7 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2389,6 +2405,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };
