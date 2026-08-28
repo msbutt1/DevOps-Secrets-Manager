@@ -10,4 +10,5 @@ pub mod pull;
 pub mod resolve;
 pub mod run;
 pub mod set;
+pub mod source;
 pub mod vault;

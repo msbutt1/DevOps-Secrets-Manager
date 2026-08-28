@@ -93,14 +93,16 @@ enum Commands {
     },
 
     /// Pull secrets from an environment
+    ///
+    /// With SECRETS_TOKEN set, the service token's environment is used and --vault/--env are optional.
     Pull {
         /// Vault name or ID
         #[arg(long)]
-        vault: String,
+        vault: Option<String>,
 
         /// Environment name
         #[arg(long)]
-        env: String,
+        env: Option<String>,
 
         /// Output file (default: stdout)
         #[arg(long)]
@@ -108,14 +110,16 @@ enum Commands {
     },
 
     /// Run a command with secrets injected as environment variables
+    ///
+    /// With SECRETS_TOKEN set, the service token's environment is used and --vault/--env are optional.
     Run {
         /// Vault name or ID
         #[arg(long)]
-        vault: String,
+        vault: Option<String>,
 
         /// Environment name
         #[arg(long)]
-        env: String,
+        env: Option<String>,
 
         /// Replace secret values that appear in the command's output with [MASKED]
         #[arg(long)]
@@ -294,6 +298,17 @@ async fn main() -> Result<()> {
         config::settings::resolve_api_url(cli.api_url.as_deref(), env_url.as_deref(), &settings)?;
     let client = ApiClient::new(api_url);
 
+    // A service token only grants run and pull; other commands need a logged-in session
+    let token = std::env::var(cli::source::TOKEN_ENV)
+        .ok()
+        .filter(|t| !t.trim().is_empty());
+    if token.is_some() && !matches!(cli.command, Commands::Run { .. } | Commands::Pull { .. }) {
+        anyhow::bail!(
+            "{} is set, but service tokens only work with 'secrets run' and 'secrets pull'; unset it to use your login",
+            cli::source::TOKEN_ENV
+        );
+    }
+
     match cli.command {
         Commands::Login { email, password } => {
             // An explicit --api-url is remembered for later commands
@@ -337,14 +352,31 @@ async fn main() -> Result<()> {
             cli::list::execute(&client, &vault, &env, cli.output).await
         }
         Commands::Pull { vault, env, out } => {
-            cli::pull::execute(&client, &vault, &env, out.as_deref()).await
+            cli::pull::execute(
+                &client,
+                token.as_deref(),
+                vault.as_deref(),
+                env.as_deref(),
+                out.as_deref(),
+            )
+            .await
         }
         Commands::Run {
             vault,
             env,
             mask,
             command,
-        } => cli::run::execute(&client, &vault, &env, &command, mask).await,
+        } => {
+            cli::run::execute(
+                &client,
+                token.as_deref(),
+                vault.as_deref(),
+                env.as_deref(),
+                &command,
+                mask,
+            )
+            .await
+        }
         Commands::Set {
             secret,
             vault,
@@ -415,8 +447,8 @@ mod tests {
                 command,
             } => {
                 assert_eq!(
-                    (vault.as_str(), env.as_str(), mask),
-                    ("app", "production", true)
+                    (vault.as_deref(), env.as_deref(), mask),
+                    (Some("app"), Some("production"), true)
                 );
                 assert_eq!(command, ["npm", "run", "deploy", "--prod"]);
             }
@@ -444,7 +476,7 @@ mod tests {
             "--update-only"
         ])
         .is_err());
-        assert!(Cli::try_parse_from(["secrets", "pull", "--vault", "v"]).is_err());
+        assert!(Cli::try_parse_from(["secrets", "delete", "KEY", "--vault", "v"]).is_err());
         assert!(Cli::try_parse_from([
             "secrets", "members", "add", "a@b.c", "--vault", "v", "--role", "root"
         ])

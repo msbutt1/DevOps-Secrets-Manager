@@ -1,33 +1,27 @@
 use crate::api::ApiClient;
-use crate::cli::resolve;
+use crate::cli::source;
 use crate::utils::{dotenv, write_private};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::Path;
 
-pub async fn execute(client: &ApiClient, vault: &str, env: &str, out: Option<&str>) -> Result<()> {
-    let (vault_obj, env_obj) = resolve::environment(client, vault, env).await?;
+pub async fn execute(
+    client: &ApiClient,
+    token: Option<&str>,
+    vault: Option<&str>,
+    env: Option<&str>,
+    out: Option<&str>,
+) -> Result<()> {
+    let loaded = source::load(client, token, vault, env).await?;
 
-    // Get all secrets
-    let secrets = client.list_secrets(&env_obj.id).await?;
-
-    if secrets.is_empty() {
-        println!(
+    if loaded.pairs.is_empty() {
+        eprintln!(
             "No secrets found in environment '{}/{}'.",
-            vault_obj.name, env_obj.name
+            loaded.vault, loaded.environment
         );
         return Ok(());
     }
 
-    // Reveal all secret values
-    let mut pairs = Vec::with_capacity(secrets.len());
-    for secret in &secrets {
-        let value = client
-            .reveal_secret(&secret.id)
-            .await
-            .context(format!("Failed to reveal secret '{}'", secret.key_name))?;
-        pairs.push((secret.key_name.clone(), value));
-    }
-    let output = dotenv::format(&pairs);
+    let output = dotenv::format(&loaded.pairs);
 
     // Write to file (readable only by you) or stdout
     if let Some(file_path) = out {
@@ -79,9 +73,15 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join(".env");
 
-        execute(&client, "app", "staging", Some(file.to_str().unwrap()))
-            .await
-            .unwrap();
+        execute(
+            &client,
+            None,
+            Some("app"),
+            Some("staging"),
+            Some(file.to_str().unwrap()),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(
             std::fs::read_to_string(&file).unwrap(),

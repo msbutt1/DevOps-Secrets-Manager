@@ -138,6 +138,19 @@ pub struct AuditPage {
     pub total: u64,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct TokenSecret {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct TokenSecrets {
+    pub vault_name: String,
+    pub environment_name: String,
+    pub secrets: Vec<TokenSecret>,
+}
+
 pub struct ApiClient {
     client: Client,
     base_url: String,
@@ -351,6 +364,20 @@ impl ApiClient {
             .await?
             .json()
             .await?)
+    }
+
+    /// Reads every secret of the environment a service token is scoped to. No session is used.
+    pub async fn token_secrets(&self, token: &str) -> Result<TokenSecrets, ApiError> {
+        let response = self
+            .client
+            .get(self.url("/token/secrets"))
+            .bearer_auth(token)
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(Self::error_from(response).await);
+        }
+        Ok(response.json().await?)
     }
 
     pub async fn list_vaults(&self) -> Result<Vec<Vault>, ApiError> {

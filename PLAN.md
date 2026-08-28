@@ -223,7 +223,7 @@ These are half-built or missing, but a team would need them.
   - Written and syntax-checked; only the Linux build could be run locally, so the macOS and Windows jobs are unverified until the first tag push.
 
 ### Machine access (for CI/CD, the "DevOps" in the name)
-- [ ] **Service tokens.**
+- [x] **Service tokens.**
   - Read-only, environment-scoped tokens for CI pipelines and servers, created and revoked in the web app.
   - Store only a hash of each token; show it once when created.
   - Audit its use as `token:<name>`.
@@ -231,6 +231,7 @@ These are half-built or missing, but a team would need them.
   - Commits: `feat(api): environment service tokens` + `feat(web): manage service tokens` + `feat(cli): authenticate with service token`
   - [x] API: create/list/revoke per environment, `GET /token/secrets`, audited as `token:<name>`.
   - [x] Web: Service Tokens dialog on the vault page for owners and admins.
+  - [x] CLI: `SECRETS_TOKEN` for `run` and `pull`.
 - [ ] **GitHub Actions example.** Pull secrets in a workflow using a service token (`docs/ci-github-actions.md`). Commit: `docs: GitHub Actions usage example`
 
 ---

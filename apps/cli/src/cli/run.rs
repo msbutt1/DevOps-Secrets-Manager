@@ -1,5 +1,5 @@
 use crate::api::ApiClient;
-use crate::cli::resolve;
+use crate::cli::source;
 use anyhow::{bail, Context, Result};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::process::{Command, ExitStatus, Stdio};
@@ -12,39 +12,31 @@ const MASK: &[u8] = b"[MASKED]";
 
 pub async fn execute(
     client: &ApiClient,
-    vault: &str,
-    env_name: &str,
+    token: Option<&str>,
+    vault: Option<&str>,
+    env_name: Option<&str>,
     command: &[String],
     mask: bool,
 ) -> Result<()> {
     if command.is_empty() {
-        bail!("No command provided. Usage: secrets run --vault <vault> --env <env> -- <command>");
+        bail!("No command provided. Usage: secrets run [--vault <vault> --env <env>] -- <command>");
     }
 
-    let (vault, env) = resolve::environment(client, vault, env_name).await?;
-    let secrets = client.list_secrets(&env.id).await?;
-
-    // Reveal all secret values; they only ever go into the child's environment
-    let mut secret_env_vars = Vec::with_capacity(secrets.len());
-    for secret in &secrets {
-        let value = client
-            .reveal_secret(&secret.id)
-            .await
-            .context(format!("Failed to reveal secret '{}'", secret.key_name))?;
-        secret_env_vars.push((secret.key_name.clone(), value));
-    }
+    // Values only ever go into the child's environment
+    let loaded = source::load(client, token, vault, env_name).await?;
+    let secret_env_vars = loaded.pairs;
 
     if secret_env_vars.is_empty() {
         eprintln!(
             "Warning: No secrets found in environment '{}/{}'.",
-            vault.name, env.name
+            loaded.vault, loaded.environment
         );
     } else {
         eprintln!(
             "Injecting {} secret(s) from {}/{}{}",
             secret_env_vars.len(),
-            vault.name,
-            env.name,
+            loaded.vault,
+            loaded.environment,
             if mask {
                 " (masking values in output)"
             } else {
