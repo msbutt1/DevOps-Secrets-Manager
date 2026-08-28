@@ -121,6 +121,12 @@ secrets set "API_KEY=sk-123" --vault my-app --env production
 secrets audit --vault my-app --since 7d
 ```
 
+### CI/CD
+
+Service tokens give pipelines read-only access to one environment: create one from the vault
+page, store it as `SECRETS_TOKEN`, and run `secrets run -- ./deploy.sh`. See
+[docs/ci-github-actions.md](docs/ci-github-actions.md) for a GitHub Actions workflow.
+
 ### API Endpoints
 
 The API has no path prefix; the web app reaches it through `/api` (proxied by Vite in

@@ -232,7 +232,7 @@ These are half-built or missing, but a team would need them.
   - [x] API: create/list/revoke per environment, `GET /token/secrets`, audited as `token:<name>`.
   - [x] Web: Service Tokens dialog on the vault page for owners and admins.
   - [x] CLI: `SECRETS_TOKEN` for `run` and `pull`.
-- [ ] **GitHub Actions example.** Pull secrets in a workflow using a service token (`docs/ci-github-actions.md`). Commit: `docs: GitHub Actions usage example`
+- [x] **GitHub Actions example.** Pull secrets in a workflow using a service token (`docs/ci-github-actions.md`). Commit: `docs: GitHub Actions usage example`
 
 ---
 
