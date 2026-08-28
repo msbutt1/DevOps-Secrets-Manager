@@ -28,6 +28,10 @@ func TestEveryAuditActionIsRecorded(t *testing.T) {
 
 	api.MustDo(http.StatusUnauthorized, "POST", "/auth/login", "", map[string]string{"email": f.owner.Email, "password": "wrong-password"})
 	api.Login(f.owner.Email, apitest.TestPassword)
+	// Five failures in a row lock the owner's logins (their existing token keeps working)
+	for i := 0; i < 5; i++ {
+		api.MustDo(http.StatusUnauthorized, "POST", "/auth/login", "", map[string]string{"email": f.owner.Email, "password": "wrong-password"})
+	}
 
 	api.MustDo(http.StatusNoContent, "DELETE", "/vaults/"+f.createVault(t, "short-lived"), f.owner.Token, nil)
 

@@ -12,6 +12,7 @@ import (
 const (
 	ActionLoginSuccess      = "login.success"
 	ActionLoginFailure      = "login.failure"
+	ActionLoginLocked       = "login.locked"
 	ActionSecretCreated     = "secret.created"
 	ActionSecretUpdated     = "secret.updated"
 	ActionSecretDeleted     = "secret.deleted"
@@ -42,6 +43,7 @@ const (
 var Actions = []string{
 	ActionLoginSuccess,
 	ActionLoginFailure,
+	ActionLoginLocked,
 	ActionSecretCreated,
 	ActionSecretUpdated,
 	ActionSecretDeleted,

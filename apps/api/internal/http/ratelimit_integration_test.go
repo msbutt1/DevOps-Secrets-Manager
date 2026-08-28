@@ -9,12 +9,13 @@ import (
 
 func TestRateLimits(t *testing.T) {
 	api := apitest.NewWithOptions(t, apitest.Options{RateLimits: true})
-	victim := api.CreateUser("Victim Account")
 	other := api.CreateUser("Other Account")
 
-	// Guessing one account's password is limited per account (10 per 5 minutes)...
-	wrong := map[string]string{"email": victim.Email, "password": "not-the-password"}
-	for i := 0; i < 9; i++ { // CreateUser already logged in once
+	// Login attempts are limited per email (10 per 5 minutes). An unknown address is used so the
+	// account lockout, which starts after five failures, does not answer first.
+	target := "Probed.Address@example.test"
+	wrong := map[string]string{"email": target, "password": "not-the-password"}
+	for i := 0; i < 10; i++ {
 		api.MustDo(http.StatusUnauthorized, "POST", "/auth/login", "", wrong)
 	}
 	limited := api.MustDo(http.StatusTooManyRequests, "POST", "/auth/login", "", wrong)
@@ -29,7 +30,7 @@ func TestRateLimits(t *testing.T) {
 		t.Errorf("unexpected error code %q", body.Error)
 	}
 	// ...even with a different capitalisation of the address
-	api.MustDo(http.StatusTooManyRequests, "POST", "/auth/login", "", map[string]string{"email": "  " + victim.Email, "password": apitest.TestPassword})
+	api.MustDo(http.StatusTooManyRequests, "POST", "/auth/login", "", map[string]string{"email": "  probed.address@EXAMPLE.test", "password": "x"})
 
 	// Other accounts are unaffected
 	api.Login(other.Email, apitest.TestPassword)

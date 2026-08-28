@@ -35,6 +35,28 @@ var (
 	ErrPasswordTooShort       = errors.New("password must be at least 8 characters")
 )
 
+// LockedError is returned while an account is locked after repeated failed logins.
+type LockedError struct {
+	Until time.Time
+}
+
+func (e *LockedError) Error() string {
+	return "too many failed login attempts; try again later"
+}
+
+// RetryAfter is how long until the account may try again, rounded up to whole seconds.
+func (e *LockedError) RetryAfter() time.Duration {
+	d := time.Until(e.Until).Round(time.Second)
+	if d < time.Second {
+		return time.Second
+	}
+	return d
+}
+
+// dummyPasswordHash is compared against when the email is unknown, so a login attempt takes the
+// same time whether or not the account exists.
+var dummyPasswordHash, _ = crypto.HashPassword("dummy password used only for constant-time login checks")
+
 // AuthResponse represents the response returned after successful authentication
 type AuthResponse struct {
 	AccessToken  string
@@ -129,15 +151,33 @@ func (s *authService) Login(ctx context.Context, email, password string) (*AuthR
 	user, err := s.userRepo.GetByEmail(ctx, users.NormalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, users.ErrNotFound) {
+			_ = crypto.VerifyPassword(password, dummyPasswordHash)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
 
+	// A locked account is refused before the password is checked, so guessing gains nothing
+	if user.LoginLockedUntil != nil && user.LoginLockedUntil.After(time.Now()) {
+		s.recordLogin(ctx, user, audit.ActionLoginFailure, "locked")
+		return nil, &LockedError{Until: *user.LoginLockedUntil}
+	}
+
 	// Verify password
 	if err := crypto.VerifyPassword(password, user.PasswordHash); err != nil {
 		s.recordLogin(ctx, user, audit.ActionLoginFailure, "invalid_password")
+		attempts, lockedUntil, lockErr := s.userRepo.RecordLoginFailure(ctx, user.ID)
+		if lockErr != nil {
+			return nil, lockErr
+		}
+		if lockedUntil != nil {
+			s.recordLockout(ctx, user, attempts, *lockedUntil)
+		}
 		return nil, ErrInvalidCredentials
+	}
+
+	if err := s.userRepo.ResetLoginFailures(ctx, user.ID); err != nil {
+		return nil, err
 	}
 
 	// Check if email is verified
@@ -321,6 +361,18 @@ func (s *authService) recordLogin(ctx context.Context, user *users.User, action,
 		TargetID:   &user.ID,
 		TargetName: user.Email,
 		Metadata:   metadata,
+	})
+}
+
+// recordLockout audits the start of a login lock.
+func (s *authService) recordLockout(ctx context.Context, user *users.User, attempts int, until time.Time) {
+	_ = s.auditService.Record(ctx, audit.Event{
+		UserID:     user.ID,
+		Action:     audit.ActionLoginLocked,
+		TargetType: "user",
+		TargetID:   &user.ID,
+		TargetName: user.Email,
+		Metadata:   map[string]interface{}{"failed_attempts": attempts, "locked_until": until.UTC().Format(time.RFC3339)},
 	})
 }
 

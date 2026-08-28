@@ -239,7 +239,7 @@ These are half-built or missing, but a team would need them.
 ## Phase 3: Hardening
 
 - [x] **Rate limiting.** Limit `/auth/login`, `/auth/register`, `/auth/refresh` and `/secrets/{id}/reveal` per IP and per account (`httprate` or similar). Return 429 with `Retry-After`. Commit: `feat(api): rate limit auth and reveal endpoints`
-- [ ] **Account lockout.** Add a backoff after repeated failed logins, and audit it. Commit: `feat(api): back off after repeated failed logins`
+- [x] **Account lockout.** Add a backoff after repeated failed logins, and audit it. Commit: `feat(api): back off after repeated failed logins`
 - [ ] **Request limits.** Limit request body size, reject unknown JSON fields, enforce maximum lengths for key names, values and descriptions. Commit: `fix(api): validate and limit request bodies`
 - [ ] **Security headers.**
   - The API should send `Cache-Control: no-store` on secret responses.

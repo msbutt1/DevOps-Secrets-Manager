@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -31,7 +32,7 @@ func (r *postgresRepository) WithTx(tx pgx.Tx) Repository {
 // GetByID retrieves a user by their ID
 func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	query := `
-		SELECT id, email, password_hash, name, email_verified, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, email_verified, login_locked_until, created_at, updated_at, deleted_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -43,6 +44,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 		&user.PasswordHash,
 		&user.Name,
 		&user.EmailVerified,
+		&user.LoginLockedUntil,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.DeletedAt,
@@ -61,7 +63,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, 
 // GetByEmail retrieves a user by their email address
 func (r *postgresRepository) GetByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
-		SELECT id, email, password_hash, name, email_verified, created_at, updated_at, deleted_at
+		SELECT id, email, password_hash, name, email_verified, login_locked_until, created_at, updated_at, deleted_at
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
 	`
@@ -73,6 +75,7 @@ func (r *postgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 		&user.PasswordHash,
 		&user.Name,
 		&user.EmailVerified,
+		&user.LoginLockedUntil,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.DeletedAt,
@@ -211,4 +214,34 @@ func (r *postgresRepository) UpdatePassword(ctx context.Context, userID uuid.UUI
 	}
 
 	return nil
+}
+
+// LockoutThreshold is the number of consecutive failures before logins are delayed.
+const LockoutThreshold = 5
+
+func (r *postgresRepository) RecordLoginFailure(ctx context.Context, userID uuid.UUID) (int, *time.Time, error) {
+	var attempts int
+	var lockedUntil *time.Time
+	err := r.pool.QueryRow(ctx, `
+		UPDATE users SET
+			failed_login_attempts = failed_login_attempts + 1,
+			login_locked_until = CASE
+				WHEN failed_login_attempts + 1 >= $2
+				THEN now() + LEAST(interval '1 minute' * power(2, failed_login_attempts + 1 - $2), interval '60 minutes')
+				ELSE login_locked_until
+			END
+		WHERE id = $1
+		RETURNING failed_login_attempts, login_locked_until`, userID, LockoutThreshold).Scan(&attempts, &lockedUntil)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to record login failure: %w", err)
+	}
+	if attempts < LockoutThreshold {
+		lockedUntil = nil
+	}
+	return attempts, lockedUntil, nil
+}
+
+func (r *postgresRepository) ResetLoginFailures(ctx context.Context, userID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `UPDATE users SET failed_login_attempts = 0, login_locked_until = NULL WHERE id = $1 AND (failed_login_attempts <> 0 OR login_locked_until IS NOT NULL)`, userID)
+	return err
 }

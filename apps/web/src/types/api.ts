@@ -104,6 +104,7 @@ export const ROLE_PERMISSIONS: Record<VaultRole, VaultPermissions> = {
 export const AUDIT_ACTIONS = [
   { value: 'login.success', label: 'Login Success' },
   { value: 'login.failure', label: 'Login Failure' },
+  { value: 'login.locked', label: 'Login Locked' },
   { value: 'secret.created', label: 'Secret Created' },
   { value: 'secret.updated', label: 'Secret Updated' },
   { value: 'secret.deleted', label: 'Secret Deleted' },

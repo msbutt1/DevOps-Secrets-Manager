@@ -1068,6 +1068,7 @@ export interface components {
     AuditAction:
       | 'login.success'
       | 'login.failure'
+      | 'login.locked'
       | 'secret.created'
       | 'secret.updated'
       | 'secret.deleted'
@@ -1188,7 +1189,7 @@ export interface components {
         'application/json': components['schemas']['Error'];
       };
     };
-    /** @description Rate limit exceeded (`rate_limited`); retry after the number of seconds in Retry-After */
+    /** @description Rate limit exceeded (`rate_limited`), or for login an account temporarily locked after repeated failures (`account_locked`); retry after the number of seconds in Retry-After */
     TooManyRequests: {
       headers: {
         'Retry-After'?: number;

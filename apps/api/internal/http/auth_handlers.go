@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -330,7 +331,11 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 
 // handleAuthError maps auth service errors to appropriate HTTP responses
 func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, err error) {
+	var locked *auth.LockedError
 	switch {
+	case errors.As(err, &locked):
+		w.Header().Set("Retry-After", strconv.Itoa(int(locked.RetryAfter().Seconds())))
+		h.respondError(w, http.StatusTooManyRequests, "account_locked", "Too many failed login attempts. Try again in "+locked.RetryAfter().String()+".")
 	case errors.Is(err, auth.ErrInvalidCredentials):
 		h.respondError(w, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password")
 	case errors.Is(err, auth.ErrInvalidToken):
