@@ -66,6 +66,24 @@ jobs:
         run: secrets run --mask -- ./scripts/deploy.sh
 ```
 
+The download above works for public releases. If the repository is private, download the
+assets with the GitHub CLI instead (the job's `GITHUB_TOKEN` can read releases of the same
+repository; other repositories need a token with read access):
+
+```yaml
+      - name: Install the secrets CLI (private repository)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=v1.0.0
+          file="secrets-${version}-x86_64-unknown-linux-gnu.tar.gz"
+          gh release download "$version" --repo msbutt1/DevOps-Secrets-Manager \
+            --pattern "$file" --pattern "$file.sha256"
+          sha256sum -c "$file.sha256"
+          tar -xzf "$file"
+          sudo install secrets /usr/local/bin/secrets
+```
+
 `secrets run` exits with the command's exit code, so a failing deploy fails the job. With
 `SECRETS_TOKEN` set, `--vault` and `--env` are optional; if you pass them, they must match the
 token's environment, which guards against using the wrong token.
