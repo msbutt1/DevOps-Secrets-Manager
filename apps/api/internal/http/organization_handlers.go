@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -99,8 +98,7 @@ func (h *OrganizationHandlers) HandleCreateInvite(w http.ResponseWriter, r *http
 		return
 	}
 	var req CreateInviteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if !policy.IsValidRole(req.Role) {
@@ -154,7 +152,10 @@ func (h *OrganizationHandlers) HandleRevokeInvite(w http.ResponseWriter, r *http
 // HandleLookupInvite handles POST /invites/lookup (no authentication)
 func (h *OrganizationHandlers) HandleLookupInvite(w http.ResponseWriter, r *http.Request) {
 	var req InviteTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Token == "" {
 		writeError(w, http.StatusBadRequest, "invalid_request", "Token is required")
 		return
 	}
@@ -177,7 +178,10 @@ func (h *OrganizationHandlers) HandleAcceptInvite(w http.ResponseWriter, r *http
 		return
 	}
 	var req InviteTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Token == "" {
 		writeError(w, http.StatusBadRequest, "invalid_request", "Token is required")
 		return
 	}
@@ -229,8 +233,7 @@ func (h *OrganizationHandlers) HandleUpdate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var req UpdateOrganizationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	org, err := h.service.Rename(r.Context(), callerID, orgID, req.Name)
@@ -271,8 +274,7 @@ func (h *OrganizationHandlers) HandleUpdateMember(w http.ResponseWriter, r *http
 		return
 	}
 	var req UpdateMemberRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if !policy.IsValidRole(req.Role) {

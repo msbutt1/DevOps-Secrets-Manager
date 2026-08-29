@@ -15,6 +15,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
 	"go.uber.org/zap"
 )
@@ -114,11 +115,13 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 	}
 
 	var req AddMemberRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	req.Email = users.NormalizeEmail(req.Email)
+	if rejectInvalid(w, validate.Email(req.Email)) {
+		return
+	}
 
 	if !policy.IsValidRole(req.Role) {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", invalidRoleMessage)
@@ -207,8 +210,7 @@ func (h *MemberHandlers) HandleUpdateMember(w http.ResponseWriter, r *http.Reque
 	}
 
 	var req UpdateMemberRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

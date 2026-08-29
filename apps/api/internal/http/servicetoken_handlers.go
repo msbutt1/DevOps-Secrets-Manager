@@ -1,7 +1,6 @@
 package http
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -113,8 +112,7 @@ func (h *ServiceTokenHandlers) HandleCreate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	var req CreateServiceTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	token, plaintext, err := h.tokens.Create(r.Context(), env.ID, userID, req.Name, req.ExpiresInDays)

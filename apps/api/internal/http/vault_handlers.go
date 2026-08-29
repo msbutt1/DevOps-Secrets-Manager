@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,6 +14,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
 	"go.uber.org/zap"
 )
@@ -76,8 +78,11 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 
 	// Parse request body
 	var req CreateVaultRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if rejectInvalid(w, validate.First(validate.Name("name", req.Name), validate.Description(req.Description))) {
 		return
 	}
 
@@ -232,8 +237,11 @@ func (h *VaultHandlers) HandleUpdateVault(w http.ResponseWriter, r *http.Request
 
 	// Parse request body
 	var req UpdateVaultRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if rejectInvalid(w, validate.First(validate.Name("name", req.Name), validate.Description(req.Description))) {
 		return
 	}
 

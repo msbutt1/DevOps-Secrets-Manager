@@ -948,14 +948,18 @@ export interface components {
     };
     CreateSecretRequest: {
       key_name: string;
-      /** Format: password */
+      /**
+       * Format: password
+       * @description At most 64 KiB
+       */
       value: string;
       description?: string | null;
       rotation_interval_days?: number | null;
       /** Format: date-time */
       expires_at?: string | null;
+      /** @description Up to 50 labels; keys up to 100 characters, string values up to 500 */
       metadata?: {
-        [key: string]: unknown;
+        [key: string]: string;
       } | null;
     };
     UpdateSecretRequest: {
@@ -1199,7 +1203,16 @@ export interface components {
         'application/json': components['schemas']['Error'];
       };
     };
-    /** @description Invalid ID, query parameter or body (`invalid_request`) */
+    /** @description Request body larger than 1 MiB (`body_too_large`) */
+    PayloadTooLarge: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['Error'];
+      };
+    };
+    /** @description Invalid ID, query parameter or body (`invalid_request`), or a field breaking the input rules (`validation_failed`) */
     BadRequest: {
       headers: {
         [name: string]: unknown;
@@ -1319,6 +1332,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
@@ -1354,6 +1368,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
@@ -1399,6 +1414,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
@@ -1435,6 +1451,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
@@ -1469,6 +1486,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1526,6 +1544,7 @@ export interface operations {
         };
       };
       401: components['responses']['Unauthorized'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1605,6 +1624,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1663,6 +1683,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1756,6 +1777,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1817,6 +1839,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
@@ -1872,6 +1895,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1927,6 +1951,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       409: components['responses']['Conflict'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -1985,6 +2010,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2076,6 +2102,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2134,6 +2161,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2217,6 +2245,7 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2275,6 +2304,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2354,6 +2384,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2481,6 +2512,7 @@ export interface operations {
         };
       };
       409: components['responses']['Conflict'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };
@@ -2513,6 +2545,7 @@ export interface operations {
       401: components['responses']['Unauthorized'];
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
+      413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };
   };

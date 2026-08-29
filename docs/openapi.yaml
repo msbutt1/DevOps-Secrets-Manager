@@ -71,6 +71,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RegisterRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
@@ -97,6 +98,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
@@ -122,6 +124,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/LoginRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
@@ -154,6 +157,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
@@ -181,6 +185,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RefreshRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '204':
           description: Logged out
@@ -216,6 +221,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Password changed
@@ -274,6 +280,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateOrganizationRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Renamed
@@ -324,6 +331,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateMemberRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
@@ -384,6 +392,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreateInviteRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Invitation created
@@ -434,6 +443,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/InviteTokenRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
@@ -460,6 +470,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/InviteTokenRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Joined
@@ -517,6 +528,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreateVaultRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Created
@@ -557,6 +569,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateVaultRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
@@ -616,6 +629,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EnvironmentRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Created
@@ -661,6 +675,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EnvironmentRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
@@ -717,6 +732,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreateSecretRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Created
@@ -761,6 +777,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreateServiceTokenRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Created
@@ -823,6 +840,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateSecretRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
@@ -899,6 +917,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/AddMemberRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '201':
           description: Added
@@ -937,6 +956,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateMemberRequest' }
       responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
         '200':
           description: Updated
@@ -1114,8 +1134,13 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    PayloadTooLarge:
+      description: Request body larger than 1 MiB (`body_too_large`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     BadRequest:
-      description: Invalid ID, query parameter or body (`invalid_request`)
+      description: Invalid ID, query parameter or body (`invalid_request`), or a field breaking the input rules (`validation_failed`)
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -1430,14 +1455,15 @@ components:
       type: object
       required: [key_name, value]
       properties:
-        key_name: { type: string }
-        value: { type: string, format: password }
-        description: { type: string, nullable: true }
-        rotation_interval_days: { type: integer, nullable: true }
+        key_name: { type: string, pattern: '^[A-Za-z_][A-Za-z0-9_]*$', maxLength: 255 }
+        value: { type: string, format: password, description: 'At most 64 KiB' }
+        description: { type: string, nullable: true, maxLength: 1000 }
+        rotation_interval_days: { type: integer, nullable: true, minimum: 1, maximum: 3650 }
         expires_at: { type: string, format: date-time, nullable: true }
         metadata:
           type: object
-          additionalProperties: true
+          description: Up to 50 labels; keys up to 100 characters, string values up to 500
+          additionalProperties: { type: string }
           nullable: true
 
     UpdateSecretRequest:

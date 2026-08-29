@@ -13,6 +13,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/secrets"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 	"go.uber.org/zap"
 )
 
@@ -166,8 +167,16 @@ func (h *SecretHandlers) HandleCreateSecret(w http.ResponseWriter, r *http.Reque
 
 	// Parse request body
 	var req CreateSecretRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if rejectInvalid(w, validate.First(
+		validate.KeyName(req.KeyName),
+		validate.SecretValue(req.Value),
+		validate.Description(req.Description),
+		validate.RotationDays(req.RotationIntervalDays),
+		validate.Metadata(req.Metadata),
+	)) {
 		return
 	}
 
@@ -232,8 +241,19 @@ func (h *SecretHandlers) HandleUpdateSecret(w http.ResponseWriter, r *http.Reque
 
 	// Parse request body
 	var req UpdateSecretRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	var valueErr error
+	if req.Value != nil {
+		valueErr = validate.SecretValue(*req.Value)
+	}
+	if rejectInvalid(w, validate.First(
+		valueErr,
+		validate.Description(req.Description),
+		validate.RotationDays(req.RotationIntervalDays),
+		validate.Metadata(req.Metadata),
+	)) {
 		return
 	}
 

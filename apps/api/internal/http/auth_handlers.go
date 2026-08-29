@@ -13,6 +13,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/auth"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 	"go.uber.org/zap"
 )
 
@@ -105,8 +106,7 @@ func NewAuthHandlers(authService auth.AuthService, db *pgxpool.Pool, logger *zap
 // HandleLogin handles user login requests
 func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -126,8 +126,7 @@ func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 // HandleRefresh handles token refresh requests
 func (h *AuthHandlers) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -147,8 +146,7 @@ func (h *AuthHandlers) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 // HandleLogout handles user logout requests
 func (h *AuthHandlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	var req LogoutRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -228,14 +226,16 @@ func (h *AuthHandlers) getUserOrganizations(ctx context.Context, userID uuid.UUI
 // HandleRegister handles user registration requests
 func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
 	// Validate input
 	if req.Email == "" || req.Password == "" || req.Name == "" {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "Email, password, and name are required")
+		return
+	}
+	if rejectInvalid(w, validate.First(validate.Name("name", req.Name), validate.Email(req.Email), validate.PasswordLength(req.Password))) {
 		return
 	}
 
@@ -265,8 +265,7 @@ func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 // HandleVerifyEmail handles email verification requests
 func (h *AuthHandlers) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	var req VerifyEmailRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -297,8 +296,7 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 	}
 
 	var req ChangePasswordRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -310,6 +308,10 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 
 	if req.NewPassword == "" {
 		h.respondError(w, http.StatusBadRequest, "invalid_request", "New password is required")
+		return
+	}
+
+	if rejectInvalid(w, validate.PasswordLength(req.NewPassword)) {
 		return
 	}
 

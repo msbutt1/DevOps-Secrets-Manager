@@ -633,9 +633,10 @@ export const VaultPage = () => {
           if (!currentEnvId) return;
 
           if (editSecret) {
-            // Update existing secret
+            // Update existing secret; the key name cannot change, so it is not sent
+            const { keyName, ...update } = data;
             updateSecretMutation.mutate(
-              { id: editSecret.id, data },
+              { id: editSecret.id, data: update },
               {
                 onSuccess: () => {
                   setEditSecret(null);

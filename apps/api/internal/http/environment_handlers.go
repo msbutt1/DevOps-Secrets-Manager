@@ -13,6 +13,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 	"go.uber.org/zap"
 )
 
@@ -81,8 +82,10 @@ func (h *EnvironmentHandlers) HandleCreateEnvironment(w http.ResponseWriter, r *
 
 	// Parse request body
 	var req CreateEnvironmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if rejectInvalid(w, validate.Description(req.Description)) {
 		return
 	}
 
@@ -185,8 +188,10 @@ func (h *EnvironmentHandlers) HandleUpdateEnvironment(w http.ResponseWriter, r *
 
 	// Parse request body
 	var req UpdateEnvironmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid request body")
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if rejectInvalid(w, validate.Description(req.Description)) {
 		return
 	}
 
