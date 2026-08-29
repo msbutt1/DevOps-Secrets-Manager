@@ -25,6 +25,7 @@ FROM nginx:1.30.4-alpine
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx-security-headers.conf /etc/nginx/snippets/security-headers.conf
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html

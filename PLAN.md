@@ -241,7 +241,7 @@ These are half-built or missing, but a team would need them.
 - [x] **Rate limiting.** Limit `/auth/login`, `/auth/register`, `/auth/refresh` and `/secrets/{id}/reveal` per IP and per account (`httprate` or similar). Return 429 with `Retry-After`. Commit: `feat(api): rate limit auth and reveal endpoints`
 - [x] **Account lockout.** Add a backoff after repeated failed logins, and audit it. Commit: `feat(api): back off after repeated failed logins`
 - [x] **Request limits.** Limit request body size, reject unknown JSON fields, enforce maximum lengths for key names, values and descriptions. Commit: `fix(api): validate and limit request bodies`
-- [ ] **Security headers.**
+- [x] **Security headers.**
   - The API should send `Cache-Control: no-store` on secret responses.
   - nginx should send a Content-Security-Policy and HSTS (when served over TLS), and drop the obsolete `X-XSS-Protection` header.
   - Commit: `feat: security headers for API and web`

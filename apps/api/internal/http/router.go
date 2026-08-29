@@ -31,6 +31,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
 	r.Use(opts.ClientIP.Middleware)
 	r.Use(audit.RequestContext)
 

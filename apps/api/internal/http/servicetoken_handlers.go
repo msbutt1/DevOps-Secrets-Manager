@@ -212,7 +212,6 @@ func (h *ServiceTokenHandlers) HandleTokenSecrets(w http.ResponseWriter, r *http
 	for _, v := range values {
 		out.Secrets = append(out.Secrets, TokenSecret{Key: v.Key, Value: v.Value})
 	}
-	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, out)
 }
 
