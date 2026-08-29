@@ -11,6 +11,15 @@ import (
 const (
 	TokenTypeAccess  = "access"
 	TokenTypeRefresh = "refresh"
+
+	// TokenIssuer and TokenAudience are set on every access token and required when
+	// validating, so a token signed with the same secret for another purpose or service
+	// (e.g. a shared secret reused elsewhere) is not accepted by this API.
+	TokenIssuer   = "devops-secrets-manager"
+	TokenAudience = "devops-secrets-manager-api"
+
+	// clockLeeway tolerates small clock differences between API instances.
+	clockLeeway = 30 * time.Second
 )
 
 var (
@@ -25,14 +34,20 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
+// GenerateToken signs an HS256 token for the user.
 func GenerateToken(userID uuid.UUID, email, tokenType, secret string, duration time.Duration) (string, error) {
+	now := time.Now()
 	claims := CustomClaims{
 		UserID:    userID,
 		Email:     email,
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    TokenIssuer,
+			Subject:   userID.String(),
+			Audience:  jwt.ClaimStrings{TokenAudience},
+			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ID:        uuid.NewString(),
 		},
 	}
 
@@ -40,14 +55,20 @@ func GenerateToken(userID uuid.UUID, email, tokenType, secret string, duration t
 	return token.SignedString([]byte(secret))
 }
 
+// ValidateToken verifies an access token: HS256 signature, issuer, audience, expiry and type.
 func ValidateToken(tokenString, secret string) (*CustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
-		}
+	claims := &CustomClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
-	})
-
+	},
+		// Pinning the algorithm rules out "none" and algorithm-confusion tokens
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithIssuer(TokenIssuer),
+		jwt.WithAudience(TokenAudience),
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
+		jwt.WithLeeway(clockLeeway),
+	)
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrExpiredToken
@@ -55,9 +76,8 @@ func ValidateToken(tokenString, secret string) (*CustomClaims, error) {
 		return nil, ErrInvalidToken
 	}
 
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		return claims, nil
+	if !token.Valid || claims.TokenType != TokenTypeAccess || claims.UserID == uuid.Nil || claims.Subject != claims.UserID.String() {
+		return nil, ErrInvalidToken
 	}
-
-	return nil, ErrInvalidToken
+	return claims, nil
 }

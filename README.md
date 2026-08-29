@@ -178,6 +178,21 @@ Secret Values (stored encrypted)
 - **Vault DEK**: Generated per-vault, encrypted with Master KEK
 - **Secrets**: Encrypted with Vault DEK using AES-256-GCM
 
+### Sessions and Tokens
+
+Access tokens are JWTs signed with HS256 and live for 15 minutes. HS256 was chosen over RS256
+because only this API issues and checks the tokens: there is no second service that needs a
+public key, and a single secret is simpler to manage. The secret must be at least 32 random
+characters and differ from `MASTER_KEK`. Each token carries `iss=devops-secrets-manager` and
+`aud=devops-secrets-manager-api`, and the API rejects tokens with a different issuer or
+audience, a missing expiry, or any algorithm other than HS256. If tokens ever need to be checked
+by other services, switching to RS256 or EdDSA with published keys is the upgrade path.
+
+Refresh tokens are random values stored only as hashes and rotated on every use. The CLI keeps
+its tokens in the operating system keyring; the web app keeps the access token in memory and the refresh token
+in an `HttpOnly`, `SameSite=Strict` cookie. Changing `APP_JWT_SECRET` signs everyone out of
+their access tokens; they get new ones from their refresh token.
+
 ### Role Permissions
 
 Roles are set per vault. Organization owners and admins have that role on every vault in the
