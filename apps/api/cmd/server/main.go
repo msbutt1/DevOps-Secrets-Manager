@@ -96,6 +96,7 @@ func main() {
 		RevealAutoHideSeconds: viper.GetInt("reveal_auto_hide_seconds"),
 		Version:               version,
 		TrustedProxies:        trustedProxies(),
+		CORSAllowedOrigins:    splitList(viper.GetString("cors_allowed_origins")),
 	})
 	if err != nil {
 		logger.Fatal("Invalid configuration", zap.Error(err))
@@ -144,7 +145,11 @@ func main() {
 // trustedProxies reads APP_TRUSTED_PROXIES, a comma-separated list of CIDR ranges whose
 // X-Forwarded-For header is trusted. Unset means loopback and private networks.
 func trustedProxies() []string {
-	raw := viper.GetString("trusted_proxies")
+	return splitList(viper.GetString("trusted_proxies"))
+}
+
+// splitList splits a comma-separated setting, returning nil when it is empty.
+func splitList(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return nil
 	}

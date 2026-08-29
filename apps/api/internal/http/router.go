@@ -17,6 +17,8 @@ type RouterOptions struct {
 	ClientIP *clientip.Resolver
 	// DisableRateLimits turns rate limiting off; only for tests.
 	DisableRateLimits bool
+	// CORSAllowedOrigins lists browser origins allowed to call the API cross-origin.
+	CORSAllowedOrigins []string
 }
 
 // maxJSONBodyBytes caps request bodies read by the API.
@@ -32,6 +34,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(securityHeaders)
+	r.Use(corsMiddleware(opts.CORSAllowedOrigins))
 	r.Use(opts.ClientIP.Middleware)
 	r.Use(audit.RequestContext)
 

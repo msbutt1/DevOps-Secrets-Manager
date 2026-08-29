@@ -218,6 +218,7 @@ and environment variables. Nested settings use the `APP_` prefix (`database.host
 | `APP_ENV` | `production` | `development` enables local-only fallbacks (see below) |
 | `APP_PUBLIC_URL` | `http://localhost:5173` | Web app address used in emailed links |
 | `APP_REVEAL_AUTO_HIDE_SECONDS` | `30` | How long the web app shows a revealed value (5-600) |
+| `APP_CORS_ALLOWED_ORIGINS` | none | Comma-separated web app origins allowed to call the API from another origin (not needed with the `/api` proxy) |
 | `APP_TRUSTED_PROXIES` | loopback and private ranges | Comma-separated CIDRs whose `X-Forwarded-For` is trusted when working out client IPs for rate limits and the audit log |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | | Outgoing email |
 

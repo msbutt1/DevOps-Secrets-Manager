@@ -42,6 +42,8 @@ type Config struct {
 	TrustedProxies []string
 	// DisableRateLimits turns rate limiting off; only for tests.
 	DisableRateLimits bool
+	// CORSAllowedOrigins lists web app origins allowed to call the API from another origin.
+	CORSAllowedOrigins []string
 }
 
 // New builds the API's HTTP handler.
@@ -118,8 +120,9 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 	}
 
 	return httphandler.NewRouter(authHandlers, vaultHandlers, environmentHandlers, secretHandlers, auditHandlers, memberHandlers, statsHandlers, organizationHandlers, serviceTokenHandlers, httphandler.RouterOptions{
-		JWTSecret:         cfg.JWTSecret,
-		ClientIP:          resolver,
-		DisableRateLimits: cfg.DisableRateLimits,
+		JWTSecret:          cfg.JWTSecret,
+		ClientIP:           resolver,
+		DisableRateLimits:  cfg.DisableRateLimits,
+		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
 	}), nil
 }
