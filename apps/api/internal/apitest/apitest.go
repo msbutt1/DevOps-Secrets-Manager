@@ -98,6 +98,12 @@ func (r Response) Decode(t *testing.T, out any) {
 // Do sends a request with an optional bearer token and JSON body.
 func (s *Server) Do(method, path, token string, body any) Response {
 	s.t.Helper()
+	return s.DoWithCookies(method, path, token, body)
+}
+
+// DoWithCookies is Do that also sends the given cookies, like a browser would.
+func (s *Server) DoWithCookies(method, path, token string, body any, cookies ...*http.Cookie) Response {
+	s.t.Helper()
 	var reader io.Reader
 	if body != nil {
 		payload, err := json.Marshal(body)
@@ -115,6 +121,9 @@ func (s *Server) Do(method, path, token string, body any) Response {
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
 	}
 	resp, err := s.Client().Do(req)
 	if err != nil {

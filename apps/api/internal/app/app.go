@@ -44,6 +44,8 @@ type Config struct {
 	DisableRateLimits bool
 	// CORSAllowedOrigins lists web app origins allowed to call the API from another origin.
 	CORSAllowedOrigins []string
+	// InsecureCookies drops the Secure flag from the refresh token cookie; only for development over HTTP.
+	InsecureCookies bool
 }
 
 // New builds the API's HTTP handler.
@@ -99,7 +101,10 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 	policyService := policy.NewPolicyService(pool)
 
 	// Create handlers
-	authHandlers := httphandler.NewAuthHandlers(authService, pool, cfg.Logger)
+	authHandlers := httphandler.NewAuthHandlers(authService, pool, cfg.Logger, httphandler.RefreshCookie{
+		Secure: !cfg.InsecureCookies,
+		TTL:    cfg.RefreshTokenTTL,
+	})
 	vaultHandlers := httphandler.NewVaultHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 	environmentHandlers := httphandler.NewEnvironmentHandlers(environmentService, auditService, policyService, pool, cfg.Logger)
 	secretHandlers := httphandler.NewSecretHandlers(secretService, environmentService, policyService, pool, cfg.Logger, cfg.RevealAutoHideSeconds)

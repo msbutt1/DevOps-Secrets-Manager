@@ -116,6 +116,10 @@ paths:
     post:
       tags: [Authentication]
       summary: Log in
+      description: |
+        Returns an access token and a refresh token. With `use_cookie: true` (the web app) the
+        refresh token is set as an `HttpOnly`, `SameSite=Strict` cookie (`__Host-dsm_refresh`, or
+        `dsm_refresh` in development) and left out of the body, so page scripts cannot read it.
       operationId: login
       security: []
       requestBody:
@@ -148,7 +152,10 @@ paths:
     post:
       tags: [Authentication]
       summary: Refresh tokens
-      description: Exchanges a refresh token for a new access token and a new refresh token. The old refresh token is revoked.
+      description: |
+        Exchanges a refresh token for a new access token and a new refresh token. The old refresh
+        token is revoked. The token is read from the body, or from the refresh cookie when the body
+        has none; a cookie is answered with a new cookie. A failed refresh does not change cookies.
       operationId: refreshTokens
       security: []
       requestBody:
@@ -176,14 +183,14 @@ paths:
     post:
       tags: [Authentication]
       summary: Log out
-      description: Revokes the refresh token.
+      description: Revokes the refresh token from the body, or from the refresh cookie, and clears the cookie.
       operationId: logout
       security: []
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/RefreshRequest' }
+            schema: { $ref: '#/components/schemas/LogoutRequest' }
       responses:
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -1221,19 +1228,35 @@ components:
       properties:
         email: { type: string, format: email }
         password: { type: string, format: password }
+        use_cookie:
+          type: boolean
+          description: Set the refresh token as an HttpOnly cookie instead of returning it (default false)
 
     RefreshRequest:
       type: object
-      required: [refresh_token]
       properties:
-        refresh_token: { type: string }
+        refresh_token:
+          type: string
+          description: Omit to use the refresh cookie
+        use_cookie:
+          type: boolean
+          description: Return the new refresh token as a cookie even though one was sent in the body (default false)
+
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          description: Omit to use the refresh cookie
 
     AuthTokens:
       type: object
-      required: [access_token, refresh_token, expires_in]
+      required: [access_token, expires_in]
       properties:
         access_token: { type: string }
-        refresh_token: { type: string }
+        refresh_token:
+          type: string
+          description: Absent when the refresh token was set as a cookie
         expires_in:
           type: integer
           description: Access token lifetime in seconds

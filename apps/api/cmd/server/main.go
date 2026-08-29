@@ -97,6 +97,7 @@ func main() {
 		Version:               version,
 		TrustedProxies:        trustedProxies(),
 		CORSAllowedOrigins:    splitList(viper.GetString("cors_allowed_origins")),
+		InsecureCookies:       config.IsDevelopment(),
 	})
 	if err != nil {
 		logger.Fatal("Invalid configuration", zap.Error(err))

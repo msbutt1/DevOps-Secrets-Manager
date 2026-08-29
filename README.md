@@ -28,7 +28,7 @@ A complete secrets management platform for DevOps teams featuring end-to-end enc
 - **Vault-Level Membership**: Fine-grained access control per vault, not just organization-wide
 - **Audit Log**: Every reveal and change is recorded with who, where and when
 - **Environment Injection**: Run any command with secrets injected as environment variables
-- **JWT Authentication**: HS256-signed access tokens with refresh token rotation
+- **JWT Authentication**: HS256-signed access tokens with refresh token rotation; the web app's refresh token lives in an `HttpOnly`, `SameSite=Strict` cookie that page scripts cannot read
 - **Multi-Environment Support**: Organize secrets by environment (dev, staging, production)
 
 ## Tech Stack
@@ -215,7 +215,7 @@ and environment variables. Nested settings use the `APP_` prefix (`database.host
 | `APP_SERVER_PORT` | `8080` | HTTP port |
 | `APP_JWT_ACCESS_TOKEN_TTL` | `15m` | Access token lifetime |
 | `APP_JWT_REFRESH_TOKEN_TTL` | `168h` | Refresh token lifetime |
-| `APP_ENV` | `production` | `development` enables local-only fallbacks (see below) |
+| `APP_ENV` | `production` | `development` enables local-only fallbacks (see below) and drops the `Secure` flag from the refresh cookie so it works over plain HTTP |
 | `APP_PUBLIC_URL` | `http://localhost:5173` | Web app address used in emailed links |
 | `APP_REVEAL_AUTO_HIDE_SECONDS` | `30` | How long the web app shows a revealed value (5-600) |
 | `APP_CORS_ALLOWED_ORIGINS` | none | Comma-separated web app origins allowed to call the API from another origin (not needed with the `/api` proxy) |

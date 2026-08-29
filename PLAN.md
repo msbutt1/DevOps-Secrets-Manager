@@ -246,7 +246,7 @@ These are half-built or missing, but a team would need them.
   - nginx should send a Content-Security-Policy and HSTS (when served over TLS), and drop the obsolete `X-XSS-Protection` header.
   - Commit: `feat: security headers for API and web`
 - [x] **CORS.** No CORS handling exists; it only works today because the web app is proxied through `/api`. If the API is ever deployed separately, add an explicit origin allowlist. Commit: `feat(api): configurable CORS allowlist`
-- [ ] **Token storage in the browser.** Check where the web app keeps tokens. If refresh tokens are in `localStorage`, move them to an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Commit: `fix: store refresh token in HttpOnly cookie`
+- [x] **Token storage in the browser.** Check where the web app keeps tokens. If refresh tokens are in `localStorage`, move them to an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Commit: `fix: store refresh token in HttpOnly cookie`
 - [ ] **JWT.** Decide between HS256 with a strong secret, or RS256 with key rotation, and document the choice. Add `iss` and `aud` claims and check them. Commit: `feat(api): validate token issuer and audience`
 - [ ] **Password policy.** Minimum length, checked against a common-password list; show a strength hint in the register form. Commit: `feat: password strength requirements`
 - [ ] **Structured logging.** Use `slog` JSON logs with a request ID. Never log secret values, tokens, or `Authorization` headers; add a test that checks for this. Commit: `feat(api): structured request logging without secrets`

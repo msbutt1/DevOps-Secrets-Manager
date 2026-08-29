@@ -70,7 +70,12 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Log in */
+    /**
+     * Log in
+     * @description Returns an access token and a refresh token. With `use_cookie: true` (the web app) the
+     *     refresh token is set as an `HttpOnly`, `SameSite=Strict` cookie (`__Host-dsm_refresh`, or
+     *     `dsm_refresh` in development) and left out of the body, so page scripts cannot read it.
+     */
     post: operations['login'];
     delete?: never;
     options?: never;
@@ -89,7 +94,9 @@ export interface paths {
     put?: never;
     /**
      * Refresh tokens
-     * @description Exchanges a refresh token for a new access token and a new refresh token. The old refresh token is revoked.
+     * @description Exchanges a refresh token for a new access token and a new refresh token. The old refresh
+     *     token is revoked. The token is read from the body, or from the refresh cookie when the body
+     *     has none; a cookie is answered with a new cookie. A failed refresh does not change cookies.
      */
     post: operations['refreshTokens'];
     delete?: never;
@@ -109,7 +116,7 @@ export interface paths {
     put?: never;
     /**
      * Log out
-     * @description Revokes the refresh token.
+     * @description Revokes the refresh token from the body, or from the refresh cookie, and clears the cookie.
      */
     post: operations['logout'];
     delete?: never;
@@ -742,13 +749,23 @@ export interface components {
       email: string;
       /** Format: password */
       password: string;
+      /** @description Set the refresh token as an HttpOnly cookie instead of returning it (default false) */
+      use_cookie?: boolean;
     };
     RefreshRequest: {
-      refresh_token: string;
+      /** @description Omit to use the refresh cookie */
+      refresh_token?: string;
+      /** @description Return the new refresh token as a cookie even though one was sent in the body (default false) */
+      use_cookie?: boolean;
+    };
+    LogoutRequest: {
+      /** @description Omit to use the refresh cookie */
+      refresh_token?: string;
     };
     AuthTokens: {
       access_token: string;
-      refresh_token: string;
+      /** @description Absent when the refresh token was set as a cookie */
+      refresh_token?: string;
       /** @description Access token lifetime in seconds */
       expires_in: number;
     };
@@ -1465,7 +1482,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': components['schemas']['RefreshRequest'];
+        'application/json': components['schemas']['LogoutRequest'];
       };
     };
     responses: {

@@ -43,9 +43,9 @@ import { toCamelCase, toSnakeCase } from './case-transform';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// Token storage (in-memory for security)
+// The access token lives only in memory. The refresh token is an HttpOnly cookie set by the
+// API, so scripts on the page (including injected ones) can never read it.
 let accessToken: string | null = null;
-let refreshToken: string | null = null;
 let refreshPromise: Promise<AuthTokens> | null = null;
 
 // Event emitter for auth state changes
@@ -64,14 +64,12 @@ const notifyAuthChange = (isAuthenticated: boolean) => {
 // Set tokens (called after login/refresh)
 export const setTokens = (tokens: AuthTokens) => {
   accessToken = tokens.accessToken;
-  refreshToken = tokens.refreshToken;
   notifyAuthChange(true);
 };
 
 // Clear tokens (called on logout)
 export const clearTokens = () => {
   accessToken = null;
-  refreshToken = null;
   refreshPromise = null;
   notifyAuthChange(false);
 };
@@ -102,13 +100,15 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}, retry = 
     }
   }
 
+  const hadSession = !!accessToken;
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...transformedOptions,
     headers,
+    credentials: 'include',
   });
 
-  // Handle 401 - attempt refresh
-  if (response.status === 401 && retry && refreshToken) {
+  // Handle 401 on an authenticated request - the access token expired, so refresh and retry
+  if (response.status === 401 && retry && hadSession) {
     try {
       await refreshAccessToken();
       return apiFetch<T>(endpoint, options, false);
@@ -135,31 +135,38 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}, retry = 
   return toCamelCase<T>(jsonData);
 }
 
-// Refresh token
+const postRefresh = () =>
+  fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: '{}',
+  });
+
+// Exchanges the refresh cookie for a new access token (and a rotated cookie)
 async function refreshAccessToken(): Promise<AuthTokens> {
   // Prevent multiple simultaneous refresh attempts
   if (refreshPromise) {
     return refreshPromise;
   }
 
-  refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        throw new Error('Refresh failed');
-      }
-      const tokens: AuthTokens = await response.json();
-      setTokens(tokens);
-      refreshPromise = null;
-      return tokens;
-    })
-    .catch((error) => {
-      refreshPromise = null;
-      throw error;
-    });
+  refreshPromise = (async () => {
+    let response = await postRefresh();
+    if (response.status === 401) {
+      // Another tab may have rotated the cookie while this request was in flight; the
+      // browser now holds the newer cookie, so one more attempt picks it up.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      response = await postRefresh();
+    }
+    if (!response.ok) {
+      throw new Error('Refresh failed');
+    }
+    const tokens = toCamelCase<AuthTokens>(await response.json());
+    setTokens(tokens);
+    return tokens;
+  })().finally(() => {
+    refreshPromise = null;
+  });
 
   return refreshPromise;
 }
@@ -169,7 +176,7 @@ export const authApi = {
   login: async (credentials: LoginRequest): Promise<AuthTokens> => {
     const tokens = await apiFetch<AuthTokens>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({ ...credentials, useCookie: true }),
     });
     setTokens(tokens);
     return tokens;
@@ -200,7 +207,7 @@ export const authApi = {
     try {
       await apiFetch('/auth/logout', {
         method: 'POST',
-        body: JSON.stringify({ refreshToken }),
+        body: '{}',
       });
     } finally {
       clearTokens();
@@ -210,6 +217,16 @@ export const authApi = {
   me: (): Promise<User> => apiFetch<User>('/auth/me'),
 
   refresh: refreshAccessToken,
+
+  /** Restores the session after a page load from the refresh cookie; false when there is none. */
+  restoreSession: async (): Promise<boolean> => {
+    try {
+      await refreshAccessToken();
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
 
 // ============ ORGANIZATIONS API ============

@@ -47,10 +47,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
-  // Load user on mount if authenticated
+  // On page load, restore the session from the refresh cookie and load the user
   useEffect(() => {
     const loadUser = async () => {
-      if (!checkAuth()) {
+      if (!checkAuth() && !(await authApi.restoreSession())) {
         setIsLoading(false);
         return;
       }

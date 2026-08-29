@@ -21,6 +21,8 @@ import (
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	// UseCookie asks for the refresh token in an HttpOnly cookie instead of the body (web app).
+	UseCookie bool `json:"use_cookie"`
 }
 
 type RegisterRequest struct {
@@ -36,6 +38,7 @@ type VerifyEmailRequest struct {
 
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
+	UseCookie    bool   `json:"use_cookie"`
 }
 
 type LogoutRequest struct {
@@ -50,7 +53,7 @@ type ChangePasswordRequest struct {
 // Response DTOs
 type AuthResponseDTO struct {
 	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
@@ -92,14 +95,16 @@ type AuthHandlers struct {
 	authService auth.AuthService
 	db          *pgxpool.Pool
 	logger      *zap.Logger
+	cookie      RefreshCookie
 }
 
 // NewAuthHandlers creates a new instance of AuthHandlers
-func NewAuthHandlers(authService auth.AuthService, db *pgxpool.Pool, logger *zap.Logger) *AuthHandlers {
+func NewAuthHandlers(authService auth.AuthService, db *pgxpool.Pool, logger *zap.Logger, cookie RefreshCookie) *AuthHandlers {
 	return &AuthHandlers{
 		authService: authService,
 		db:          db,
 		logger:      logger,
+		cookie:      cookie,
 	}
 }
 
@@ -116,11 +121,7 @@ func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, AuthResponseDTO{
-		AccessToken:  authResp.AccessToken,
-		RefreshToken: authResp.RefreshToken,
-		ExpiresIn:    authResp.ExpiresIn,
-	})
+	h.respondTokens(w, authResp, req.UseCookie)
 }
 
 // HandleRefresh handles token refresh requests
@@ -130,17 +131,20 @@ func (h *AuthHandlers) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authResp, err := h.authService.Refresh(r.Context(), req.RefreshToken)
+	token, fromCookie := req.RefreshToken, false
+	if token == "" {
+		token, fromCookie = h.cookie.read(r)
+	}
+
+	authResp, err := h.authService.Refresh(r.Context(), token)
 	if err != nil {
+		// The cookie is left alone: another tab may have just rotated it, and clearing it
+		// here would overwrite that tab's new cookie. A revoked token is useless anyway.
 		h.handleAuthError(w, err)
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, AuthResponseDTO{
-		AccessToken:  authResp.AccessToken,
-		RefreshToken: authResp.RefreshToken,
-		ExpiresIn:    authResp.ExpiresIn,
-	})
+	h.respondTokens(w, authResp, fromCookie || req.UseCookie)
 }
 
 // HandleLogout handles user logout requests
@@ -150,7 +154,16 @@ func (h *AuthHandlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.authService.Logout(r.Context(), req.RefreshToken); err != nil {
+	token := req.RefreshToken
+	if cookieToken, ok := h.cookie.read(r); ok {
+		// Always drop the cookie, even if the token turns out to be unknown
+		h.cookie.clear(w)
+		if token == "" {
+			token = cookieToken
+		}
+	}
+
+	if err := h.authService.Logout(r.Context(), token); err != nil {
 		h.handleAuthError(w, err)
 		return
 	}
@@ -366,6 +379,20 @@ func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, err error) {
 		h.logger.Error("Unexpected auth error", zap.Error(err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
+}
+
+// respondTokens writes new tokens, moving the refresh token into the cookie when asked.
+func (h *AuthHandlers) respondTokens(w http.ResponseWriter, authResp *auth.AuthResponse, useCookie bool) {
+	dto := AuthResponseDTO{
+		AccessToken:  authResp.AccessToken,
+		RefreshToken: authResp.RefreshToken,
+		ExpiresIn:    authResp.ExpiresIn,
+	}
+	if useCookie {
+		h.cookie.set(w, authResp.RefreshToken)
+		dto.RefreshToken = ""
+	}
+	h.respondJSON(w, http.StatusOK, dto)
 }
 
 // respondJSON writes a JSON response
