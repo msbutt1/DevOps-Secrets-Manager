@@ -42,7 +42,7 @@ func corsMiddleware(allowed []string) func(http.Handler) http.Handler {
 
 			h.Set("Access-Control-Allow-Origin", origin)
 			h.Set("Access-Control-Allow-Credentials", "true")
-			h.Set("Access-Control-Expose-Headers", "Retry-After")
+			h.Set("Access-Control-Expose-Headers", "Retry-After, X-Request-ID")
 			if preflight {
 				h.Add("Vary", "Access-Control-Request-Method")
 				h.Add("Vary", "Access-Control-Request-Headers")

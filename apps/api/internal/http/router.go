@@ -1,10 +1,10 @@
 package http
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/clientip"
 	authmiddleware "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
@@ -19,6 +19,8 @@ type RouterOptions struct {
 	DisableRateLimits bool
 	// CORSAllowedOrigins lists browser origins allowed to call the API cross-origin.
 	CORSAllowedOrigins []string
+	// Logger receives access logs and recovered panics (required).
+	Logger *slog.Logger
 }
 
 // maxJSONBodyBytes caps request bodies read by the API.
@@ -31,8 +33,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	rl := rateLimiter{disabled: opts.DisableRateLimits}
 
 	// Middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(requestLogging(opts.Logger, opts.ClientIP))
 	r.Use(securityHeaders)
 	r.Use(corsMiddleware(opts.CORSAllowedOrigins))
 	r.Use(opts.ClientIP.Middleware)

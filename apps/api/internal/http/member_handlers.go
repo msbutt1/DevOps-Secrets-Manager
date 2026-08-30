@@ -92,7 +92,7 @@ func (h *MemberHandlers) HandleListMembers(w http.ResponseWriter, r *http.Reques
 
 	members, err := h.getVaultMembers(r.Context(), vaultID)
 	if err != nil {
-		h.logger.Error("Failed to get vault members", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to get vault members", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to get members")
 		return
 	}
@@ -145,7 +145,7 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 			h.respondError(w, http.StatusNotFound, "not_found", "Vault not found")
 			return
 		}
-		h.logger.Error("Failed to get vault", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to get vault", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 		return
 	}
@@ -156,7 +156,7 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 			h.respondError(w, http.StatusNotFound, "not_found", "User not found with that email")
 			return
 		}
-		h.logger.Error("Failed to find user", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to find user", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to find user")
 		return
 	}
@@ -172,14 +172,14 @@ func (h *MemberHandlers) HandleAddMember(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.addUserToVault(r.Context(), targetUser.ID, vaultID, req.Role, claims.UserID); err != nil {
-		h.logger.Error("Failed to add user to vault", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to add user to vault", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to add member")
 		return
 	}
 
 	member, err := h.getVaultMember(r.Context(), vaultID, targetUser.ID)
 	if err != nil {
-		h.logger.Error("Failed to load added member", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to load added member", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to load member")
 		return
 	}
@@ -230,7 +230,7 @@ func (h *MemberHandlers) HandleUpdateMember(w http.ResponseWriter, r *http.Reque
 			h.respondError(w, http.StatusNotFound, "not_found", "Member not found in this vault")
 			return
 		}
-		h.logger.Error("Failed to get member role", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to get member role", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to update member role")
 		return
 	}
@@ -246,14 +246,14 @@ func (h *MemberHandlers) HandleUpdateMember(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := h.updateVaultMemberRole(r.Context(), targetUserID, vaultID, req.Role); err != nil {
-		h.logger.Error("Failed to update user role", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to update user role", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to update member role")
 		return
 	}
 
 	member, err := h.getVaultMember(r.Context(), vaultID, targetUserID)
 	if err != nil {
-		h.logger.Error("Failed to load updated member", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to load updated member", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to load member")
 		return
 	}
@@ -302,14 +302,14 @@ func (h *MemberHandlers) HandleRemoveMember(w http.ResponseWriter, r *http.Reque
 			h.respondError(w, http.StatusNotFound, "not_found", "Member not found in this vault")
 			return
 		}
-		h.logger.Error("Failed to get member role", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to get member role", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to remove member")
 		return
 	}
 
 	removed, err := h.getVaultMember(r.Context(), vaultID, targetUserID)
 	if err != nil {
-		h.logger.Error("Failed to load member", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to load member", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to remove member")
 		return
 	}
@@ -326,7 +326,7 @@ func (h *MemberHandlers) HandleRemoveMember(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := h.removeUserFromVault(r.Context(), targetUserID, vaultID); err != nil {
-		h.logger.Error("Failed to remove user from vault", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to remove user from vault", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to remove member")
 		return
 	}
@@ -353,8 +353,8 @@ func (h *MemberHandlers) record(r *http.Request, actorID uuid.UUID, action strin
 	})
 }
 
-func (h *MemberHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check vault permissions", slog.Any("error", err))
+func (h *MemberHandlers) logPolicyError(ctx context.Context, err error) {
+	h.logger.ErrorContext(ctx, "Failed to check vault permissions", slog.Any("error", err))
 }
 
 func (h *MemberHandlers) checkOrganizationMembership(ctx context.Context, userID, organizationID uuid.UUID) bool {
@@ -441,7 +441,7 @@ func (h *MemberHandlers) getVaultMemberRole(ctx context.Context, userID, vaultID
 func (h *MemberHandlers) countVaultOwners(ctx context.Context, vaultID uuid.UUID) int {
 	var count int
 	if err := h.db.QueryRow(ctx, `SELECT COUNT(*) FROM vault_members WHERE vault_id = $1 AND role = 'owner'`, vaultID).Scan(&count); err != nil {
-		h.logger.Error("Failed to count vault owners", slog.Any("error", err))
+		h.logger.ErrorContext(ctx, "Failed to count vault owners", slog.Any("error", err))
 		return 0
 	}
 	return count

@@ -104,7 +104,7 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 			h.respondError(w, http.StatusForbidden, "forbidden", "User is not a member of this organization")
 			return
 		}
-		h.logPolicyError(err)
+		h.logPolicyError(r.Context(), err)
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to check permissions")
 		return
 	}
@@ -116,7 +116,7 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 	// Create vault
 	vault, err := h.vaultService.CreateVault(r.Context(), orgID, req.Name, req.Description, claims.UserID)
 	if err != nil {
-		h.handleVaultError(w, err)
+		h.handleVaultError(w, r, err)
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *VaultHandlers) HandleCreateVault(w http.ResponseWriter, r *http.Request
 		`INSERT INTO vault_members (vault_id, user_id, role, added_by, created_at) VALUES ($1, $2, 'owner', $2, NOW())`,
 		vault.ID, claims.UserID)
 	if err != nil {
-		h.logger.Error("Failed to add creator to vault_members", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to add creator to vault_members", slog.Any("error", err))
 		// Continue anyway - vault was created successfully
 	}
 
@@ -161,7 +161,7 @@ func (h *VaultHandlers) HandleListVaults(w http.ResponseWriter, r *http.Request)
 	}
 	rows, err := h.db.Query(r.Context(), query, claims.UserID, orgFilter)
 	if err != nil {
-		h.logger.Error("Failed to query user vaults", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to query user vaults", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to list vaults")
 		return
 	}
@@ -171,13 +171,13 @@ func (h *VaultHandlers) HandleListVaults(w http.ResponseWriter, r *http.Request)
 	for rows.Next() {
 		var vaultID uuid.UUID
 		if err := rows.Scan(&vaultID); err != nil {
-			h.logger.Error("Failed to scan vault ID", slog.Any("error", err))
+			h.logger.ErrorContext(r.Context(), "Failed to scan vault ID", slog.Any("error", err))
 			continue
 		}
 
 		vault, err := h.vaultService.GetVault(r.Context(), vaultID)
 		if err != nil {
-			h.logger.Error("Failed to get vault", slog.Any("error", err))
+			h.logger.ErrorContext(r.Context(), "Failed to get vault", slog.Any("error", err))
 			continue
 		}
 
@@ -211,7 +211,7 @@ func (h *VaultHandlers) HandleGetVault(w http.ResponseWriter, r *http.Request) {
 	// Get vault
 	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
 	if err != nil {
-		h.handleVaultError(w, err)
+		h.handleVaultError(w, r, err)
 		return
 	}
 
@@ -252,7 +252,7 @@ func (h *VaultHandlers) HandleUpdateVault(w http.ResponseWriter, r *http.Request
 	// Update vault
 	updatedVault, err := h.vaultService.UpdateVault(r.Context(), vaultID, req.Name, req.Description)
 	if err != nil {
-		h.handleVaultError(w, err)
+		h.handleVaultError(w, r, err)
 		return
 	}
 
@@ -288,13 +288,13 @@ func (h *VaultHandlers) HandleDeleteVault(w http.ResponseWriter, r *http.Request
 
 	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
 	if err != nil {
-		h.handleVaultError(w, err)
+		h.handleVaultError(w, r, err)
 		return
 	}
 
 	// Delete vault
 	if err := h.vaultService.DeleteVault(r.Context(), vaultID); err != nil {
-		h.handleVaultError(w, err)
+		h.handleVaultError(w, r, err)
 		return
 	}
 
@@ -382,7 +382,7 @@ func (h *VaultHandlers) getVaultUserRole(ctx context.Context, vaultID, userID uu
 	role, err := h.policyService.VaultRole(ctx, userID, vaultID)
 	if err != nil {
 		if !errors.Is(err, policy.ErrVaultNotFound) {
-			h.logPolicyError(err)
+			h.logPolicyError(ctx, err)
 		}
 		return ""
 	}
@@ -390,8 +390,8 @@ func (h *VaultHandlers) getVaultUserRole(ctx context.Context, vaultID, userID uu
 }
 
 // logPolicyError logs a failed permission lookup
-func (h *VaultHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check permissions", slog.Any("error", err))
+func (h *VaultHandlers) logPolicyError(ctx context.Context, err error) {
+	h.logger.ErrorContext(ctx, "Failed to check permissions", slog.Any("error", err))
 }
 
 // getVaultCounts returns environment and secret counts for a vault
@@ -410,14 +410,14 @@ func (h *VaultHandlers) getVaultCounts(ctx context.Context, vaultID uuid.UUID) (
 }
 
 // handleVaultError maps vault service errors to appropriate HTTP responses
-func (h *VaultHandlers) handleVaultError(w http.ResponseWriter, err error) {
+func (h *VaultHandlers) handleVaultError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, vaults.ErrNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Vault not found")
 	case errors.Is(err, vaults.ErrDuplicate):
 		h.respondError(w, http.StatusConflict, "duplicate", "Vault already exists")
 	default:
-		h.logger.Error("Unexpected vault error", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Unexpected vault error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }

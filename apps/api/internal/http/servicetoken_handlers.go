@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -73,8 +74,8 @@ func NewServiceTokenHandlers(tokens servicetokens.Service, secretService secrets
 	return &ServiceTokenHandlers{tokens: tokens, secrets: secretService, envService: envService, auditService: auditService, policyService: policyService, logger: logger}
 }
 
-func (h *ServiceTokenHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check vault permissions", slog.Any("error", err))
+func (h *ServiceTokenHandlers) logPolicyError(ctx context.Context, err error) {
+	h.logger.ErrorContext(ctx, "Failed to check vault permissions", slog.Any("error", err))
 }
 
 // environmentForManager resolves the environment in the URL and checks the caller may manage its tokens.
@@ -94,7 +95,7 @@ func (h *ServiceTokenHandlers) environmentForManager(w http.ResponseWriter, r *h
 		if errors.Is(err, environments.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not_found", "Environment not found")
 		} else {
-			h.logger.Error("Failed to get environment", slog.Any("error", err))
+			h.logger.ErrorContext(r.Context(), "Failed to get environment", slog.Any("error", err))
 			writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 		}
 		return nil, uuid.Nil, false
@@ -117,7 +118,7 @@ func (h *ServiceTokenHandlers) HandleCreate(w http.ResponseWriter, r *http.Reque
 	}
 	token, plaintext, err := h.tokens.Create(r.Context(), env.ID, userID, req.Name, req.ExpiresInDays)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	_ = h.auditService.Record(r.Context(), audit.Event{
@@ -137,7 +138,7 @@ func (h *ServiceTokenHandlers) HandleList(w http.ResponseWriter, r *http.Request
 	}
 	tokens, err := h.tokens.List(r.Context(), env.ID)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	out := make([]ServiceTokenResponse, 0, len(tokens))
@@ -161,14 +162,14 @@ func (h *ServiceTokenHandlers) HandleRevoke(w http.ResponseWriter, r *http.Reque
 	}
 	token, err := h.tokens.Get(r.Context(), tokenID)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, token.VaultID, policy.ActionTokenManage, "Service token", h.logPolicyError); !ok {
 		return
 	}
 	if err := h.tokens.Revoke(r.Context(), tokenID); err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	_ = h.auditService.Record(r.Context(), audit.Event{
@@ -193,7 +194,7 @@ func (h *ServiceTokenHandlers) HandleTokenSecrets(w http.ResponseWriter, r *http
 			writeError(w, http.StatusUnauthorized, "invalid_token", "Invalid, revoked or expired service token")
 			return
 		}
-		h.logger.Error("Failed to authenticate service token", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to authenticate service token", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 		return
 	}
@@ -203,7 +204,7 @@ func (h *ServiceTokenHandlers) HandleTokenSecrets(w http.ResponseWriter, r *http
 		Metadata:       map[string]interface{}{"via": "service_token", "token_prefix": token.Prefix},
 	})
 	if err != nil {
-		h.logger.Error("Failed to export environment for service token", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to export environment for service token", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 		return
 	}
@@ -215,14 +216,14 @@ func (h *ServiceTokenHandlers) HandleTokenSecrets(w http.ResponseWriter, r *http
 	writeJSON(w, http.StatusOK, out)
 }
 
-func (h *ServiceTokenHandlers) handleError(w http.ResponseWriter, err error) {
+func (h *ServiceTokenHandlers) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, servicetokens.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "Service token not found")
 	case errors.Is(err, servicetokens.ErrInvalidName), errors.Is(err, servicetokens.ErrInvalidExpiry):
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 	default:
-		h.logger.Error("Unexpected service token error", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Unexpected service token error", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/logging"
 )
 
 // contextKey is a custom type for context keys to avoid collisions
@@ -56,7 +57,8 @@ func AuthMiddleware(jwtSecret string) func(next http.Handler) http.Handler {
 				return
 			}
 
-			// Store claims in context
+			// Store claims in context and name the user in the request's log lines
+			logging.SetUserID(r.Context(), claims.UserID)
 			ctx := context.WithValue(r.Context(), claimsContextKey, claims)
 
 			// Call next handler

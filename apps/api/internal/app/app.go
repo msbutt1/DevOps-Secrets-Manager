@@ -127,5 +127,6 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 		ClientIP:           resolver,
 		DisableRateLimits:  cfg.DisableRateLimits,
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+		Logger:             cfg.Logger,
 	}), nil
 }

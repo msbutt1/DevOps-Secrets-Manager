@@ -117,7 +117,7 @@ func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	authResp, err := h.authService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
-		h.handleAuthError(w, err)
+		h.handleAuthError(w, r, err)
 		return
 	}
 
@@ -140,7 +140,7 @@ func (h *AuthHandlers) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// The cookie is left alone: another tab may have just rotated it, and clearing it
 		// here would overwrite that tab's new cookie. A revoked token is useless anyway.
-		h.handleAuthError(w, err)
+		h.handleAuthError(w, r, err)
 		return
 	}
 
@@ -164,7 +164,7 @@ func (h *AuthHandlers) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.authService.Logout(r.Context(), token); err != nil {
-		h.handleAuthError(w, err)
+		h.handleAuthError(w, r, err)
 		return
 	}
 
@@ -183,14 +183,14 @@ func (h *AuthHandlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 	// Get user profile using userID from claims
 	profile, err := h.authService.Me(r.Context(), claims.UserID)
 	if err != nil {
-		h.handleAuthError(w, err)
+		h.handleAuthError(w, r, err)
 		return
 	}
 
 	// Get user's organizations
 	orgs, err := h.getUserOrganizations(r.Context(), claims.UserID)
 	if err != nil {
-		h.logger.Error("Failed to get user organizations", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to get user organizations", slog.Any("error", err))
 		// Don't fail the request, just return empty organizations
 		orgs = []UserOrganizationDTO{}
 	}
@@ -260,7 +260,7 @@ func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		InviteToken: req.InviteToken,
 	})
 	if err != nil {
-		h.handleAuthError(w, err)
+		h.handleAuthError(w, r, err)
 		return
 	}
 
@@ -290,7 +290,7 @@ func (h *AuthHandlers) HandleVerifyEmail(w http.ResponseWriter, r *http.Request)
 
 	// Verify email
 	if err := h.authService.VerifyEmail(r.Context(), req.Token); err != nil {
-		h.handleAuthError(w, err)
+		h.handleAuthError(w, r, err)
 		return
 	}
 
@@ -330,7 +330,7 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 
 	// Change password
 	if err := h.authService.ChangePassword(r.Context(), claims.UserID, req.CurrentPassword, req.NewPassword); err != nil {
-		h.handleAuthError(w, err)
+		h.handleAuthError(w, r, err)
 		return
 	}
 
@@ -340,7 +340,7 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 }
 
 // handleAuthError maps auth service errors to appropriate HTTP responses
-func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, err error) {
+func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, r *http.Request, err error) {
 	var locked *auth.LockedError
 	switch {
 	case errors.As(err, &locked):
@@ -371,7 +371,7 @@ func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, err error) {
 	case errors.Is(err, organizations.ErrInviteEmailMismatch):
 		h.respondError(w, http.StatusBadRequest, "invite_email_mismatch", "Register with the email address the invitation was sent to")
 	default:
-		h.logger.Error("Unexpected auth error", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Unexpected auth error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }

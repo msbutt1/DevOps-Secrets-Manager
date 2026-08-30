@@ -250,7 +250,7 @@ These are half-built or missing, but a team would need them.
 - [x] **Token storage in the browser.** Check where the web app keeps tokens. If refresh tokens are in `localStorage`, move them to an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Commit: `fix: store refresh token in HttpOnly cookie`
 - [x] **JWT.** Decide between HS256 with a strong secret, or RS256 with key rotation, and document the choice. Add `iss` and `aud` claims and check them. Commit: `feat(api): validate token issuer and audience`
 - [x] **Password policy.** Minimum length, checked against a common-password list; show a strength hint in the register form. Commit: `feat: password strength requirements`
-- [ ] **Structured logging.** Use `slog` JSON logs with a request ID. Never log secret values, tokens, or `Authorization` headers; add a test that checks for this. Commit: `feat(api): structured request logging without secrets`
+- [x] **Structured logging.** Use `slog` JSON logs with a request ID. Never log secret values, tokens, or `Authorization` headers; add a test that checks for this. Commit: `feat(api): structured request logging without secrets`
 - [ ] **Dependency scanning.** Run `govulncheck`, `npm audit` and `cargo audit` in CI, and enable Dependabot. Commit: `ci: dependency vulnerability scanning`
 - [ ] **Threat model.** Write `SECURITY.md`: what the encryption protects against, what it doesn't (a compromised API host), how to report issues, and how to rotate keys. Commit: `docs: security model and reporting`
 

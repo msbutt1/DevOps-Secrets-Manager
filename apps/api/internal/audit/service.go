@@ -102,9 +102,9 @@ func (s *auditService) Record(ctx context.Context, event Event) error {
 
 	// Append to repository
 	if err := s.repo.Append(ctx, entry); err != nil {
-		s.logger.Error("failed to append audit log",
+		s.logger.ErrorContext(ctx, "failed to append audit log",
 			"error", err,
-			"user_id", event.UserID,
+			"actor_user_id", event.UserID,
 			"action", event.Action,
 			"resource_type", event.TargetType,
 		)
@@ -118,7 +118,7 @@ func (s *auditService) Record(ctx context.Context, event Event) error {
 func (s *auditService) Query(ctx context.Context, filters QueryFilters) ([]*AuditEntry, int, error) {
 	entries, total, err := s.repo.Query(ctx, filters)
 	if err != nil {
-		s.logger.Error("failed to query audit logs", "error", err)
+		s.logger.ErrorContext(ctx, "failed to query audit logs", "error", err)
 		return nil, 0, err
 	}
 	return entries, total, nil

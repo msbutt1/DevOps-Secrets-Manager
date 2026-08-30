@@ -41,7 +41,7 @@ func checkVaultAccess(ctx context.Context, ps policy.PolicyService, userID, vaul
 // authorizeVault checks the action and writes the error response when it is not allowed.
 // resource names what was requested ("Vault", "Environment", "Secret") for the 404 message.
 // It returns the caller's effective role and whether the handler may continue.
-func authorizeVault(w http.ResponseWriter, r *http.Request, ps policy.PolicyService, userID, vaultID uuid.UUID, action policy.Action, resource string, logError func(error)) (string, bool) {
+func authorizeVault(w http.ResponseWriter, r *http.Request, ps policy.PolicyService, userID, vaultID uuid.UUID, action policy.Action, resource string, logError func(context.Context, error)) (string, bool) {
 	role, result, err := checkVaultAccess(r.Context(), ps, userID, vaultID, action)
 	switch result {
 	case accessAllowed:
@@ -51,7 +51,7 @@ func authorizeVault(w http.ResponseWriter, r *http.Request, ps policy.PolicyServ
 	case accessForbidden:
 		writeError(w, http.StatusForbidden, "forbidden", "Your role on this vault does not allow this action")
 	default:
-		logError(err)
+		logError(r.Context(), err)
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to check permissions")
 	}
 	return role, false

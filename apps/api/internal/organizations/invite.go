@@ -169,7 +169,7 @@ func (s *inviteService) Create(ctx context.Context, callerID, orgID uuid.UUID, a
 	}); err != nil {
 		// The invitation exists and can be re-sent; the caller is told delivery failed.
 		emailSent = false
-		s.logger.Error("failed to send invitation email", slog.String("invite_id", inv.ID.String()), slog.Any("error", err))
+		s.logger.ErrorContext(ctx, "failed to send invitation email", slog.String("invite_id", inv.ID.String()), slog.Any("error", err))
 	}
 
 	_ = s.audit.Record(ctx, audit.Event{

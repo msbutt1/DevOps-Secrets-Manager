@@ -107,7 +107,7 @@ func (h *OrganizationHandlers) HandleCreateInvite(w http.ResponseWriter, r *http
 	}
 	invite, sent, err := h.invites.Create(r.Context(), callerID, orgID, req.Email, req.Role)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, CreateInviteResponse{InviteResponse: toInviteResponse(invite), EmailSent: sent})
@@ -121,7 +121,7 @@ func (h *OrganizationHandlers) HandleListInvites(w http.ResponseWriter, r *http.
 	}
 	invites, err := h.invites.ListOpen(r.Context(), callerID, orgID)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	out := make([]InviteResponse, 0, len(invites))
@@ -143,7 +143,7 @@ func (h *OrganizationHandlers) HandleRevokeInvite(w http.ResponseWriter, r *http
 		return
 	}
 	if err := h.invites.Revoke(r.Context(), callerID, orgID, inviteID); err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -161,7 +161,7 @@ func (h *OrganizationHandlers) HandleLookupInvite(w http.ResponseWriter, r *http
 	}
 	invite, accountExists, err := h.invites.Lookup(r.Context(), req.Token)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, InviteLookupResponse{
@@ -187,7 +187,7 @@ func (h *OrganizationHandlers) HandleAcceptInvite(w http.ResponseWriter, r *http
 	}
 	org, err := h.invites.Accept(r.Context(), claims.UserID, req.Token)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, toOrganizationResponse(org))
@@ -202,7 +202,7 @@ func (h *OrganizationHandlers) HandleList(w http.ResponseWriter, r *http.Request
 	}
 	orgs, err := h.service.List(r.Context(), claims.UserID)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	out := make([]OrganizationResponse, 0, len(orgs))
@@ -220,7 +220,7 @@ func (h *OrganizationHandlers) HandleGet(w http.ResponseWriter, r *http.Request)
 	}
 	org, err := h.service.Get(r.Context(), callerID, orgID)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, toOrganizationResponse(org))
@@ -238,7 +238,7 @@ func (h *OrganizationHandlers) HandleUpdate(w http.ResponseWriter, r *http.Reque
 	}
 	org, err := h.service.Rename(r.Context(), callerID, orgID, req.Name)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, toOrganizationResponse(org))
@@ -252,7 +252,7 @@ func (h *OrganizationHandlers) HandleListMembers(w http.ResponseWriter, r *http.
 	}
 	members, err := h.service.ListMembers(r.Context(), callerID, orgID)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	out := make([]OrganizationMemberResponse, 0, len(members))
@@ -283,7 +283,7 @@ func (h *OrganizationHandlers) HandleUpdateMember(w http.ResponseWriter, r *http
 	}
 	member, err := h.service.ChangeMemberRole(r.Context(), callerID, orgID, userID, req.Role)
 	if err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, toOrganizationMemberResponse(member))
@@ -301,7 +301,7 @@ func (h *OrganizationHandlers) HandleRemoveMember(w http.ResponseWriter, r *http
 		return
 	}
 	if err := h.service.RemoveMember(r.Context(), callerID, orgID, userID); err != nil {
-		h.handleError(w, err)
+		h.handleError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -321,7 +321,7 @@ func (h *OrganizationHandlers) claimsAndOrg(w http.ResponseWriter, r *http.Reque
 	return claims.UserID, orgID, true
 }
 
-func (h *OrganizationHandlers) handleError(w http.ResponseWriter, err error) {
+func (h *OrganizationHandlers) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, organizations.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "Organization not found")
@@ -338,7 +338,7 @@ func (h *OrganizationHandlers) handleError(w http.ResponseWriter, err error) {
 	case errors.Is(err, organizations.ErrLastOwner), errors.Is(err, organizations.ErrInvalidName), errors.Is(err, organizations.ErrCannotRemoveSelf), errors.Is(err, organizations.ErrInvalidEmail):
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 	default:
-		h.logger.Error("Unexpected organization error", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Unexpected organization error", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -92,7 +93,7 @@ func (h *EnvironmentHandlers) HandleCreateEnvironment(w http.ResponseWriter, r *
 	// Create environment
 	environment, err := h.environmentService.CreateEnvironment(r.Context(), vaultID, req.Name, req.Description)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -121,7 +122,7 @@ func (h *EnvironmentHandlers) HandleGetEnvironment(w http.ResponseWriter, r *htt
 	// Get environment
 	environment, err := h.environmentService.GetEnvironment(r.Context(), envID)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -156,7 +157,7 @@ func (h *EnvironmentHandlers) HandleListEnvironments(w http.ResponseWriter, r *h
 	// List environments
 	environmentList, err := h.environmentService.ListEnvironmentsByVault(r.Context(), vaultID)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -198,7 +199,7 @@ func (h *EnvironmentHandlers) HandleUpdateEnvironment(w http.ResponseWriter, r *
 	// Get environment to verify membership
 	environment, err := h.environmentService.GetEnvironment(r.Context(), envID)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -209,7 +210,7 @@ func (h *EnvironmentHandlers) HandleUpdateEnvironment(w http.ResponseWriter, r *
 	// Update environment
 	updatedEnvironment, err := h.environmentService.UpdateEnvironment(r.Context(), envID, req.Name, req.Description)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -238,7 +239,7 @@ func (h *EnvironmentHandlers) HandleDeleteEnvironment(w http.ResponseWriter, r *
 	// Get environment to verify membership
 	environment, err := h.environmentService.GetEnvironment(r.Context(), envID)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -248,7 +249,7 @@ func (h *EnvironmentHandlers) HandleDeleteEnvironment(w http.ResponseWriter, r *
 
 	// Delete environment
 	if err := h.environmentService.DeleteEnvironment(r.Context(), envID); err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -267,8 +268,8 @@ func (h *EnvironmentHandlers) record(r *http.Request, userID uuid.UUID, action s
 }
 
 // logPolicyError logs a failed permission lookup
-func (h *EnvironmentHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check vault permissions", slog.Any("error", err))
+func (h *EnvironmentHandlers) logPolicyError(ctx context.Context, err error) {
+	h.logger.ErrorContext(ctx, "Failed to check vault permissions", slog.Any("error", err))
 }
 
 // toEnvironmentResponse converts an Environment domain model to EnvironmentResponse DTO
@@ -285,7 +286,7 @@ func (h *EnvironmentHandlers) toEnvironmentResponse(environment *environments.En
 }
 
 // handleEnvironmentError maps environment service errors to appropriate HTTP responses
-func (h *EnvironmentHandlers) handleEnvironmentError(w http.ResponseWriter, err error) {
+func (h *EnvironmentHandlers) handleEnvironmentError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, environments.ErrNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Environment not found")
@@ -294,7 +295,7 @@ func (h *EnvironmentHandlers) handleEnvironmentError(w http.ResponseWriter, err 
 	case errors.Is(err, environments.ErrInvalidName):
 		h.respondError(w, http.StatusBadRequest, "invalid_name", err.Error())
 	default:
-		h.logger.Error("Unexpected environment error", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Unexpected environment error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }

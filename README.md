@@ -249,6 +249,16 @@ Docker Compose reads `.env` in the repository root (copy `.env.example`), where 
 named `MASTER_KEK` and `JWT_SECRET` and the database settings `DATABASE_USER`,
 `DATABASE_PASSWORD` and `DATABASE_NAME`; `docker-compose.yml` maps them to the variables above.
 
+### Logs
+
+The API writes JSON logs to stdout, one object per line. Each request gets an ID, returned in the
+`X-Request-ID` response header (a well-formed incoming `X-Request-ID` from a load balancer is
+kept), and every line logged while handling the request carries `request_id` and, once
+authenticated, `user_id`. Access log lines record the method, path, route, status, size,
+duration and client IP. Headers, query strings and bodies are never logged, so tokens,
+passwords and secret values stay out of the logs; `TestLogsNeverContainCredentials` checks this.
+The one exception is the development-only email fallback below.
+
 ### Email in Development
 
 Registration sends a verification link, and login is blocked until the address is verified.

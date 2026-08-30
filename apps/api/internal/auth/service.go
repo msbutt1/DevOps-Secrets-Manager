@@ -484,7 +484,7 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*Regis
 	go func() {
 		if err := s.emailService.SendVerificationEmail(context.Background(), user.Email, req.Name, verificationToken); err != nil {
 			// Log error but don't fail registration
-			s.logger.Error("failed to send verification email", slog.String("user_id", userID.String()), slog.Any("error", err))
+			s.logger.ErrorContext(ctx, "failed to send verification email", slog.String("user_id", userID.String()), slog.Any("error", err))
 		}
 	}()
 

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -113,7 +114,7 @@ func (h *SecretHandlers) HandleListSecrets(w http.ResponseWriter, r *http.Reques
 	// Resolve the environment, then check the caller's role on the vault that owns it
 	environment, err := h.envService.GetEnvironment(r.Context(), envID)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -124,7 +125,7 @@ func (h *SecretHandlers) HandleListSecrets(w http.ResponseWriter, r *http.Reques
 	// List secrets by environment
 	secretList, err := h.secretService.ListSecretsByEnvironment(r.Context(), envID)
 	if err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -157,7 +158,7 @@ func (h *SecretHandlers) HandleCreateSecret(w http.ResponseWriter, r *http.Reque
 	// Resolve the environment, then check the caller's role on the vault that owns it
 	environment, err := h.envService.GetEnvironment(r.Context(), envID)
 	if err != nil {
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -193,7 +194,7 @@ func (h *SecretHandlers) HandleCreateSecret(w http.ResponseWriter, r *http.Reque
 		claims.UserID,
 	)
 	if err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -220,7 +221,7 @@ func (h *SecretHandlers) HandleUpdateSecret(w http.ResponseWriter, r *http.Reque
 	// Get secret metadata
 	secret, err := h.secretService.GetSecretMetadata(r.Context(), secretID)
 	if err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -231,7 +232,7 @@ func (h *SecretHandlers) HandleUpdateSecret(w http.ResponseWriter, r *http.Reque
 			h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
 			return
 		}
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -269,7 +270,7 @@ func (h *SecretHandlers) HandleUpdateSecret(w http.ResponseWriter, r *http.Reque
 		claims.UserID,
 	)
 	if err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -296,7 +297,7 @@ func (h *SecretHandlers) HandleDeleteSecret(w http.ResponseWriter, r *http.Reque
 	// Get secret metadata
 	secret, err := h.secretService.GetSecretMetadata(r.Context(), secretID)
 	if err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -307,7 +308,7 @@ func (h *SecretHandlers) HandleDeleteSecret(w http.ResponseWriter, r *http.Reque
 			h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
 			return
 		}
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -317,7 +318,7 @@ func (h *SecretHandlers) HandleDeleteSecret(w http.ResponseWriter, r *http.Reque
 
 	// Delete secret
 	if err := h.secretService.DeleteSecret(r.Context(), secretID, claims.UserID); err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -344,7 +345,7 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 	// Get secret metadata
 	secret, err := h.secretService.GetSecretMetadata(r.Context(), secretID)
 	if err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -355,7 +356,7 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 			h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
 			return
 		}
-		h.handleEnvironmentError(w, err)
+		h.handleEnvironmentError(w, r, err)
 		return
 	}
 
@@ -366,7 +367,7 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 	// Reveal secret (this will audit log the reveal action)
 	plaintextValue, err := h.secretService.RevealSecret(r.Context(), secretID, claims.UserID)
 	if err != nil {
-		h.handleSecretError(w, err)
+		h.handleSecretError(w, r, err)
 		return
 	}
 
@@ -381,8 +382,8 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 }
 
 // logPolicyError logs a failed permission lookup
-func (h *SecretHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check vault permissions", slog.Any("error", err))
+func (h *SecretHandlers) logPolicyError(ctx context.Context, err error) {
+	h.logger.ErrorContext(ctx, "Failed to check vault permissions", slog.Any("error", err))
 }
 
 // toSecretMetadataResponse converts a Secret domain model to SecretMetadataResponse DTO
@@ -410,7 +411,7 @@ func (h *SecretHandlers) toSecretMetadataResponse(secret *secrets.Secret) Secret
 func (h *SecretHandlers) reload(r *http.Request, secret *secrets.Secret) *secrets.Secret {
 	fresh, err := h.secretService.GetSecretMetadata(r.Context(), secret.ID)
 	if err != nil {
-		h.logger.Error("Failed to reload secret", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Failed to reload secret", slog.Any("error", err))
 		return secret
 	}
 	return fresh
@@ -434,25 +435,25 @@ func rotationPolicy(secret *secrets.Secret) *RotationPolicyResponse {
 }
 
 // handleSecretError maps secret service errors to appropriate HTTP responses
-func (h *SecretHandlers) handleSecretError(w http.ResponseWriter, err error) {
+func (h *SecretHandlers) handleSecretError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, secrets.ErrNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
 	case errors.Is(err, secrets.ErrDuplicate):
 		h.respondError(w, http.StatusConflict, "duplicate", "Secret with this key already exists in the environment")
 	default:
-		h.logger.Error("Unexpected secret error", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Unexpected secret error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }
 
 // handleEnvironmentError maps environment service errors to appropriate HTTP responses
-func (h *SecretHandlers) handleEnvironmentError(w http.ResponseWriter, err error) {
+func (h *SecretHandlers) handleEnvironmentError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, environments.ErrNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Environment not found")
 	default:
-		h.logger.Error("Unexpected environment error", slog.Any("error", err))
+		h.logger.ErrorContext(r.Context(), "Unexpected environment error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }

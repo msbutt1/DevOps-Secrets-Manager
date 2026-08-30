@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/app"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/logging"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/testutil"
 )
 
@@ -46,6 +47,8 @@ type User struct {
 type Options struct {
 	// RateLimits keeps the production rate limits enabled.
 	RateLimits bool
+	// LogOutput receives the API's JSON logs (discarded when nil).
+	LogOutput io.Writer
 }
 
 // New starts the API on a fresh, migrated database.
@@ -60,11 +63,15 @@ func NewWithOptions(t *testing.T, opts Options) *Server {
 
 	kek, _ := hex.DecodeString("7f3a9c1e5b2d8f406a1c3e5b7d9f02468ace13579bdf02468ace13579bdf0246")
 	recorder := &EmailRecorder{}
+	logOutput := opts.LogOutput
+	if logOutput == nil {
+		logOutput = io.Discard
+	}
 	handler, err := app.New(pool, app.Config{
 		MasterKEK: kek,
 		JWTSecret: "integration-test-jwt-secret-5f8e2a9c4b7d1e3f",
 		Email:     recorder,
-		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:    logging.New(logOutput, slog.LevelDebug),
 		// Tests make many requests from one address; TestRateLimits builds its own server.
 		DisableRateLimits: !opts.RateLimits,
 	})
@@ -123,6 +130,13 @@ func (s *Server) DoWithCookies(method, path, token string, body any, cookies ...
 	for _, c := range cookies {
 		req.AddCookie(c)
 	}
+	return s.Send(req)
+}
+
+// Send performs a prepared request, for tests that need custom headers.
+func (s *Server) Send(req *http.Request) Response {
+	s.t.Helper()
+	method, path := req.Method, req.URL.Path
 	resp, err := s.Client().Do(req)
 	if err != nil {
 		s.t.Fatalf("%s %s: %v", method, path, err)

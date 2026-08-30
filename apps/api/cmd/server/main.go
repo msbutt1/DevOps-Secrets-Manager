@@ -15,6 +15,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/config"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/logging"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/storage"
 	"github.com/spf13/viper"
 )
@@ -24,7 +25,7 @@ var version = "dev"
 
 func main() {
 	// JSON logs on stdout, one object per line
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := logging.New(os.Stdout, slog.LevelInfo)
 	slog.SetDefault(logger)
 	fatal := func(msg string, args ...any) {
 		logger.Error(msg, args...)
