@@ -35,7 +35,7 @@ export interface paths {
     put?: never;
     /**
      * Register
-     * @description Creates the account and the user's own organization, and sends a verification email. Login is refused until the email is verified.
+     * @description Creates the account and the user's own organization, and sends a verification email. Login is refused until the email is verified. Passwords must be 12 to 72 bytes, use at least 5 different characters, not be a common password (including with digits or symbols added or letters swapped for digits) and not contain the user's name or email; failures return 400 `validation_failed` with the reason.
      */
     post: operations['register'];
     delete?: never;
@@ -1551,7 +1551,7 @@ export interface operations {
           'application/json': components['schemas']['MessageResponse'];
         };
       };
-      /** @description Missing fields, new password too short, or wrong current password */
+      /** @description Missing fields, a new password that fails the password policy (`validation_failed`), or wrong current password */
       400: {
         headers: {
           [name: string]: unknown;

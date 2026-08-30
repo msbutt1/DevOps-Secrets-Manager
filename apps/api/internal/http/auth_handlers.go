@@ -328,11 +328,6 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if len(req.NewPassword) < 8 {
-		h.respondError(w, http.StatusBadRequest, "invalid_request", "New password must be at least 8 characters")
-		return
-	}
-
 	// Change password
 	if err := h.authService.ChangePassword(r.Context(), claims.UserID, req.CurrentPassword, req.NewPassword); err != nil {
 		h.handleAuthError(w, err)
@@ -369,8 +364,8 @@ func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, err error) {
 		h.respondError(w, http.StatusBadRequest, "invalid_verification", "Invalid or expired verification token")
 	case errors.Is(err, auth.ErrInvalidCurrentPassword):
 		h.respondError(w, http.StatusBadRequest, "invalid_current_password", "Current password is incorrect")
-	case errors.Is(err, auth.ErrPasswordTooShort):
-		h.respondError(w, http.StatusBadRequest, "password_too_short", "Password must be at least 8 characters")
+	case validate.IsValidationError(err):
+		h.respondError(w, http.StatusBadRequest, "validation_failed", err.Error())
 	case errors.Is(err, organizations.ErrInviteNotFound):
 		h.respondError(w, http.StatusBadRequest, "invalid_invite", "This invitation is invalid, expired or already used")
 	case errors.Is(err, organizations.ErrInviteEmailMismatch):

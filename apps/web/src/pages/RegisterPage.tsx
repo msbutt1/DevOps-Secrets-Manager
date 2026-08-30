@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, Panel } from '@/components/win95';
 import { Shield, AlertTriangle, Check } from 'lucide-react';
 import { authApi, invitesApi } from '@/lib/api-client';
+import { passwordProblem } from '@/lib/password';
+import { PasswordStrengthHint } from '@/components/PasswordStrengthHint';
 
 export const RegisterPage = () => {
   const [email, setEmail] = useState('');
@@ -39,8 +41,9 @@ export const RegisterPage = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    const problem = passwordProblem(password, [email, name]);
+    if (problem) {
+      setError(problem);
       return;
     }
 
@@ -207,9 +210,13 @@ export const RegisterPage = () => {
                 required
                 autoComplete="new-password"
                 disabled={isSubmitting}
-                minLength={8}
+                aria-describedby="password-hint"
               />
-              <p className="text-win-small text-muted-foreground mt-1">Minimum 8 characters</p>
+              <PasswordStrengthHint
+                id="password-hint"
+                password={password}
+                personal={[email, name]}
+              />
             </div>
 
             <div>

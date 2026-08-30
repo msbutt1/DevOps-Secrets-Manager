@@ -2,6 +2,7 @@
 package validate
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"regexp"
@@ -139,4 +140,108 @@ func First(errs ...error) error {
 		}
 	}
 	return nil
+}
+
+// MinPasswordLength follows NIST SP 800-63B: length and a blocklist instead of composition rules.
+const MinPasswordLength = 12
+
+//go:embed common-passwords.txt
+var commonPasswordsFile string
+
+var commonPasswords = func() map[string]struct{} {
+	set := make(map[string]struct{}, 10000)
+	for _, line := range strings.Split(commonPasswordsFile, "\n") {
+		if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
+			set[line] = struct{}{}
+		}
+	}
+	return set
+}()
+
+var leetReplacer = strings.NewReplacer("0", "o", "1", "i", "3", "e", "4", "a", "5", "s", "7", "t", "@", "a", "$", "s")
+
+// Password checks a new password: 12 to 72 bytes, not a common password (also after removing
+// leading/trailing digits and symbols and undoing letter-for-digit swaps, so "Passw0rd2024!"
+// counts as common), not built from the user's own name or email, and not one repeated pattern.
+func Password(password string, personal ...string) error {
+	if err := PasswordLength(password); err != nil {
+		return err
+	}
+	if utf8.RuneCountInString(password) < MinPasswordLength {
+		return fail("password must be at least %d characters", MinPasswordLength)
+	}
+
+	distinct := map[rune]bool{}
+	for _, r := range password {
+		distinct[unicode.ToLower(r)] = true
+	}
+	if len(distinct) < 5 {
+		return fail("password must use at least 5 different characters")
+	}
+
+	lower := strings.ToLower(password)
+	if isSequence(lower) {
+		return fail("password is too common; choose a longer phrase that is not a well-known password")
+	}
+	for _, candidate := range passwordVariants(lower) {
+		if _, ok := commonPasswords[candidate]; ok {
+			return fail("password is too common; choose a longer phrase that is not a well-known password")
+		}
+	}
+
+	for _, value := range personal {
+		for _, part := range personalParts(value) {
+			if strings.Contains(lower, part) || strings.Contains(leetReplacer.Replace(lower), part) {
+				return fail("password must not contain your name or email address")
+			}
+		}
+	}
+	return nil
+}
+
+// passwordVariants returns the password as typed, with digits and symbols trimmed from both
+// ends, and both again with common letter substitutions undone.
+func passwordVariants(lower string) []string {
+	trimmed := strings.TrimFunc(lower, func(r rune) bool { return !unicode.IsLetter(r) })
+	candidates := []string{lower, trimmed, leetReplacer.Replace(lower), leetReplacer.Replace(trimmed)}
+	var out []string
+	for _, c := range candidates {
+		if len(c) >= 4 {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// isSequence reports whether the characters only step up or down by one, like "1234567890123"
+// or "abcdefghijkl" (digits wrap from 9 to 0).
+func isSequence(s string) bool {
+	step := func(a, b byte) int {
+		if a >= '0' && a <= '9' && b >= '0' && b <= '9' {
+			return (int(b) - int(a) + 10) % 10
+		}
+		return int(b) - int(a)
+	}
+	up, down := true, true
+	for i := 1; i < len(s); i++ {
+		d := step(s[i-1], s[i])
+		up = up && d == 1
+		down = down && (d == -1 || d == 9)
+	}
+	return up || down
+}
+
+// personalParts splits a name or email into lowercase words of at least 4 characters.
+func personalParts(value string) []string {
+	value = strings.ToLower(value)
+	if at := strings.IndexByte(value, '@'); at >= 0 {
+		value = value[:at]
+	}
+	var parts []string
+	for _, part := range strings.FieldsFunc(value, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
+		if len(part) >= 4 {
+			parts = append(parts, part)
+		}
+	}
+	return parts
 }

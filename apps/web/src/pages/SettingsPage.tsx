@@ -4,6 +4,8 @@ import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input } from '@/components/win95';
 import { User, Shield, Clock, Building, AlertTriangle, Check } from 'lucide-react';
 import { authApi } from '@/lib/api-client';
+import { passwordProblem } from '@/lib/password';
+import { PasswordStrengthHint } from '@/components/PasswordStrengthHint';
 import { InviteMemberDialog } from '@/components/InviteMemberDialog';
 import type { UserOrganization } from '@/types/api';
 
@@ -18,6 +20,8 @@ export const SettingsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const personal = user ? [user.email, user.name] : [];
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -27,8 +31,9 @@ export const SettingsPage = () => {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters');
+    const problem = passwordProblem(newPassword, personal);
+    if (problem) {
+      setError(problem);
       return;
     }
 
@@ -263,11 +268,14 @@ export const SettingsPage = () => {
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
                       disabled={isSubmitting}
-                      minLength={8}
+                      autoComplete="new-password"
+                      aria-describedby="new-password-hint"
                     />
-                    <p className="text-win-small text-muted-foreground mt-1">
-                      Minimum 8 characters
-                    </p>
+                    <PasswordStrengthHint
+                      id="new-password-hint"
+                      password={newPassword}
+                      personal={personal}
+                    />
                   </div>
 
                   <div>

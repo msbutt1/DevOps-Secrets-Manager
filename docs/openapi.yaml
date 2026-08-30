@@ -62,7 +62,7 @@ paths:
     post:
       tags: [Authentication]
       summary: Register
-      description: Creates the account and the user's own organization, and sends a verification email. Login is refused until the email is verified.
+      description: Creates the account and the user's own organization, and sends a verification email. Login is refused until the email is verified. Passwords must be 12 to 72 bytes, use at least 5 different characters, not be a common password (including with digits or symbols added or letters swapped for digits) and not contain the user's name or email; failures return 400 `validation_failed` with the reason.
       operationId: register
       security: []
       requestBody:
@@ -236,7 +236,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MessageResponse' }
         '400':
-          description: Missing fields, new password too short, or wrong current password
+          description: Missing fields, a new password that fails the password policy (`validation_failed`), or wrong current password
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -1266,7 +1266,7 @@ components:
       required: [current_password, new_password]
       properties:
         current_password: { type: string, format: password }
-        new_password: { type: string, format: password, minLength: 8 }
+        new_password: { type: string, format: password, minLength: 12, maxLength: 72 }
 
     UserOrganization:
       type: object

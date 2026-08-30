@@ -17,6 +17,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/tokens"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 
 	"github.com/google/uuid"
 )
@@ -32,7 +33,6 @@ var (
 	ErrUserAlreadyExists      = errors.New("user already exists")
 	ErrInvalidVerification    = errors.New("invalid or expired verification token")
 	ErrInvalidCurrentPassword = errors.New("current password is incorrect")
-	ErrPasswordTooShort       = errors.New("password must be at least 8 characters")
 )
 
 // LockedError is returned while an account is locked after repeated failed logins.
@@ -385,6 +385,10 @@ func (s *authService) hashToken(token string) string {
 // Register creates a new user account. Without an invitation it also creates the user's own
 // organization and sends a verification email; with one it joins the invited organization.
 func (s *authService) Register(ctx context.Context, req RegisterRequest) (*RegisterResult, error) {
+	if err := validate.Password(req.Password, req.Email, req.Name); err != nil {
+		return nil, err
+	}
+
 	// Hash the password
 	passwordHash, err := crypto.HashPassword(req.Password)
 	if err != nil {
@@ -535,11 +539,6 @@ func (s *authService) generateVerificationToken() (string, error) {
 
 // ChangePassword changes a user's password after verifying their current password
 func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
-	// Validate new password length
-	if len(newPassword) < 8 {
-		return ErrPasswordTooShort
-	}
-
 	// Get user by ID
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
@@ -552,6 +551,10 @@ func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 	// Verify current password
 	if err := crypto.VerifyPassword(currentPassword, user.PasswordHash); err != nil {
 		return ErrInvalidCurrentPassword
+	}
+
+	if err := validate.Password(newPassword, user.Email, user.Name); err != nil {
+		return err
 	}
 
 	// Hash new password

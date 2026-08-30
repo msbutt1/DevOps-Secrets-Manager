@@ -193,6 +193,11 @@ its tokens in the operating system keyring; the web app keeps the access token i
 in an `HttpOnly`, `SameSite=Strict` cookie. Changing `APP_JWT_SECRET` signs everyone out of
 their access tokens; they get new ones from their refresh token.
 
+Passwords must be 12 to 72 bytes and are checked against the 10,000 most common passwords
+(also with digits or symbols added and letters swapped for digits), simple sequences, and the
+user's own name and email. There are no composition rules, following NIST SP 800-63B; the
+register and change-password forms show a strength hint while typing.
+
 ### Role Permissions
 
 Roles are set per vault. Organization owners and admins have that role on every vault in the
