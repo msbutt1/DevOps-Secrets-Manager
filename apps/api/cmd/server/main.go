@@ -17,30 +17,29 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/storage"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 // version is set at build time with -ldflags "-X main.version=v1.0.0".
 var version = "dev"
 
 func main() {
-	// Initialize logger
-	logger, err := zap.NewProduction()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+	// JSON logs on stdout, one object per line
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+	fatal := func(msg string, args ...any) {
+		logger.Error(msg, args...)
 		os.Exit(1)
 	}
-	defer logger.Sync()
 
 	// Load configuration
 	if err := config.Load(); err != nil {
-		logger.Fatal("Failed to load configuration", zap.Error(err))
+		fatal("Failed to load configuration", slog.Any("error", err))
 	}
 
 	// Load and validate Master KEK
 	masterKEK, err := crypto.LoadKEKFromEnv()
 	if err != nil {
-		logger.Fatal("Refusing to start with an invalid master key", zap.Error(err))
+		fatal("Refusing to start with an invalid master key", slog.Any("error", err))
 	}
 	logger.Info("Master KEK loaded successfully")
 
@@ -50,7 +49,7 @@ func main() {
 
 	pool, err := storage.NewPostgresPool(ctx, dbConfig)
 	if err != nil {
-		logger.Fatal("Failed to connect to database", zap.Error(err))
+		fatal("Failed to connect to database", slog.Any("error", err))
 	}
 	defer pool.Close()
 
@@ -59,29 +58,26 @@ func main() {
 	// Run database migrations
 	migrationsPath := config.MigrationsPath()
 
-	logger.Info("Running database migrations", zap.String("path", migrationsPath))
+	logger.Info("Running database migrations", slog.String("path", migrationsPath))
 	if err := storage.RunMigrations(pool, migrationsPath); err != nil {
-		logger.Fatal("Failed to run database migrations", zap.Error(err))
+		fatal("Failed to run database migrations", slog.Any("error", err))
 	}
 	logger.Info("Database migrations completed successfully")
-
-	// Create slog logger for components that need it
-	slogger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	// Create email service
 	emailService := email.NewEmailServiceFromEnv(email.Options{
 		PublicURL:   config.PublicURL(),
 		Development: config.IsDevelopment(),
-	}, slogger)
-	logger.Info("Environment", zap.String("app_env", config.Environment()), zap.String("public_url", config.PublicURL()))
+	}, logger)
+	logger.Info("Environment", slog.String("app_env", config.Environment()), slog.String("public_url", config.PublicURL()))
 
 	// Read JWT configuration
 	jwtSecret := viper.GetString("jwt.secret")
 	if err := crypto.ValidateJWTSecret(jwtSecret); err != nil {
-		logger.Fatal("Refusing to start with an insecure JWT secret", zap.Error(err))
+		fatal("Refusing to start with an insecure JWT secret", slog.Any("error", err))
 	}
 	if strings.EqualFold(jwtSecret, os.Getenv("MASTER_KEK")) {
-		logger.Fatal("Refusing to start: APP_JWT_SECRET must differ from MASTER_KEK")
+		fatal("Refusing to start: APP_JWT_SECRET must differ from MASTER_KEK")
 	}
 
 	router, err := app.New(pool, app.Config{
@@ -91,7 +87,6 @@ func main() {
 		RefreshTokenTTL: viper.GetDuration("jwt.refresh_token_ttl"),
 		Email:           emailService,
 		Logger:          logger,
-		SLogger:         slogger,
 
 		RevealAutoHideSeconds: viper.GetInt("reveal_auto_hide_seconds"),
 		Version:               version,
@@ -100,7 +95,7 @@ func main() {
 		InsecureCookies:       config.IsDevelopment(),
 	})
 	if err != nil {
-		logger.Fatal("Invalid configuration", zap.Error(err))
+		fatal("Invalid configuration", slog.Any("error", err))
 	}
 
 	// Configure HTTP server
@@ -119,9 +114,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		logger.Info("Starting HTTP server", zap.Int("port", port))
+		logger.Info("Starting HTTP server", slog.Int("port", port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("Failed to start server", zap.Error(err))
+			fatal("Failed to start server", slog.Any("error", err))
 		}
 	}()
 
@@ -137,7 +132,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Fatal("Server forced to shutdown", zap.Error(err))
+		fatal("Server forced to shutdown", slog.Any("error", err))
 	}
 
 	logger.Info("Server exited gracefully")

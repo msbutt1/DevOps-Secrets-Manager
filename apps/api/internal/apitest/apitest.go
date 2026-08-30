@@ -20,7 +20,6 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/app"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/testutil"
-	"go.uber.org/zap"
 )
 
 // TestPassword is the password given to every user created through the harness.
@@ -65,8 +64,7 @@ func NewWithOptions(t *testing.T, opts Options) *Server {
 		MasterKEK: kek,
 		JWTSecret: "integration-test-jwt-secret-5f8e2a9c4b7d1e3f",
 		Email:     recorder,
-		Logger:    zap.NewNop(),
-		SLogger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 		// Tests make many requests from one address; TestRateLimits builds its own server.
 		DisableRateLimits: !opts.RateLimits,
 	})

@@ -10,7 +10,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // OrganizationResponse is an organization with the caller's role in it
@@ -83,11 +83,11 @@ type InviteTokenRequest struct {
 type OrganizationHandlers struct {
 	service organizations.Service
 	invites organizations.InviteService
-	logger  *zap.Logger
+	logger  *slog.Logger
 }
 
 // NewOrganizationHandlers creates a new instance of OrganizationHandlers
-func NewOrganizationHandlers(service organizations.Service, invites organizations.InviteService, logger *zap.Logger) *OrganizationHandlers {
+func NewOrganizationHandlers(service organizations.Service, invites organizations.InviteService, logger *slog.Logger) *OrganizationHandlers {
 	return &OrganizationHandlers{service: service, invites: invites, logger: logger}
 }
 
@@ -338,7 +338,7 @@ func (h *OrganizationHandlers) handleError(w http.ResponseWriter, err error) {
 	case errors.Is(err, organizations.ErrLastOwner), errors.Is(err, organizations.ErrInvalidName), errors.Is(err, organizations.ErrCannotRemoveSelf), errors.Is(err, organizations.ErrInvalidEmail):
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 	default:
-		h.logger.Error("Unexpected organization error", zap.Error(err))
+		h.logger.Error("Unexpected organization error", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }

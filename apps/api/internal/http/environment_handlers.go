@@ -14,7 +14,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // Request DTOs
@@ -45,11 +45,11 @@ type EnvironmentHandlers struct {
 	auditService       audit.AuditService
 	policyService      policy.PolicyService
 	db                 *pgxpool.Pool
-	logger             *zap.Logger
+	logger             *slog.Logger
 }
 
 // NewEnvironmentHandlers creates a new instance of EnvironmentHandlers
-func NewEnvironmentHandlers(environmentService environments.EnvironmentService, auditService audit.AuditService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger) *EnvironmentHandlers {
+func NewEnvironmentHandlers(environmentService environments.EnvironmentService, auditService audit.AuditService, policyService policy.PolicyService, db *pgxpool.Pool, logger *slog.Logger) *EnvironmentHandlers {
 	return &EnvironmentHandlers{
 		environmentService: environmentService,
 		auditService:       auditService,
@@ -268,7 +268,7 @@ func (h *EnvironmentHandlers) record(r *http.Request, userID uuid.UUID, action s
 
 // logPolicyError logs a failed permission lookup
 func (h *EnvironmentHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check vault permissions", zap.Error(err))
+	h.logger.Error("Failed to check vault permissions", slog.Any("error", err))
 }
 
 // toEnvironmentResponse converts an Environment domain model to EnvironmentResponse DTO
@@ -294,7 +294,7 @@ func (h *EnvironmentHandlers) handleEnvironmentError(w http.ResponseWriter, err 
 	case errors.Is(err, environments.ErrInvalidName):
 		h.respondError(w, http.StatusBadRequest, "invalid_name", err.Error())
 	default:
-		h.logger.Error("Unexpected environment error", zap.Error(err))
+		h.logger.Error("Unexpected environment error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }
@@ -304,7 +304,7 @@ func (h *EnvironmentHandlers) respondJSON(w http.ResponseWriter, status int, dat
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		h.logger.Error("Failed to encode JSON response", zap.Error(err))
+		h.logger.Error("Failed to encode JSON response", slog.Any("error", err))
 	}
 }
 

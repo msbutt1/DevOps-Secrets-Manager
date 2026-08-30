@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // accessibleVaultsCTE selects the IDs of live vaults user $1 can access, limited to organization
@@ -53,13 +53,13 @@ type StatsResponse struct {
 // StatsHandlers serves dashboard statistics and the health check
 type StatsHandlers struct {
 	db        *pgxpool.Pool
-	logger    *zap.Logger
+	logger    *slog.Logger
 	startedAt time.Time
 	version   string
 }
 
 // NewStatsHandlers creates a new instance of StatsHandlers
-func NewStatsHandlers(db *pgxpool.Pool, logger *zap.Logger, startedAt time.Time, version string) *StatsHandlers {
+func NewStatsHandlers(db *pgxpool.Pool, logger *slog.Logger, startedAt time.Time, version string) *StatsHandlers {
 	return &StatsHandlers{db: db, logger: logger, startedAt: startedAt, version: version}
 }
 
@@ -97,7 +97,7 @@ func (h *StatsHandlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 		&stats.Vaults, &stats.Environments, &stats.Secrets,
 		&stats.SecretsExpired, &stats.SecretsExpiringSoon, &stats.SecretsRotationOverdue,
 	); err != nil {
-		h.logger.Error("Failed to compute secret statistics", zap.Error(err))
+		h.logger.Error("Failed to compute secret statistics", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to load statistics")
 		return
 	}
@@ -119,7 +119,7 @@ func (h *StatsHandlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 		FROM people p
 	`
 	if err := h.db.QueryRow(r.Context(), usersQuery, claims.UserID, orgFilter, activeUserWindow).Scan(&stats.Users, &stats.ActiveUsers); err != nil {
-		h.logger.Error("Failed to compute user statistics", zap.Error(err))
+		h.logger.Error("Failed to compute user statistics", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to load statistics")
 		return
 	}
@@ -209,7 +209,7 @@ func (h *StatsHandlers) HandleAlerts(w http.ResponseWriter, r *http.Request) {
 	`
 	rows, err := h.db.Query(r.Context(), query, claims.UserID, orgFilter, alertExpiringWindow, inactiveMemberWindow, maxAlerts)
 	if err != nil {
-		h.logger.Error("Failed to load alerts", zap.Error(err))
+		h.logger.Error("Failed to load alerts", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to load alerts")
 		return
 	}
@@ -219,7 +219,7 @@ func (h *StatsHandlers) HandleAlerts(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var a Alert
 		if err := rows.Scan(&a.Type, &a.VaultID, &a.VaultName, &a.EnvironmentName, &a.TargetID, &a.TargetName, &a.DueAt); err != nil {
-			h.logger.Error("Failed to scan alert", zap.Error(err))
+			h.logger.Error("Failed to scan alert", slog.Any("error", err))
 			writeError(w, http.StatusInternalServerError, "internal_error", "Failed to load alerts")
 			return
 		}
@@ -227,7 +227,7 @@ func (h *StatsHandlers) HandleAlerts(w http.ResponseWriter, r *http.Request) {
 		alerts = append(alerts, a)
 	}
 	if err := rows.Err(); err != nil {
-		h.logger.Error("Failed to read alerts", zap.Error(err))
+		h.logger.Error("Failed to read alerts", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to load alerts")
 		return
 	}
@@ -298,7 +298,7 @@ func (h *StatsHandlers) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.db.Ping(ctx); err != nil {
-		h.logger.Warn("Health check: database ping failed", zap.Error(err))
+		h.logger.Warn("Health check: database ping failed", slog.Any("error", err))
 		resp.Status, resp.Database = "unavailable", "unreachable"
 		writeJSON(w, http.StatusServiceUnavailable, resp)
 		return
@@ -312,7 +312,7 @@ func (h *StatsHandlers) HandleHealth(w http.ResponseWriter, r *http.Request) {
 		resp.MigrationVersion = &v
 	case errors.Is(err, pgx.ErrNoRows):
 	default:
-		h.logger.Warn("Health check: reading schema version failed", zap.Error(err))
+		h.logger.Warn("Health check: reading schema version failed", slog.Any("error", err))
 	}
 
 	status := http.StatusOK

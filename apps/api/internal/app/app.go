@@ -21,7 +21,6 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/tokens"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
-	"go.uber.org/zap"
 )
 
 // Config holds everything the API needs besides the database pool.
@@ -31,8 +30,7 @@ type Config struct {
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 	Email           email.EmailService
-	Logger          *zap.Logger
-	SLogger         *slog.Logger
+	Logger          *slog.Logger
 	// RevealAutoHideSeconds is returned with revealed values as the client auto-hide window
 	// (default 30, clamped to 5-600).
 	RevealAutoHideSeconds int
@@ -81,9 +79,9 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 	// Create services
 	vaultService := vaults.NewVaultService(vaultRepo, cfg.MasterKEK)
 	environmentService := environments.NewEnvironmentService(environmentRepo)
-	auditService := audit.NewAuditService(auditRepo, cfg.SLogger)
+	auditService := audit.NewAuditService(auditRepo, cfg.Logger)
 	orgRepo := organizations.NewPostgresRepository(pool)
-	inviteService := organizations.NewInviteService(pool, orgRepo, cfg.Email, auditService, cfg.SLogger)
+	inviteService := organizations.NewInviteService(pool, orgRepo, cfg.Email, auditService, cfg.Logger)
 	authService := auth.NewAuthService(
 		userRepo,
 		refreshTokenRepo,
@@ -93,7 +91,7 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 		cfg.JWTSecret,
 		cfg.AccessTokenTTL,
 		cfg.RefreshTokenTTL,
-		cfg.SLogger,
+		cfg.Logger,
 		auditService,
 		inviteService,
 	)
@@ -108,7 +106,7 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 	vaultHandlers := httphandler.NewVaultHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 	environmentHandlers := httphandler.NewEnvironmentHandlers(environmentService, auditService, policyService, pool, cfg.Logger)
 	secretHandlers := httphandler.NewSecretHandlers(secretService, environmentService, policyService, pool, cfg.Logger, cfg.RevealAutoHideSeconds)
-	auditHandlers := httphandler.NewAuditHandlers(auditService, policyService, pool, cfg.SLogger)
+	auditHandlers := httphandler.NewAuditHandlers(auditService, policyService, pool, cfg.Logger)
 	memberHandlers := httphandler.NewMemberHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
 
 	statsHandlers := httphandler.NewStatsHandlers(pool, cfg.Logger, startedAt, cfg.Version)

@@ -14,7 +14,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/organizations"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // Request DTOs
@@ -94,12 +94,12 @@ type ErrorResponse struct {
 type AuthHandlers struct {
 	authService auth.AuthService
 	db          *pgxpool.Pool
-	logger      *zap.Logger
+	logger      *slog.Logger
 	cookie      RefreshCookie
 }
 
 // NewAuthHandlers creates a new instance of AuthHandlers
-func NewAuthHandlers(authService auth.AuthService, db *pgxpool.Pool, logger *zap.Logger, cookie RefreshCookie) *AuthHandlers {
+func NewAuthHandlers(authService auth.AuthService, db *pgxpool.Pool, logger *slog.Logger, cookie RefreshCookie) *AuthHandlers {
 	return &AuthHandlers{
 		authService: authService,
 		db:          db,
@@ -190,7 +190,7 @@ func (h *AuthHandlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 	// Get user's organizations
 	orgs, err := h.getUserOrganizations(r.Context(), claims.UserID)
 	if err != nil {
-		h.logger.Error("Failed to get user organizations", zap.Error(err))
+		h.logger.Error("Failed to get user organizations", slog.Any("error", err))
 		// Don't fail the request, just return empty organizations
 		orgs = []UserOrganizationDTO{}
 	}
@@ -371,7 +371,7 @@ func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, err error) {
 	case errors.Is(err, organizations.ErrInviteEmailMismatch):
 		h.respondError(w, http.StatusBadRequest, "invite_email_mismatch", "Register with the email address the invitation was sent to")
 	default:
-		h.logger.Error("Unexpected auth error", zap.Error(err))
+		h.logger.Error("Unexpected auth error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }
@@ -395,7 +395,7 @@ func (h *AuthHandlers) respondJSON(w http.ResponseWriter, status int, data inter
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		h.logger.Error("Failed to encode JSON response", zap.Error(err))
+		h.logger.Error("Failed to encode JSON response", slog.Any("error", err))
 	}
 }
 

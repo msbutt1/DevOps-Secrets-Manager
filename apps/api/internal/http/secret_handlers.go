@@ -14,7 +14,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/secrets"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // Request DTOs
@@ -76,13 +76,13 @@ type SecretHandlers struct {
 	envService    environments.EnvironmentService
 	policyService policy.PolicyService
 	db            *pgxpool.Pool
-	logger        *zap.Logger
+	logger        *slog.Logger
 
 	revealAutoHideSeconds int
 }
 
 // NewSecretHandlers creates a new instance of SecretHandlers
-func NewSecretHandlers(secretService secrets.SecretService, envService environments.EnvironmentService, policyService policy.PolicyService, db *pgxpool.Pool, logger *zap.Logger, revealAutoHideSeconds int) *SecretHandlers {
+func NewSecretHandlers(secretService secrets.SecretService, envService environments.EnvironmentService, policyService policy.PolicyService, db *pgxpool.Pool, logger *slog.Logger, revealAutoHideSeconds int) *SecretHandlers {
 	return &SecretHandlers{
 		revealAutoHideSeconds: revealAutoHideSeconds,
 		secretService:         secretService,
@@ -382,7 +382,7 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 
 // logPolicyError logs a failed permission lookup
 func (h *SecretHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check vault permissions", zap.Error(err))
+	h.logger.Error("Failed to check vault permissions", slog.Any("error", err))
 }
 
 // toSecretMetadataResponse converts a Secret domain model to SecretMetadataResponse DTO
@@ -410,7 +410,7 @@ func (h *SecretHandlers) toSecretMetadataResponse(secret *secrets.Secret) Secret
 func (h *SecretHandlers) reload(r *http.Request, secret *secrets.Secret) *secrets.Secret {
 	fresh, err := h.secretService.GetSecretMetadata(r.Context(), secret.ID)
 	if err != nil {
-		h.logger.Error("Failed to reload secret", zap.Error(err))
+		h.logger.Error("Failed to reload secret", slog.Any("error", err))
 		return secret
 	}
 	return fresh
@@ -441,7 +441,7 @@ func (h *SecretHandlers) handleSecretError(w http.ResponseWriter, err error) {
 	case errors.Is(err, secrets.ErrDuplicate):
 		h.respondError(w, http.StatusConflict, "duplicate", "Secret with this key already exists in the environment")
 	default:
-		h.logger.Error("Unexpected secret error", zap.Error(err))
+		h.logger.Error("Unexpected secret error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }
@@ -452,7 +452,7 @@ func (h *SecretHandlers) handleEnvironmentError(w http.ResponseWriter, err error
 	case errors.Is(err, environments.ErrNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Environment not found")
 	default:
-		h.logger.Error("Unexpected environment error", zap.Error(err))
+		h.logger.Error("Unexpected environment error", slog.Any("error", err))
 		h.respondError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }
@@ -462,7 +462,7 @@ func (h *SecretHandlers) respondJSON(w http.ResponseWriter, status int, data int
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		h.logger.Error("Failed to encode JSON response", zap.Error(err))
+		h.logger.Error("Failed to encode JSON response", slog.Any("error", err))
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/secrets"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/servicetokens"
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 // ServiceTokenResponse describes a service token without its secret value
@@ -65,16 +65,16 @@ type ServiceTokenHandlers struct {
 	envService    environments.EnvironmentService
 	auditService  audit.AuditService
 	policyService policy.PolicyService
-	logger        *zap.Logger
+	logger        *slog.Logger
 }
 
 // NewServiceTokenHandlers creates a new instance of ServiceTokenHandlers
-func NewServiceTokenHandlers(tokens servicetokens.Service, secretService secrets.SecretService, envService environments.EnvironmentService, auditService audit.AuditService, policyService policy.PolicyService, logger *zap.Logger) *ServiceTokenHandlers {
+func NewServiceTokenHandlers(tokens servicetokens.Service, secretService secrets.SecretService, envService environments.EnvironmentService, auditService audit.AuditService, policyService policy.PolicyService, logger *slog.Logger) *ServiceTokenHandlers {
 	return &ServiceTokenHandlers{tokens: tokens, secrets: secretService, envService: envService, auditService: auditService, policyService: policyService, logger: logger}
 }
 
 func (h *ServiceTokenHandlers) logPolicyError(err error) {
-	h.logger.Error("Failed to check vault permissions", zap.Error(err))
+	h.logger.Error("Failed to check vault permissions", slog.Any("error", err))
 }
 
 // environmentForManager resolves the environment in the URL and checks the caller may manage its tokens.
@@ -94,7 +94,7 @@ func (h *ServiceTokenHandlers) environmentForManager(w http.ResponseWriter, r *h
 		if errors.Is(err, environments.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not_found", "Environment not found")
 		} else {
-			h.logger.Error("Failed to get environment", zap.Error(err))
+			h.logger.Error("Failed to get environment", slog.Any("error", err))
 			writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 		}
 		return nil, uuid.Nil, false
@@ -193,7 +193,7 @@ func (h *ServiceTokenHandlers) HandleTokenSecrets(w http.ResponseWriter, r *http
 			writeError(w, http.StatusUnauthorized, "invalid_token", "Invalid, revoked or expired service token")
 			return
 		}
-		h.logger.Error("Failed to authenticate service token", zap.Error(err))
+		h.logger.Error("Failed to authenticate service token", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 		return
 	}
@@ -203,7 +203,7 @@ func (h *ServiceTokenHandlers) HandleTokenSecrets(w http.ResponseWriter, r *http
 		Metadata:       map[string]interface{}{"via": "service_token", "token_prefix": token.Prefix},
 	})
 	if err != nil {
-		h.logger.Error("Failed to export environment for service token", zap.Error(err))
+		h.logger.Error("Failed to export environment for service token", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 		return
 	}
@@ -222,7 +222,7 @@ func (h *ServiceTokenHandlers) handleError(w http.ResponseWriter, err error) {
 	case errors.Is(err, servicetokens.ErrInvalidName), errors.Is(err, servicetokens.ErrInvalidExpiry):
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 	default:
-		h.logger.Error("Unexpected service token error", zap.Error(err))
+		h.logger.Error("Unexpected service token error", slog.Any("error", err))
 		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
 	}
 }
