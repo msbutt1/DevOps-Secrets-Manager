@@ -138,6 +138,23 @@ lint-web: web-deps
 lint-cli:
 	cd apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings
 
+.PHONY: audit audit-api audit-web audit-cli
+audit: audit-api audit-web audit-cli ## Scan dependencies for known vulnerabilities
+
+GOVULNCHECK_VERSION ?= v1.1.4
+CARGO_AUDIT_VERSION ?= 0.22.2
+
+audit-api:
+	@command -v govulncheck >/dev/null || { echo "Install govulncheck: go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)"; exit 1; }
+	govulncheck ./...
+
+audit-web: web-deps
+	cd apps/web && npm audit --audit-level=moderate
+
+audit-cli:
+	@command -v cargo-audit >/dev/null || { echo "Install cargo-audit: cargo install cargo-audit --locked --version $(CARGO_AUDIT_VERSION)"; exit 1; }
+	cd apps/cli && cargo audit
+
 .PHONY: build build-api build-web build-cli
 build: build-api build-web build-cli ## Build everything
 

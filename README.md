@@ -284,11 +284,18 @@ openssl rand -hex 32
 make test       # Go, web and CLI tests
 make lint       # gofmt, go vet, ESLint, Prettier, TypeScript, rustfmt and clippy
 make build      # API, web bundle and CLI release binary
+make audit      # govulncheck, npm audit and cargo audit
 ```
 
 Go integration tests create a throwaway database per test on the server named by
 `TEST_DATABASE_URL` (the Makefile points it at the local PostgreSQL from `make db`) and are
 skipped when it is not set. CI runs the same targets.
+
+The `Dependency scan` workflow runs the three scanners on every push and weekly, so newly
+published advisories fail a run even without code changes. `govulncheck` checks the standard
+library of the Go toolchain it runs with, so run it with the version in `go.mod`'s `toolchain`
+line (`GOTOOLCHAIN=go1.25.14 make audit-api`). Dependabot opens weekly update pull requests for
+Go modules, npm packages, crates, GitHub Actions and Docker base images.
 
 ## Deployment
 
