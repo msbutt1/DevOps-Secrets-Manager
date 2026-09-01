@@ -157,6 +157,9 @@ development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
 
 ## Security Model
 
+The threat model, operating advice, key rotation procedures and how to report a vulnerability
+are in [SECURITY.md](SECURITY.md).
+
 ### Encryption Architecture
 
 ```
