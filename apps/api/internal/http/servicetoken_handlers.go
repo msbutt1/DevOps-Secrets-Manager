@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/secrets"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/servicetokens"
-	"log/slog"
 )
 
 // ServiceTokenResponse describes a service token without its secret value

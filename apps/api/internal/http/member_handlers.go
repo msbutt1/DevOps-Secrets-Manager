@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/users"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
-	"log/slog"
 )
 
 // Request DTOs
