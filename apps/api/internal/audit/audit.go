@@ -23,6 +23,7 @@ const (
 	ActionVaultCreated      = "vault.created"
 	ActionVaultUpdated      = "vault.updated"
 	ActionVaultDeleted      = "vault.deleted"
+	ActionVaultKeyRotated   = "vault.key_rotated"
 	ActionEnvCreated        = "env.created"
 	ActionEnvUpdated        = "env.updated"
 	ActionEnvDeleted        = "env.deleted"
@@ -54,6 +55,7 @@ var Actions = []string{
 	ActionVaultCreated,
 	ActionVaultUpdated,
 	ActionVaultDeleted,
+	ActionVaultKeyRotated,
 	ActionEnvCreated,
 	ActionEnvUpdated,
 	ActionEnvDeleted,

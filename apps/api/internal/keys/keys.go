@@ -123,3 +123,94 @@ func rewrapVault(ctx context.Context, pool *pgxpool.Pool, keyring *crypto.Keyrin
 	}
 	return true, tx.Commit(ctx)
 }
+
+// ErrVaultNotFound is returned by RotateVaultDEK for a missing or deleted vault.
+var ErrVaultNotFound = errors.New("vault not found")
+
+// VaultRotation summarises a RotateVaultDEK run.
+type VaultRotation struct {
+	SecretsReencrypted int
+}
+
+// RotateVaultDEK gives a vault a new data key and re-encrypts all of its secret values,
+// including deleted ones, in one transaction. The vault row is locked first, so secret writes
+// (which take a share lock on it and check the data key) wait and then retry with the new key.
+// The new data key is wrapped with the current master key.
+func RotateVaultDEK(ctx context.Context, pool *pgxpool.Pool, keyring *crypto.Keyring, vaultID uuid.UUID) (VaultRotation, error) {
+	var result VaultRotation
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return result, err
+	}
+	defer tx.Rollback(ctx)
+
+	var wrapped []byte
+	var version int
+	err = tx.QueryRow(ctx, `SELECT encrypted_dek, kek_version FROM vaults WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, vaultID).Scan(&wrapped, &version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return result, ErrVaultNotFound
+	}
+	if err != nil {
+		return result, fmt.Errorf("lock vault: %w", err)
+	}
+	oldDEK, err := keyring.UnwrapDEK(wrapped, version)
+	if err != nil {
+		return result, err
+	}
+	newDEK, err := crypto.GenerateDEK()
+	if err != nil {
+		return result, err
+	}
+
+	rows, err := tx.Query(ctx, `
+		SELECT s.id, s.key_name, s.encrypted_value, s.nonce
+		FROM secrets s
+		JOIN environments e ON e.id = s.environment_id
+		WHERE e.vault_id = $1
+		FOR UPDATE OF s
+	`, vaultID)
+	if err != nil {
+		return result, fmt.Errorf("list secrets: %w", err)
+	}
+	type encrypted struct {
+		id         uuid.UUID
+		key        string
+		ciphertext []byte
+		nonce      []byte
+	}
+	secrets, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (encrypted, error) {
+		var e encrypted
+		return e, row.Scan(&e.id, &e.key, &e.ciphertext, &e.nonce)
+	})
+	if err != nil {
+		return result, fmt.Errorf("list secrets: %w", err)
+	}
+
+	for _, secret := range secrets {
+		plaintext, err := crypto.DecryptValue(secret.ciphertext, secret.nonce, oldDEK)
+		if err != nil {
+			// Nothing has been written yet that the rollback would not undo
+			return result, fmt.Errorf("decrypt %s: %w", secret.key, err)
+		}
+		ciphertext, nonce, err := crypto.EncryptValue(plaintext, newDEK)
+		if err != nil {
+			return result, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE secrets SET encrypted_value = $2, nonce = $3 WHERE id = $1`, secret.id, ciphertext, nonce); err != nil {
+			return result, fmt.Errorf("update %s: %w", secret.key, err)
+		}
+	}
+
+	newWrapped, newVersion, err := keyring.WrapDEK(newDEK)
+	if err != nil {
+		return result, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE vaults SET encrypted_dek = $2, kek_version = $3 WHERE id = $1`, vaultID, newWrapped, newVersion); err != nil {
+		return result, fmt.Errorf("update vault: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return result, err
+	}
+	result.SecretsReencrypted = len(secrets)
+	return result, nil
+}

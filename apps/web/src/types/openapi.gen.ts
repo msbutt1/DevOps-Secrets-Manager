@@ -397,6 +397,31 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/vaults/{id}/rotate-key': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['VaultIdPath'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Rotate the vault's data key
+     * @description Generates a new data key for the vault and re-encrypts every secret value under it in one
+     *     transaction; the old key is discarded. Use it after a suspected exposure of the vault's
+     *     data. Requires the manage-members permission (owners and admins). Audited as
+     *     `vault.key_rotated`.
+     */
+    post: operations['rotateVaultKey'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/vaults/{vault_id}/envs': {
     parameters: {
       query?: never;
@@ -892,6 +917,14 @@ export interface components {
       /** Format: date-time */
       updated_at: string;
     };
+    VaultKeyRotation: {
+      /** Format: uuid */
+      vault_id: string;
+      /** @description Secret values re-encrypted, including deleted secrets */
+      secrets_reencrypted: number;
+      /** Format: date-time */
+      rotated_at: string;
+    };
     CreateVaultRequest: {
       name: string;
       description?: string | null;
@@ -1100,6 +1133,7 @@ export interface components {
       | 'vault.created'
       | 'vault.updated'
       | 'vault.deleted'
+      | 'vault.key_rotated'
       | 'env.created'
       | 'env.updated'
       | 'env.deleted'
@@ -2048,6 +2082,33 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  rotateVaultKey: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['VaultIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Rotated */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VaultKeyRotation'];
+        };
       };
       400: components['responses']['BadRequest'];
       401: components['responses']['Unauthorized'];

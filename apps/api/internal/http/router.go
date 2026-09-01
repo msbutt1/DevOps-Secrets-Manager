@@ -83,6 +83,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		r.Get("/{id}", vaultHandlers.HandleGetVault)
 		r.Put("/{id}", vaultHandlers.HandleUpdateVault)
 		r.Delete("/{id}", vaultHandlers.HandleDeleteVault)
+		r.With(rl.limit("rotate-key", 10, time.Hour, byUser)).Post("/{id}/rotate-key", vaultHandlers.HandleRotateKey)
 
 		// Environment routes nested under vaults
 		r.Post("/{vault_id}/envs", environmentHandlers.HandleCreateEnvironment)

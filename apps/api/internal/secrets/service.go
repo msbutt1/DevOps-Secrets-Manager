@@ -2,11 +2,8 @@ package secrets
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
+	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -78,31 +75,10 @@ func (s *secretService) CreateSecret(
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
-	// Get vault
-	vault, err := s.vaultRepo.GetByID(ctx, env.VaultID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get vault: %w", err)
-	}
-
-	// Decrypt vault's DEK
-	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
-	}
-
-	// Encrypt the plaintext value
-	ciphertext, nonce, err := s.encryptValue([]byte(plaintextValue), dek)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt value: %w", err)
-	}
-
-	// Create secret entity
 	secret := &Secret{
 		ID:                   uuid.New(),
 		EnvironmentID:        envID,
 		KeyName:              keyName,
-		EncryptedValue:       ciphertext,
-		Nonce:                nonce,
 		Description:          description,
 		RotationIntervalDays: rotationDays,
 		ExpiresAt:            expiresAt,
@@ -112,8 +88,17 @@ func (s *secretService) CreateSecret(
 		UpdatedAt:            time.Now(),
 	}
 
-	// Persist to repository
-	if err := s.secretRepo.Create(ctx, secret); err != nil {
+	var vault *vaults.Vault
+	err = retryOnKeyChange(func() error {
+		if vault, err = s.vaultRepo.GetByID(ctx, env.VaultID); err != nil {
+			return fmt.Errorf("failed to get vault: %w", err)
+		}
+		if secret.EncryptedValue, secret.Nonce, err = s.encrypt(vault, plaintextValue); err != nil {
+			return err
+		}
+		return s.secretRepo.Create(ctx, secret, vault.EncryptedDEK)
+	})
+	if err != nil {
 		return nil, fmt.Errorf("failed to create secret: %w", err)
 	}
 
@@ -163,53 +148,45 @@ func (s *secretService) UpdateSecret(
 	metadata map[string]interface{},
 	updatedBy uuid.UUID,
 ) (*Secret, error) {
-	// Get existing secret
-	secret, err := s.secretRepo.GetByID(ctx, secretID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secret: %w", err)
-	}
-
-	// Get environment
-	env, err := s.envRepo.GetByID(ctx, secret.EnvironmentID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get environment: %w", err)
-	}
-
-	// Get vault
-	vault, err := s.vaultRepo.GetByID(ctx, env.VaultID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get vault: %w", err)
-	}
-
-	// Re-encrypt only when a new value was supplied; otherwise keep the stored ciphertext
-	if newPlaintextValue != nil {
-		dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
+	var secret *Secret
+	var vault *vaults.Vault
+	err := retryOnKeyChange(func() error {
+		// Read again on every attempt: a data key rotation also replaces the stored ciphertext
+		var err error
+		if secret, err = s.secretRepo.GetByID(ctx, secretID); err != nil {
+			return fmt.Errorf("failed to get secret: %w", err)
+		}
+		env, err := s.envRepo.GetByID(ctx, secret.EnvironmentID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
+			return fmt.Errorf("failed to get environment: %w", err)
+		}
+		if vault, err = s.vaultRepo.GetByID(ctx, env.VaultID); err != nil {
+			return fmt.Errorf("failed to get vault: %w", err)
 		}
 
-		ciphertext, nonce, err := s.encryptValue([]byte(*newPlaintextValue), dek)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt value: %w", err)
+		// Re-encrypt only when a new value was supplied; otherwise keep the stored ciphertext
+		if newPlaintextValue != nil {
+			if secret.EncryptedValue, secret.Nonce, err = s.encrypt(vault, *newPlaintextValue); err != nil {
+				return err
+			}
+			now := time.Now()
+			secret.LastRotatedAt = &now
 		}
 
-		secret.EncryptedValue = ciphertext
-		secret.Nonce = nonce
-		now := time.Now()
-		secret.LastRotatedAt = &now
-	}
+		secret.Description = description
+		secret.RotationIntervalDays = rotationDays
+		secret.ExpiresAt = expiresAt
+		secret.Metadata = metadata
+		secret.UpdatedAt = time.Now()
+		secret.UpdatedBy = &updatedBy
 
-	// Update secret fields
-	secret.Description = description
-	secret.RotationIntervalDays = rotationDays
-	secret.ExpiresAt = expiresAt
-	secret.Metadata = metadata
-	secret.UpdatedAt = time.Now()
-	secret.UpdatedBy = &updatedBy
-
-	// Persist updates
-	if err := s.secretRepo.Update(ctx, secret); err != nil {
-		return nil, fmt.Errorf("failed to update secret: %w", err)
+		if err := s.secretRepo.Update(ctx, secret, vault.EncryptedDEK); err != nil {
+			return fmt.Errorf("failed to update secret: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// Audit failures are logged by the audit service and do not fail the operation
@@ -270,34 +247,26 @@ func (s *secretService) DeleteSecret(ctx context.Context, secretID, deletedBy uu
 
 // RevealSecret decrypts and returns the plaintext value of a secret
 func (s *secretService) RevealSecret(ctx context.Context, secretID, requestedBy uuid.UUID) (string, error) {
-	// Get secret
-	secret, err := s.secretRepo.GetByID(ctx, secretID)
+	var secret *Secret
+	var vault *vaults.Vault
+	var plaintext []byte
+	err := retryOnKeyChange(func() error {
+		var err error
+		if secret, err = s.secretRepo.GetByID(ctx, secretID); err != nil {
+			return fmt.Errorf("failed to get secret: %w", err)
+		}
+		env, err := s.envRepo.GetByID(ctx, secret.EnvironmentID)
+		if err != nil {
+			return fmt.Errorf("failed to get environment: %w", err)
+		}
+		if vault, err = s.vaultRepo.GetByID(ctx, env.VaultID); err != nil {
+			return fmt.Errorf("failed to get vault: %w", err)
+		}
+		plaintext, err = s.decrypt(vault, secret)
+		return err
+	})
 	if err != nil {
-		return "", fmt.Errorf("failed to get secret: %w", err)
-	}
-
-	// Get environment
-	env, err := s.envRepo.GetByID(ctx, secret.EnvironmentID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get environment: %w", err)
-	}
-
-	// Get vault
-	vault, err := s.vaultRepo.GetByID(ctx, env.VaultID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get vault: %w", err)
-	}
-
-	// Decrypt vault's DEK
-	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
-	if err != nil {
-		return "", fmt.Errorf("failed to decrypt vault DEK: %w", err)
-	}
-
-	// Decrypt the secret value
-	plaintext, err := s.decryptValue(secret.EncryptedValue, secret.Nonce, dek)
-	if err != nil {
-		return "", fmt.Errorf("failed to decrypt secret value: %w", err)
+		return "", err
 	}
 
 	// Audit failures are logged by the audit service and do not fail the operation
@@ -320,28 +289,33 @@ func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
-	vault, err := s.vaultRepo.GetByID(ctx, env.VaultID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get vault: %w", err)
-	}
-	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
-	}
-	secrets, err := s.secretRepo.ListByEnvironmentID(ctx, envID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list secrets: %w", err)
-	}
 
-	values := make([]KeyValue, 0, len(secrets))
-	keys := make([]string, 0, len(secrets))
-	for _, secret := range secrets {
-		plaintext, err := s.decryptValue(secret.EncryptedValue, secret.Nonce, dek)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt secret %s: %w", secret.KeyName, err)
+	var vault *vaults.Vault
+	var values []KeyValue
+	var keys []string
+	err = retryOnKeyChange(func() error {
+		var err error
+		if vault, err = s.vaultRepo.GetByID(ctx, env.VaultID); err != nil {
+			return fmt.Errorf("failed to get vault: %w", err)
 		}
-		values = append(values, KeyValue{Key: secret.KeyName, Value: string(plaintext)})
-		keys = append(keys, secret.KeyName)
+		secrets, err := s.secretRepo.ListByEnvironmentID(ctx, envID)
+		if err != nil {
+			return fmt.Errorf("failed to list secrets: %w", err)
+		}
+		values = make([]KeyValue, 0, len(secrets))
+		keys = make([]string, 0, len(secrets))
+		for _, secret := range secrets {
+			plaintext, err := s.decrypt(vault, secret)
+			if err != nil {
+				return err
+			}
+			values = append(values, KeyValue{Key: secret.KeyName, Value: string(plaintext)})
+			keys = append(keys, secret.KeyName)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	actor.Action = audit.ActionEnvExported
@@ -360,48 +334,45 @@ func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, 
 	return values, nil
 }
 
-// encryptValue encrypts plaintext using AES-256-GCM with the provided DEK
-func (s *secretService) encryptValue(plaintext, dek []byte) (ciphertext, nonce []byte, err error) {
-	block, err := aes.NewCipher(dek)
+// maxKeyAttempts bounds how often a write is retried when a data key rotation races with it.
+const maxKeyAttempts = 3
+
+// retryOnKeyChange runs fn again when it fails because the vault's data key changed.
+func retryOnKeyChange(fn func() error) error {
+	var err error
+	for attempt := 0; attempt < maxKeyAttempts; attempt++ {
+		if err = fn(); !errors.Is(err, ErrKeyChanged) {
+			return err
+		}
+	}
+	return err
+}
+
+// encrypt encrypts a value under the vault's data key.
+func (s *secretService) encrypt(vault *vaults.Vault, plaintext string) (ciphertext, nonce []byte, err error) {
+	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create cipher: %w", err)
+		return nil, nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
 	}
-
-	gcm, err := cipher.NewGCM(block)
+	ciphertext, nonce, err = crypto.EncryptValue([]byte(plaintext), dek)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create GCM: %w", err)
+		return nil, nil, fmt.Errorf("failed to encrypt value: %w", err)
 	}
-
-	// Generate 12-byte nonce
-	nonce = make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, nil, fmt.Errorf("failed to generate nonce: %w", err)
-	}
-
-	// Encrypt plaintext
-	ciphertext = gcm.Seal(nil, nonce, plaintext, nil)
-
 	return ciphertext, nonce, nil
 }
 
-// decryptValue decrypts ciphertext using AES-256-GCM with the provided DEK and nonce
-func (s *secretService) decryptValue(ciphertext, nonce, dek []byte) (plaintext []byte, err error) {
-	block, err := aes.NewCipher(dek)
+// decrypt decrypts a secret's value. The vault and the secret are read in separate queries, so a
+// data key rotation committing in between makes decryption fail; that is reported as
+// ErrKeyChanged so the caller reads both again.
+func (s *secretService) decrypt(vault *vaults.Vault, secret *Secret) ([]byte, error) {
+	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher: %w", err)
+		return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
 	}
-
-	gcm, err := cipher.NewGCM(block)
+	plaintext, err := crypto.DecryptValue(secret.EncryptedValue, secret.Nonce, dek)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM: %w", err)
+		return nil, fmt.Errorf("failed to decrypt secret %s: %w (%w)", secret.KeyName, err, ErrKeyChanged)
 	}
-
-	// Decrypt ciphertext
-	plaintext, err = gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt: %w", err)
-	}
-
 	return plaintext, nil
 }
 

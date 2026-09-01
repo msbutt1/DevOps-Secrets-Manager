@@ -115,6 +115,7 @@ export const AUDIT_ACTIONS = [
   { value: 'vault.created', label: 'Vault Created' },
   { value: 'vault.updated', label: 'Vault Updated' },
   { value: 'vault.deleted', label: 'Vault Deleted' },
+  { value: 'vault.key_rotated', label: 'Vault Key Rotated' },
   { value: 'env.created', label: 'Environment Created' },
   { value: 'env.updated', label: 'Environment Updated' },
   { value: 'env.deleted', label: 'Environment Deleted' },

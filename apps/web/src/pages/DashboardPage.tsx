@@ -50,6 +50,7 @@ const activityIcons: Record<string, typeof AlertTriangle> = {
   'vault.created': Database,
   'vault.updated': Database,
   'vault.deleted': Database,
+  'vault.key_rotated': Database,
   'env.created': Server,
   'env.updated': Server,
   'env.deleted': Server,

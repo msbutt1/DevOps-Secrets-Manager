@@ -12,7 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/keys"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/vaults"
@@ -53,18 +55,73 @@ type VaultHandlers struct {
 	auditService  audit.AuditService
 	policyService policy.PolicyService
 	db            *pgxpool.Pool
+	keyring       *crypto.Keyring
 	logger        *slog.Logger
 }
 
 // NewVaultHandlers creates a new instance of VaultHandlers
-func NewVaultHandlers(vaultService vaults.VaultService, auditService audit.AuditService, policyService policy.PolicyService, db *pgxpool.Pool, logger *slog.Logger) *VaultHandlers {
+func NewVaultHandlers(vaultService vaults.VaultService, auditService audit.AuditService, policyService policy.PolicyService, db *pgxpool.Pool, keyring *crypto.Keyring, logger *slog.Logger) *VaultHandlers {
 	return &VaultHandlers{
 		vaultService:  vaultService,
 		auditService:  auditService,
 		policyService: policyService,
 		db:            db,
+		keyring:       keyring,
 		logger:        logger,
 	}
+}
+
+// VaultKeyRotationResponse reports a data key rotation.
+type VaultKeyRotationResponse struct {
+	VaultID            uuid.UUID `json:"vault_id"`
+	SecretsReencrypted int       `json:"secrets_reencrypted"`
+	RotatedAt          time.Time `json:"rotated_at"`
+}
+
+// HandleRotateKey replaces the vault's data key and re-encrypts its secrets.
+func (h *VaultHandlers) HandleRotateKey(w http.ResponseWriter, r *http.Request) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+	vaultID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid vault ID format")
+		return
+	}
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, vaultID, policy.ActionVaultRotateKey, "Vault", h.logPolicyError); !ok {
+		return
+	}
+	vault, err := h.vaultService.GetVault(r.Context(), vaultID)
+	if err != nil {
+		h.handleVaultError(w, r, err)
+		return
+	}
+
+	result, err := keys.RotateVaultDEK(r.Context(), h.db, h.keyring, vaultID)
+	if errors.Is(err, keys.ErrVaultNotFound) {
+		h.respondError(w, http.StatusNotFound, "not_found", "Vault not found")
+		return
+	}
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "Failed to rotate vault data key", slog.String("vault_id", vaultID.String()), slog.Any("error", err))
+		h.respondError(w, http.StatusInternalServerError, "internal_error", "Failed to rotate the vault key")
+		return
+	}
+
+	_ = h.auditService.Record(r.Context(), audit.Event{
+		UserID: claims.UserID, Action: audit.ActionVaultKeyRotated,
+		TargetType: "vault", TargetID: &vault.ID, TargetName: vault.Name,
+		OrganizationID: &vault.OrganizationID, VaultID: &vault.ID,
+		Metadata: map[string]interface{}{"secrets_reencrypted": result.SecretsReencrypted},
+	})
+
+	h.respondJSON(w, http.StatusOK, VaultKeyRotationResponse{
+		VaultID:            vaultID,
+		SecretsReencrypted: result.SecretsReencrypted,
+		RotatedAt:          time.Now().UTC(),
+	})
 }
 
 // HandleCreateVault handles vault creation requests

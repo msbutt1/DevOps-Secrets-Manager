@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -24,7 +25,7 @@ func NewPostgresRepository(pool *pgxpool.Pool) Repository {
 }
 
 // Create inserts a new secret into the database
-func (r *postgresRepository) Create(ctx context.Context, secret *Secret) error {
+func (r *postgresRepository) Create(ctx context.Context, secret *Secret, wrappedDEK []byte) error {
 	query := `
 		INSERT INTO secrets (
 			id, environment_id, key_name, encrypted_value, nonce,
@@ -49,28 +50,33 @@ func (r *postgresRepository) Create(ctx context.Context, secret *Secret) error {
 		}
 	}
 
-	err = r.pool.QueryRow(
-		ctx,
-		query,
-		secret.ID,
-		secret.EnvironmentID,
-		secret.KeyName,
-		secret.EncryptedValue,
-		secret.Nonce,
-		secret.Description,
-		secret.RotationIntervalDays,
-		secret.LastRotatedAt,
-		secret.ExpiresAt,
-		metadataJSON,
-		secret.CreatedBy,
-		secret.CreatedAt,
-		secret.UpdatedAt,
-	).Scan(&secret.ID, &secret.CreatedAt, &secret.UpdatedAt)
+	err = r.withVaultKey(ctx, secret.EnvironmentID, wrappedDEK, func(tx pgx.Tx) error {
+		return tx.QueryRow(
+			ctx,
+			query,
+			secret.ID,
+			secret.EnvironmentID,
+			secret.KeyName,
+			secret.EncryptedValue,
+			secret.Nonce,
+			secret.Description,
+			secret.RotationIntervalDays,
+			secret.LastRotatedAt,
+			secret.ExpiresAt,
+			metadataJSON,
+			secret.CreatedBy,
+			secret.CreatedAt,
+			secret.UpdatedAt,
+		).Scan(&secret.ID, &secret.CreatedAt, &secret.UpdatedAt)
+	})
 
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return ErrDuplicate
+		}
+		if errors.Is(err, ErrKeyChanged) {
+			return err
 		}
 		return fmt.Errorf("failed to create secret: %w", err)
 	}
@@ -193,7 +199,7 @@ func (r *postgresRepository) ListByEnvironmentID(ctx context.Context, envID uuid
 }
 
 // Update modifies an existing secret in the database
-func (r *postgresRepository) Update(ctx context.Context, secret *Secret) error {
+func (r *postgresRepository) Update(ctx context.Context, secret *Secret, wrappedDEK []byte) error {
 	query := `
 		UPDATE secrets
 		SET
@@ -220,20 +226,22 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret) error {
 		}
 	}
 
-	err = r.pool.QueryRow(
-		ctx,
-		query,
-		secret.ID,
-		secret.EncryptedValue,
-		secret.Nonce,
-		secret.Description,
-		secret.RotationIntervalDays,
-		secret.LastRotatedAt,
-		secret.ExpiresAt,
-		metadataJSON,
-		secret.UpdatedAt,
-		secret.UpdatedBy,
-	).Scan(&secret.UpdatedAt)
+	err = r.withVaultKey(ctx, secret.EnvironmentID, wrappedDEK, func(tx pgx.Tx) error {
+		return tx.QueryRow(
+			ctx,
+			query,
+			secret.ID,
+			secret.EncryptedValue,
+			secret.Nonce,
+			secret.Description,
+			secret.RotationIntervalDays,
+			secret.LastRotatedAt,
+			secret.ExpiresAt,
+			metadataJSON,
+			secret.UpdatedAt,
+			secret.UpdatedBy,
+		).Scan(&secret.UpdatedAt)
+	})
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -243,10 +251,45 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret) error {
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return ErrDuplicate
 		}
+		if errors.Is(err, ErrKeyChanged) {
+			return err
+		}
 		return fmt.Errorf("failed to update secret: %w", err)
 	}
 
 	return nil
+}
+
+// withVaultKey runs fn in a transaction that holds a share lock on the environment's vault and
+// has checked that the vault's wrapped data key is still wrappedDEK. Data key rotation takes
+// the vault row lock exclusively, so a write either commits before the rotation starts (and is
+// re-encrypted by it) or sees the new key afterwards and gets ErrKeyChanged.
+func (r *postgresRepository) withVaultKey(ctx context.Context, envID uuid.UUID, wrappedDEK []byte, fn func(pgx.Tx) error) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var current []byte
+	err = tx.QueryRow(ctx, `
+		SELECT v.encrypted_dek
+		FROM vaults v
+		JOIN environments e ON e.vault_id = v.id
+		WHERE e.id = $1
+		FOR SHARE OF v
+	`, envID).Scan(&current)
+	if err != nil {
+		return fmt.Errorf("failed to lock vault: %w", err)
+	}
+	if !bytes.Equal(current, wrappedDEK) {
+		return ErrKeyChanged
+	}
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // Delete soft deletes a secret by setting its deleted_at timestamp

@@ -11,6 +11,9 @@ import (
 var (
 	ErrNotFound  = errors.New("secret not found")
 	ErrDuplicate = errors.New("secret with this key already exists in the environment")
+	// ErrKeyChanged means the vault's data key was rotated after the value was encrypted; the
+	// caller should read the vault again and retry.
+	ErrKeyChanged = errors.New("vault data key changed during the write")
 )
 
 type Secret struct {
@@ -33,9 +36,11 @@ type Secret struct {
 }
 
 type Repository interface {
-	Create(ctx context.Context, secret *Secret) error
+	// Create and Update store the secret only if the vault's wrapped data key still equals
+	// wrappedDEK, the key the value was encrypted under; otherwise they return ErrKeyChanged.
+	Create(ctx context.Context, secret *Secret, wrappedDEK []byte) error
 	GetByID(ctx context.Context, secretID uuid.UUID) (*Secret, error)
 	ListByEnvironmentID(ctx context.Context, envID uuid.UUID) ([]*Secret, error)
-	Update(ctx context.Context, secret *Secret) error
+	Update(ctx context.Context, secret *Secret, wrappedDEK []byte) error
 	Delete(ctx context.Context, secretID uuid.UUID) error
 }

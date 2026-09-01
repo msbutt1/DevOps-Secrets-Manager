@@ -143,6 +143,7 @@ development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
 | POST | `/auth/change-password` | Change password |
 | GET, POST | `/vaults` | List or create vaults |
 | GET, PUT, DELETE | `/vaults/{id}` | Read, rename or delete a vault |
+| POST | `/vaults/{id}/rotate-key` | Replace the vault's data key and re-encrypt its secrets |
 | GET, POST | `/vaults/{id}/envs` | List or create environments |
 | GET, PUT, DELETE | `/envs/{id}` | Read, rename or delete an environment |
 | GET, POST | `/envs/{id}/secrets` | List secret metadata or create a secret |
@@ -194,6 +195,14 @@ master key can be replaced without downtime and without re-encrypting secret val
 
 The API refuses to start if any vault uses a version that is not configured, so a key cannot be
 dropped too early.
+
+### Rotating a Vault's Data Key
+
+If a vault's data may have been exposed (for example a database backup leaked together with the
+master key), an owner or admin can give the vault a new data key with
+`POST /vaults/{id}/rotate-key`. Every secret value in the vault, including deleted ones, is
+re-encrypted in one transaction and the old key is discarded. Writes that race with the rotation
+wait for it and retry under the new key. The rotation is recorded as `vault.key_rotated`.
 
 ### Sessions and Tokens
 

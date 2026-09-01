@@ -105,7 +105,7 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 		Secure: !cfg.InsecureCookies,
 		TTL:    cfg.RefreshTokenTTL,
 	})
-	vaultHandlers := httphandler.NewVaultHandlers(vaultService, auditService, policyService, pool, cfg.Logger)
+	vaultHandlers := httphandler.NewVaultHandlers(vaultService, auditService, policyService, pool, cfg.Keyring, cfg.Logger)
 	environmentHandlers := httphandler.NewEnvironmentHandlers(environmentService, auditService, policyService, pool, cfg.Logger)
 	secretHandlers := httphandler.NewSecretHandlers(secretService, environmentService, policyService, pool, cfg.Logger, cfg.RevealAutoHideSeconds)
 	auditHandlers := httphandler.NewAuditHandlers(auditService, policyService, pool, cfg.Logger)

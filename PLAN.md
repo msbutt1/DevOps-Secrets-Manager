@@ -195,7 +195,7 @@ These are half-built or missing, but a team would need them.
   - Add a command (`server rotate-kek` or `make rotate-kek`) that re-encrypts every vault's data key.
   - The README promises this; nothing implements it.
   - Commit: `feat(api): master key rotation`
-- [ ] **Vault data key rotation.** Re-encrypt one vault's secrets under a new data key. Commit: `feat(api): rotate vault data key`
+- [x] **Vault data key rotation.** Re-encrypt one vault's secrets under a new data key. Commit: `feat(api): rotate vault data key`
 - [ ] **Encryption tests.** Tests exist for `envelope.go` only. Add tests for:
   - a tampered ciphertext failing to decrypt
   - the wrong master key failing

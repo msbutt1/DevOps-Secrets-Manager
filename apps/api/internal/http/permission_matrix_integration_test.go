@@ -77,6 +77,9 @@ func TestRolePermissionMatrix(t *testing.T) {
 			}
 			return f.api.Do("DELETE", "/vaults/"+v+"/members/"+guest.ID.String(), tok, nil).Status
 		}},
+		{"rotate vault key", manage, 200, func(t *testing.T, tok, v string) int {
+			return f.api.Do("POST", "/vaults/"+v+"/rotate-key", tok, nil).Status
+		}},
 		{"delete vault", del, 204, func(t *testing.T, tok, v string) int {
 			return f.api.Do("DELETE", "/vaults/"+v, tok, nil).Status
 		}},

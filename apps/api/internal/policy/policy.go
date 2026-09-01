@@ -29,6 +29,8 @@ const (
 	// ActionTokenManage covers creating, listing and revoking service tokens, which can read
 	// every value in an environment.
 	ActionTokenManage Action = "token:manage"
+	// ActionVaultRotateKey replaces the vault's data key and re-encrypts its secrets.
+	ActionVaultRotateKey Action = "vault:rotate_key"
 )
 
 // Organization-scoped actions.
@@ -89,8 +91,8 @@ func PermissionsFor(role string) Permissions {
 //   - read: view the vault, its environments, secret names and metadata, and members
 //   - write: rename the vault, and create, update or delete environments and secrets
 //   - reveal: decrypt secret values
-//   - manage members: add, remove and change members, read the vault's audit log, and manage
-//     service tokens
+//   - manage members: add, remove and change members, read the vault's audit log, manage
+//     service tokens, and rotate the vault's data key
 //   - delete: delete the vault
 func RoleAllows(role string, action Action) bool {
 	p := PermissionsFor(role)
@@ -101,7 +103,7 @@ func RoleAllows(role string, action Action) bool {
 		return p.CanWrite
 	case ActionSecretReveal:
 		return p.CanReveal
-	case ActionMemberManage, ActionAuditRead, ActionTokenManage:
+	case ActionMemberManage, ActionAuditRead, ActionTokenManage, ActionVaultRotateKey:
 		return p.CanManageMembers
 	case ActionVaultDelete:
 		return p.CanDelete

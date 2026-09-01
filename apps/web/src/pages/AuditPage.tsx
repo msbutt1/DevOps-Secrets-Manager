@@ -63,6 +63,7 @@ const actionIcons: Record<string, string> = {
   'vault.created': 'CREATE',
   'vault.updated': 'UPDATE',
   'vault.deleted': 'DELETE',
+  'vault.key_rotated': 'ROTATE',
   'env.created': 'CREATE',
   'env.updated': 'UPDATE',
   'env.deleted': 'DELETE',

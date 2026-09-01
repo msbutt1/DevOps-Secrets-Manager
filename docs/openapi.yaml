@@ -602,6 +602,30 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /vaults/{id}/rotate-key:
+    parameters:
+      - $ref: '#/components/parameters/VaultIdPath'
+    post:
+      tags: [Vaults]
+      summary: Rotate the vault's data key
+      description: |
+        Generates a new data key for the vault and re-encrypts every secret value under it in one
+        transaction; the old key is discarded. Use it after a suspected exposure of the vault's
+        data. Requires the manage-members permission (owners and admins). Audited as
+        `vault.key_rotated`.
+      operationId: rotateVaultKey
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Rotated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VaultKeyRotation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /vaults/{vault_id}/envs:
     parameters:
       - name: vault_id
@@ -1393,6 +1417,16 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
+    VaultKeyRotation:
+      type: object
+      required: [vault_id, secrets_reencrypted, rotated_at]
+      properties:
+        vault_id: { type: string, format: uuid }
+        secrets_reencrypted:
+          type: integer
+          description: Secret values re-encrypted, including deleted secrets
+        rotated_at: { type: string, format: date-time }
+
     CreateVaultRequest:
       type: object
       required: [name]
@@ -1629,6 +1663,7 @@ components:
         - vault.created
         - vault.updated
         - vault.deleted
+        - vault.key_rotated
         - env.created
         - env.updated
         - env.deleted
