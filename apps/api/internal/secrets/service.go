@@ -41,7 +41,7 @@ type secretService struct {
 	envRepo      environments.Repository
 	vaultRepo    vaults.Repository
 	auditService audit.AuditService
-	masterKEK    []byte
+	keyring      *crypto.Keyring
 }
 
 // NewSecretService creates a new secret service instance
@@ -50,14 +50,14 @@ func NewSecretService(
 	envRepo environments.Repository,
 	vaultRepo vaults.Repository,
 	auditService audit.AuditService,
-	masterKEK []byte,
+	keyring *crypto.Keyring,
 ) SecretService {
 	return &secretService{
 		secretRepo:   secretRepo,
 		envRepo:      envRepo,
 		vaultRepo:    vaultRepo,
 		auditService: auditService,
-		masterKEK:    masterKEK,
+		keyring:      keyring,
 	}
 }
 
@@ -85,7 +85,7 @@ func (s *secretService) CreateSecret(
 	}
 
 	// Decrypt vault's DEK
-	dek, err := crypto.DecryptDEK(vault.EncryptedDEK, s.masterKEK)
+	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
 	}
@@ -183,7 +183,7 @@ func (s *secretService) UpdateSecret(
 
 	// Re-encrypt only when a new value was supplied; otherwise keep the stored ciphertext
 	if newPlaintextValue != nil {
-		dek, err := crypto.DecryptDEK(vault.EncryptedDEK, s.masterKEK)
+		dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
 		}
@@ -289,7 +289,7 @@ func (s *secretService) RevealSecret(ctx context.Context, secretID, requestedBy 
 	}
 
 	// Decrypt vault's DEK
-	dek, err := crypto.DecryptDEK(vault.EncryptedDEK, s.masterKEK)
+	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt vault DEK: %w", err)
 	}
@@ -324,7 +324,7 @@ func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vault: %w", err)
 	}
-	dek, err := crypto.DecryptDEK(vault.EncryptedDEK, s.masterKEK)
+	dek, err := s.keyring.UnwrapDEK(vault.EncryptedDEK, vault.KEKVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt vault DEK: %w", err)
 	}

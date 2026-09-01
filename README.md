@@ -178,6 +178,23 @@ Secret Values (stored encrypted)
 - **Vault DEK**: Generated per-vault, encrypted with Master KEK
 - **Secrets**: Encrypted with Vault DEK using AES-256-GCM
 
+### Rotating the Master Key
+
+Each vault records the master key version that wrapped its data key (`kek_version`), so the
+master key can be replaced without downtime and without re-encrypting secret values:
+
+1. Generate a new key: `openssl rand -hex 32`.
+2. Move the current key to `MASTER_KEK_PREVIOUS` as `1:<old key>`, put the new key in
+   `MASTER_KEK`, set `MASTER_KEK_VERSION=2`, and restart the API. New vaults use version 2;
+   existing ones are still read with version 1.
+3. Run `make rotate-kek` (or `keys rotate-kek` in the API image). It re-wraps every vault's data
+   key, including deleted vaults, one vault per transaction; it is safe to run again if interrupted.
+4. When `make keys-status` shows no vault on version 1, remove it from `MASTER_KEK_PREVIOUS` and
+   restart.
+
+The API refuses to start if any vault uses a version that is not configured, so a key cannot be
+dropped too early.
+
 ### Sessions and Tokens
 
 Access tokens are JWTs signed with HS256 and live for 15 minutes. HS256 was chosen over RS256
@@ -224,6 +241,8 @@ and environment variables. Nested settings use the `APP_` prefix (`database.host
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `MASTER_KEK` | (required) | 64 hex characters (32 bytes); wraps every vault's data key |
+| `MASTER_KEK_VERSION` | `1` | Version number of `MASTER_KEK`; raise it when rotating the master key |
+| `MASTER_KEK_PREVIOUS` | none | During a rotation, earlier keys as `version:hexkey`, comma-separated |
 | `APP_JWT_SECRET` | (required) | HS256 signing secret, at least 32 characters, different from `MASTER_KEK` |
 | `APP_DATABASE_HOST` | `localhost` | PostgreSQL host |
 | `APP_DATABASE_PORT` | `5432` | PostgreSQL port (`make db` uses 5433) |

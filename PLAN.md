@@ -190,7 +190,7 @@ These are half-built or missing, but a team would need them.
 - [ ] **Search.** Search key names across all vaults the user can see. Commit: `feat: search secrets by key name`
 
 ### Encryption and key management
-- [ ] **Master key rotation.**
+- [x] **Master key rotation.**
   - Add a `kek_version` column and support multiple master keys during a rotation.
   - Add a command (`server rotate-kek` or `make rotate-kek`) that re-encrypts every vault's data key.
   - The README promises this; nothing implements it.

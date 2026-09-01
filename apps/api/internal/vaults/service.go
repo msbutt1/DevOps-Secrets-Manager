@@ -19,14 +19,14 @@ type VaultService interface {
 
 type vaultService struct {
 	vaultRepo Repository
-	masterKEK []byte
+	keyring   *crypto.Keyring
 }
 
 // NewVaultService creates a new vault service
-func NewVaultService(repo Repository, masterKEK []byte) VaultService {
+func NewVaultService(repo Repository, keyring *crypto.Keyring) VaultService {
 	return &vaultService{
 		vaultRepo: repo,
-		masterKEK: masterKEK,
+		keyring:   keyring,
 	}
 }
 
@@ -38,8 +38,8 @@ func (s *vaultService) CreateVault(ctx context.Context, orgID uuid.UUID, name st
 		return nil, err
 	}
 
-	// Encrypt DEK with master KEK
-	encryptedDEK, err := crypto.EncryptDEK(dek, s.masterKEK)
+	// Encrypt DEK with the current master key
+	encryptedDEK, kekVersion, err := s.keyring.WrapDEK(dek)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +51,7 @@ func (s *vaultService) CreateVault(ctx context.Context, orgID uuid.UUID, name st
 		Name:           name,
 		Description:    description,
 		EncryptedDEK:   encryptedDEK,
+		KEKVersion:     kekVersion,
 		CreatedBy:      &createdBy,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
@@ -96,7 +97,6 @@ func (s *vaultService) UpdateVault(ctx context.Context, vaultID uuid.UUID, name 
 	vault.Name = name
 	vault.Description = description
 	vault.UpdatedAt = time.Now()
-	// Keep existing EncryptedDEK
 
 	// Save to repository
 	if err := s.vaultRepo.Update(ctx, vault); err != nil {

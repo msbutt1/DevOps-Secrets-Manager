@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/app"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/logging"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/testutil"
@@ -49,6 +50,8 @@ type Options struct {
 	RateLimits bool
 	// LogOutput receives the API's JSON logs (discarded when nil).
 	LogOutput io.Writer
+	// Keyring replaces the default single test master key.
+	Keyring *crypto.Keyring
 }
 
 // New starts the API on a fresh, migrated database.
@@ -59,16 +62,31 @@ func New(t *testing.T) *Server {
 // NewWithOptions starts the API with options.
 func NewWithOptions(t *testing.T, opts Options) *Server {
 	t.Helper()
-	pool := testutil.NewDatabase(t)
+	return start(t, testutil.NewDatabase(t), &EmailRecorder{}, opts)
+}
 
-	kek, _ := hex.DecodeString("7f3a9c1e5b2d8f406a1c3e5b7d9f02468ace13579bdf02468ace13579bdf0246")
-	recorder := &EmailRecorder{}
+// Restart starts another API on the same database, e.g. with a different keyring, as a
+// redeploy with new configuration would. Tokens issued by the first server remain valid.
+func (s *Server) Restart(opts Options) *Server {
+	s.t.Helper()
+	return start(s.t, s.Pool, s.Email, opts)
+}
+
+// TestKEK is the master key the harness uses unless Options.Keyring is set.
+var TestKEK, _ = hex.DecodeString("7f3a9c1e5b2d8f406a1c3e5b7d9f02468ace13579bdf02468ace13579bdf0246")
+
+func start(t *testing.T, pool *pgxpool.Pool, recorder *EmailRecorder, opts Options) *Server {
+	t.Helper()
 	logOutput := opts.LogOutput
 	if logOutput == nil {
 		logOutput = io.Discard
 	}
+	keyring := opts.Keyring
+	if keyring == nil {
+		keyring = crypto.SingleKeyring(TestKEK)
+	}
 	handler, err := app.New(pool, app.Config{
-		MasterKEK: kek,
+		Keyring:   keyring,
 		JWTSecret: "integration-test-jwt-secret-5f8e2a9c4b7d1e3f",
 		Email:     recorder,
 		Logger:    logging.New(logOutput, slog.LevelDebug),

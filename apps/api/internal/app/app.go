@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/auth"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
 	httphandler "github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http"
@@ -25,7 +26,8 @@ import (
 
 // Config holds everything the API needs besides the database pool.
 type Config struct {
-	MasterKEK       []byte
+	// Keyring holds the master key(s) that wrap vault data keys.
+	Keyring         *crypto.Keyring
 	JWTSecret       string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
@@ -77,7 +79,7 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 	auditRepo := audit.NewPostgresRepository(pool)
 
 	// Create services
-	vaultService := vaults.NewVaultService(vaultRepo, cfg.MasterKEK)
+	vaultService := vaults.NewVaultService(vaultRepo, cfg.Keyring)
 	environmentService := environments.NewEnvironmentService(environmentRepo)
 	auditService := audit.NewAuditService(auditRepo, cfg.Logger)
 	orgRepo := organizations.NewPostgresRepository(pool)
@@ -95,7 +97,7 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 		auditService,
 		inviteService,
 	)
-	secretService := secrets.NewSecretService(secretRepo, environmentRepo, vaultRepo, auditService, cfg.MasterKEK)
+	secretService := secrets.NewSecretService(secretRepo, environmentRepo, vaultRepo, auditService, cfg.Keyring)
 	policyService := policy.NewPolicyService(pool)
 
 	// Create handlers

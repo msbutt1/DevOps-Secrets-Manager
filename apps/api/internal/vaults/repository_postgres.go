@@ -25,8 +25,8 @@ func NewPostgresRepository(pool *pgxpool.Pool) Repository {
 // Create inserts a new vault into the database
 func (r *postgresRepository) Create(ctx context.Context, vault *Vault) error {
 	query := `
-		INSERT INTO vaults (id, organization_id, name, description, encrypted_dek, created_by, created_at, updated_at)
-		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO vaults (id, organization_id, name, description, encrypted_dek, kek_version, created_by, created_at, updated_at)
+		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -38,6 +38,7 @@ func (r *postgresRepository) Create(ctx context.Context, vault *Vault) error {
 		vault.Name,
 		vault.Description,
 		vault.EncryptedDEK,
+		vault.KEKVersion,
 		vault.CreatedBy,
 		vault.CreatedAt,
 		vault.UpdatedAt,
@@ -57,7 +58,7 @@ func (r *postgresRepository) Create(ctx context.Context, vault *Vault) error {
 // GetByID retrieves a vault by its ID
 func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Vault, error) {
 	query := `
-		SELECT id, organization_id, name, description, encrypted_dek, created_by, created_at, updated_at, deleted_at
+		SELECT id, organization_id, name, description, encrypted_dek, kek_version, created_by, created_at, updated_at, deleted_at
 		FROM vaults
 		WHERE id = $1 AND deleted_at IS NULL
 	`
@@ -69,6 +70,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Vault,
 		&vault.Name,
 		&vault.Description,
 		&vault.EncryptedDEK,
+		&vault.KEKVersion,
 		&vault.CreatedBy,
 		&vault.CreatedAt,
 		&vault.UpdatedAt,
@@ -88,7 +90,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Vault,
 // GetByOrganizationID retrieves all non-deleted vaults for an organization
 func (r *postgresRepository) GetByOrganizationID(ctx context.Context, orgID uuid.UUID) ([]*Vault, error) {
 	query := `
-		SELECT id, organization_id, name, description, encrypted_dek, created_by, created_at, updated_at, deleted_at
+		SELECT id, organization_id, name, description, encrypted_dek, kek_version, created_by, created_at, updated_at, deleted_at
 		FROM vaults
 		WHERE organization_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -109,6 +111,7 @@ func (r *postgresRepository) GetByOrganizationID(ctx context.Context, orgID uuid
 			&vault.Name,
 			&vault.Description,
 			&vault.EncryptedDEK,
+			&vault.KEKVersion,
 			&vault.CreatedBy,
 			&vault.CreatedAt,
 			&vault.UpdatedAt,
@@ -127,11 +130,13 @@ func (r *postgresRepository) GetByOrganizationID(ctx context.Context, orgID uuid
 	return vaults, nil
 }
 
-// Update modifies an existing vault in the database
+// Update changes a vault's name and description. The data key is deliberately not written:
+// key rotation replaces it under a row lock, and an update based on an earlier read must not
+// put the old wrapped key back.
 func (r *postgresRepository) Update(ctx context.Context, vault *Vault) error {
 	query := `
 		UPDATE vaults
-		SET name = $2, description = $3, encrypted_dek = $4, updated_at = $5
+		SET name = $2, description = $3, updated_at = $4
 		WHERE id = $1 AND deleted_at IS NULL
 		RETURNING updated_at
 	`
@@ -142,7 +147,6 @@ func (r *postgresRepository) Update(ctx context.Context, vault *Vault) error {
 		vault.ID,
 		vault.Name,
 		vault.Description,
-		vault.EncryptedDEK,
 		vault.UpdatedAt,
 	).Scan(&vault.UpdatedAt)
 

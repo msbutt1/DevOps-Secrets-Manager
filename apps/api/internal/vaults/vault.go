@@ -21,10 +21,12 @@ type Vault struct {
 	Name           string
 	Description    *string
 	EncryptedDEK   []byte
-	CreatedBy      *uuid.UUID
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      *time.Time
+	// KEKVersion is the master key version that wrapped EncryptedDEK.
+	KEKVersion int
+	CreatedBy  *uuid.UUID
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	DeletedAt  *time.Time
 }
 
 // Repository defines the interface for vault data access

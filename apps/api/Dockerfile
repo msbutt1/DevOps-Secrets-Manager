@@ -16,7 +16,8 @@ COPY apps/api/ ./apps/api/
 
 # Build a static binary; VERSION is reported by /health
 ARG VERSION=dev
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./apps/api/cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o server ./apps/api/cmd/server && \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o keys ./apps/api/cmd/keys
 
 # Stage 2: Create minimal runtime image
 FROM alpine:3.24.1
@@ -31,7 +32,7 @@ RUN addgroup -g 1000 appuser && \
 WORKDIR /app
 
 # Copy the binary from builder
-COPY --from=builder /build/server .
+COPY --from=builder /build/server /build/keys ./
 
 # Copy migrations
 COPY --from=builder /build/apps/api/migrations ./migrations

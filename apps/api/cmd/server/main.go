@@ -15,6 +15,7 @@ import (
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/config"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/email"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/keys"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/logging"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/storage"
 	"github.com/spf13/viper"
@@ -37,12 +38,12 @@ func main() {
 		fatal("Failed to load configuration", slog.Any("error", err))
 	}
 
-	// Load and validate Master KEK
-	masterKEK, err := crypto.LoadKEKFromEnv()
+	// Load and validate the master key(s)
+	keyring, err := crypto.LoadKeyringFromEnv()
 	if err != nil {
 		fatal("Refusing to start with an invalid master key", slog.Any("error", err))
 	}
-	logger.Info("Master KEK loaded successfully")
+	logger.Info("Master keys loaded", slog.Int("current_version", keyring.CurrentVersion()), slog.Any("versions", keyring.Versions()))
 
 	// Connect to PostgreSQL
 	ctx := context.Background()
@@ -65,6 +66,10 @@ func main() {
 	}
 	logger.Info("Database migrations completed successfully")
 
+	if err := keys.CheckKeyring(ctx, pool, keyring); err != nil {
+		fatal("Refusing to start: some vaults cannot be decrypted with the configured master keys", slog.Any("error", err))
+	}
+
 	// Create email service
 	emailService := email.NewEmailServiceFromEnv(email.Options{
 		PublicURL:   config.PublicURL(),
@@ -77,12 +82,12 @@ func main() {
 	if err := crypto.ValidateJWTSecret(jwtSecret); err != nil {
 		fatal("Refusing to start with an insecure JWT secret", slog.Any("error", err))
 	}
-	if strings.EqualFold(jwtSecret, os.Getenv("MASTER_KEK")) {
+	if strings.EqualFold(jwtSecret, os.Getenv("MASTER_KEK")) || strings.Contains(strings.ToLower(os.Getenv("MASTER_KEK_PREVIOUS")), strings.ToLower(jwtSecret)) {
 		fatal("Refusing to start: APP_JWT_SECRET must differ from MASTER_KEK")
 	}
 
 	router, err := app.New(pool, app.Config{
-		MasterKEK:       masterKEK,
+		Keyring:         keyring,
 		JWTSecret:       jwtSecret,
 		AccessTokenTTL:  viper.GetDuration("jwt.access_token_ttl"),
 		RefreshTokenTTL: viper.GetDuration("jwt.refresh_token_ttl"),

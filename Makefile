@@ -70,6 +70,14 @@ migrate-up: env ## Apply all database migrations
 seed: env ## Create demo users, vaults, environments and secrets through the API
 	./scripts/seed.sh
 
+.PHONY: keys-status
+keys-status: env ## Show which master key version each vault's data key uses
+	cd apps/api && go run ./cmd/keys status
+
+.PHONY: rotate-kek
+rotate-kek: env ## Re-wrap all vault data keys with the current master key (see README)
+	cd apps/api && go run ./cmd/keys rotate-kek
+
 .PHONY: migrate-down
 migrate-down: env ## Roll back migrations: N=1 (default), N=3 or N=all
 	cd apps/api && go run ./cmd/migrate down $(or $(N),1)
