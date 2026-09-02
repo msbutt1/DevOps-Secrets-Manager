@@ -159,11 +159,21 @@ pub struct ApiClient {
     persist_tokens: bool,
 }
 
+/// Identifies the CLI to the API, so its sessions are recognisable in the web app.
+pub const USER_AGENT: &str = concat!("secrets-cli/", env!("CARGO_PKG_VERSION"));
+
+fn http_client() -> Client {
+    Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .expect("HTTP client configuration is valid")
+}
+
 impl ApiClient {
     /// Creates a client for the API at `base_url` (already normalised, without a trailing slash).
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
-            client: Client::new(),
+            client: http_client(),
             base_url: base_url.into(),
             tokens: Mutex::new(None),
             persist_tokens: true,
@@ -174,7 +184,7 @@ impl ApiClient {
     #[cfg(test)]
     pub fn with_tokens(base_url: impl Into<String>, tokens: Tokens) -> Self {
         Self {
-            client: Client::new(),
+            client: http_client(),
             base_url: base_url.into(),
             tokens: Mutex::new(Some(tokens)),
             persist_tokens: false,
@@ -538,6 +548,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/vaults"))
             .and(header("authorization", "Bearer access-1"))
+            .and(header("user-agent", USER_AGENT))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
                 {"id": "v1", "name": "payments", "description": null, "created_at": "2026-01-01T00:00:00Z"}
             ])))
