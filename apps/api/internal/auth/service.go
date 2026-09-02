@@ -32,6 +32,7 @@ var (
 	ErrEmailNotVerified       = errors.New("email not verified")
 	ErrUserAlreadyExists      = errors.New("user already exists")
 	ErrInvalidVerification    = errors.New("invalid or expired verification token")
+	ErrSessionNotFound        = errors.New("session not found")
 	ErrInvalidCurrentPassword = errors.New("current password is incorrect")
 )
 
@@ -100,6 +101,12 @@ type AuthService interface {
 	// ChangePassword sets a new password and signs out every other session of the user;
 	// currentSession (the refresh token family of the caller) stays signed in.
 	ChangePassword(ctx context.Context, userID, currentSession uuid.UUID, currentPassword, newPassword string) error
+	// Sessions lists the user's active sessions.
+	Sessions(ctx context.Context, userID uuid.UUID) ([]tokens.Session, error)
+	// RevokeSession signs out one session of the user.
+	RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error
+	// RevokeOtherSessions signs out every session except currentSession and returns how many.
+	RevokeOtherSessions(ctx context.Context, userID, currentSession uuid.UUID) (int64, error)
 }
 
 type authService struct {
@@ -223,6 +230,9 @@ func (s *authService) Login(ctx context.Context, email, password string) (*AuthR
 	if err := s.refreshTokenRepo.Create(ctx, refreshTokenEntity); err != nil {
 		return nil, err
 	}
+	if err := s.touchSession(ctx, tokenFamily, user.ID); err != nil {
+		return nil, err
+	}
 
 	s.recordLogin(ctx, user, audit.ActionLoginSuccess, "")
 
@@ -303,6 +313,9 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 	if err := s.refreshTokenRepo.Create(ctx, newRefreshTokenEntity); err != nil {
 		return nil, err
 	}
+	if err := s.touchSession(ctx, storedToken.TokenFamily, user.ID); err != nil {
+		return nil, err
+	}
 
 	return &AuthResponse{
 		AccessToken:  accessToken,
@@ -381,6 +394,54 @@ func (s *authService) recordLockout(ctx context.Context, user *users.User, attem
 }
 
 // hashToken hashes a token using SHA-256
+// touchSession records the session's latest use with the request's address and user agent.
+func (s *authService) touchSession(ctx context.Context, sessionID, userID uuid.UUID) error {
+	ip, _ := ctx.Value(audit.ContextKeyIPAddress).(string)
+	userAgent, _ := ctx.Value(audit.ContextKeyUserAgent).(string)
+	return s.refreshTokenRepo.TouchSession(ctx, sessionID, userID, ip, userAgent)
+}
+
+func (s *authService) Sessions(ctx context.Context, userID uuid.UUID) ([]tokens.Session, error) {
+	return s.refreshTokenRepo.ListActiveSessions(ctx, userID)
+}
+
+func (s *authService) RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error {
+	revoked, err := s.refreshTokenRepo.RevokeSession(ctx, userID, sessionID)
+	if err != nil {
+		return err
+	}
+	if !revoked {
+		return ErrSessionNotFound
+	}
+	s.recordSessionsRevoked(ctx, userID, 1, "one")
+	return nil
+}
+
+func (s *authService) RevokeOtherSessions(ctx context.Context, userID, currentSession uuid.UUID) (int64, error) {
+	revoked, err := s.refreshTokenRepo.RevokeAllByUserIDExceptFamily(ctx, userID, currentSession)
+	if err != nil {
+		return 0, err
+	}
+	s.recordSessionsRevoked(ctx, userID, revoked, "others")
+	return revoked, nil
+}
+
+func (s *authService) recordSessionsRevoked(ctx context.Context, userID uuid.UUID, count int64, scope string) {
+	target := userID
+	email := ""
+	if user, err := s.userRepo.GetByID(ctx, userID); err == nil {
+		email = user.Email
+	}
+	_ = s.auditService.Record(ctx, audit.Event{
+		UserID:     userID,
+		Action:     audit.ActionSessionsRevoked,
+		TargetType: "user",
+		TargetID:   &target,
+		TargetName: email,
+		Metadata:   map[string]interface{}{"sessions_revoked": count, "scope": scope},
+	})
+}
+
 func (s *authService) hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])

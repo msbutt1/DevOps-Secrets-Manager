@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input } from '@/components/win95';
-import { User, Shield, Clock, Building, AlertTriangle, Check } from 'lucide-react';
+import { User, Shield, Building, AlertTriangle, Check } from 'lucide-react';
 import { authApi } from '@/lib/api-client';
 import { passwordProblem } from '@/lib/password';
 import { PasswordStrengthHint } from '@/components/PasswordStrengthHint';
 import { InviteMemberDialog } from '@/components/InviteMemberDialog';
+import { SessionsPanel } from '@/components/SessionsPanel';
 import type { UserOrganization } from '@/types/api';
 
 export const SettingsPage = () => {
@@ -113,6 +114,10 @@ export const SettingsPage = () => {
                 </div>
               </div>
             </Panel>
+
+            <div className="mt-win-sm">
+              <SessionsPanel />
+            </div>
           </div>
 
           {/* Security & Organizations */}
@@ -181,29 +186,6 @@ export const SettingsPage = () => {
                     No organizations
                   </div>
                 )}
-              </div>
-            </Panel>
-
-            {/* Session Info */}
-            <Panel>
-              <div className="flex items-center gap-2 mb-3">
-                <Clock size={14} strokeWidth={1.5} />
-                <h2 className="text-win-section font-semibold">Current Session</h2>
-              </div>
-
-              <div className="space-y-1 text-win-small">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Browser:</span>
-                  <span>Chrome on Windows</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">IP Address:</span>
-                  <span className="font-mono">192.168.1.100</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Last Activity:</span>
-                  <span>Just now</span>
-                </div>
               </div>
             </Panel>
           </div>

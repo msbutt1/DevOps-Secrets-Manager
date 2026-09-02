@@ -165,6 +165,71 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/auth/sessions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List sessions
+     * @description The caller's active sessions: logins whose refresh token is still valid, most recently
+     *     used first. `current` marks the session the access token belongs to.
+     */
+    get: operations['listSessions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/auth/sessions/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Sign out a session
+     * @description Revokes the session's refresh token, so it cannot get new access tokens (an access token
+     *     it already holds stays valid for at most 15 minutes). Revoking the current session also
+     *     clears the refresh cookie. Audited as `user.sessions_revoked`.
+     */
+    delete: operations['revokeSession'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/auth/sessions/revoke-others': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sign out everywhere else
+     * @description Revokes every session of the caller except the current one. Audited as `user.sessions_revoked`.
+     */
+    post: operations['revokeOtherSessions'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/orgs': {
     parameters: {
       query?: never;
@@ -800,6 +865,28 @@ export interface components {
       /** @description Access token lifetime in seconds */
       expires_in: number;
     };
+    Session: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * Format: date-time
+       * @description When the user logged in
+       */
+      created_at: string;
+      /**
+       * Format: date-time
+       * @description Last login or token refresh
+       */
+      last_used_at: string;
+      /**
+       * Format: date-time
+       * @description When the session ends unless refreshed
+       */
+      expires_at: string;
+      ip_address: string | null;
+      user_agent: string | null;
+      current: boolean;
+    };
     ChangePasswordRequest: {
       /** Format: password */
       current_password: string;
@@ -1152,7 +1239,8 @@ export interface components {
       | 'token.created'
       | 'token.revoked'
       | 'env.exported'
-      | 'user.password_changed';
+      | 'user.password_changed'
+      | 'user.sessions_revoked';
     AuditEvent: {
       /** Format: uuid */
       id: string;
@@ -1603,6 +1691,76 @@ export interface operations {
       };
       401: components['responses']['Unauthorized'];
       413: components['responses']['PayloadTooLarge'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  listSessions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sessions */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Session'][];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  revokeSession: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Signed out */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  revokeOtherSessions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sessions signed out */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            sessions_revoked: number;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
       500: components['responses']['InternalError'];
     };
   };

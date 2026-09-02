@@ -140,7 +140,10 @@ development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
 | POST | `/auth/refresh` | Exchange a refresh token for new tokens |
 | POST | `/auth/logout` | Revoke a refresh token |
 | GET | `/auth/me` | Current user and organizations |
-| POST | `/auth/change-password` | Change password |
+| POST | `/auth/change-password` | Change password (signs out other sessions) |
+| GET | `/auth/sessions` | List your signed-in sessions |
+| DELETE | `/auth/sessions/{id}` | Sign out one session |
+| POST | `/auth/sessions/revoke-others` | Sign out every other session |
 | GET, POST | `/vaults` | List or create vaults |
 | GET, PUT, DELETE | `/vaults/{id}` | Read, rename or delete a vault |
 | POST | `/vaults/{id}/rotate-key` | Replace the vault's data key and re-encrypt its secrets |

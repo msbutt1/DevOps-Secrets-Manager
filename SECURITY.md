@@ -59,10 +59,13 @@ Only the latest release receives security fixes.
   flow and fails if a password, token, cookie or secret value appears in the logs.
 - **Leaked CI credentials.** Service tokens read a single environment and nothing else, can
   expire, can be revoked instantly, and every read is audited with the token's name.
-- **A leaked password.** Changing the password signs out every other session by revoking its
-  refresh tokens (their access tokens expire within 15 minutes).
+- **A leaked password or a lost device.** Settings lists every signed-in session with its
+  client, IP address and last activity. Any session can be signed out, and changing the password
+  signs out all the others; their refresh tokens are revoked and their access tokens expire within
+  15 minutes.
 - **Unaudited access.** Reveals, exports, membership and role changes, key rotations, logins,
-  lockouts and password changes are written to the audit log with the actor, target, IP address and user agent.
+  lockouts, password changes and session sign-outs are written to the audit log with the actor,
+  target, IP address and user agent.
 
 ### Not protected against
 
@@ -112,7 +115,7 @@ Only the latest release receives security fixes.
 | Master key (`MASTER_KEK`) | Periodically, or if the key may have been exposed | Follow [Rotating the Master Key](README.md#rotating-the-master-key): add the new key as the next version, restart, run `make rotate-kek`, then remove the old key. Secret values are not re-encrypted; only data keys are re-wrapped. |
 | A vault's data key | If the vault's data and the master key may both have been exposed | `POST /vaults/{id}/rotate-key` as an owner or admin. All values in the vault are re-encrypted in one transaction. |
 | All vault data keys | After a master key exposure where encrypted data may also have been copied | Rotate the master key first, then rotate each vault's data key. |
-| JWT secret (`APP_JWT_SECRET`) | If it may have been exposed | Set a new value and restart. Existing access tokens stop working within 15 minutes at most; clients get new ones with their refresh token. |
+| JWT secret (`APP_JWT_SECRET`) | If it may have been exposed | Set a new value and restart. Existing access tokens stop working immediately; clients get new ones with their refresh token. |
 | Service tokens | Periodically, or if one may have leaked | Create a new token, update the pipeline, then revoke the old one. Its **Last used** date shows whether anything still depends on it. See [docs/ci-github-actions.md](docs/ci-github-actions.md#rotating-a-token). |
 | Secret values | On their rotation interval, or after exposure | Update the value in the web app or with `secrets set`; the dashboard lists secrets that are overdue. |
 

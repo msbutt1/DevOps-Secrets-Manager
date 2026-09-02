@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/auth"
@@ -339,6 +340,83 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+// SessionDTO describes one signed-in session of the caller.
+type SessionDTO struct {
+	ID         uuid.UUID `json:"id"`
+	CreatedAt  time.Time `json:"created_at"`
+	LastUsedAt time.Time `json:"last_used_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	IPAddress  *string   `json:"ip_address"`
+	UserAgent  *string   `json:"user_agent"`
+	Current    bool      `json:"current"`
+}
+
+// HandleListSessions lists the caller's active sessions.
+func (h *AuthHandlers) HandleListSessions(w http.ResponseWriter, r *http.Request) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+	sessions, err := h.authService.Sessions(r.Context(), claims.UserID)
+	if err != nil {
+		h.handleAuthError(w, r, err)
+		return
+	}
+	out := make([]SessionDTO, 0, len(sessions))
+	for _, s := range sessions {
+		out = append(out, SessionDTO{
+			ID: s.ID, CreatedAt: s.CreatedAt, LastUsedAt: s.LastUsedAt, ExpiresAt: s.ExpiresAt,
+			IPAddress: s.IPAddress, UserAgent: s.UserAgent, Current: s.ID == claims.SessionID,
+		})
+	}
+	h.respondJSON(w, http.StatusOK, out)
+}
+
+// HandleRevokeSession signs out one of the caller's sessions, possibly the current one.
+func (h *AuthHandlers) HandleRevokeSession(w http.ResponseWriter, r *http.Request) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+	sessionID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid session ID format")
+		return
+	}
+	if err := h.authService.RevokeSession(r.Context(), claims.UserID, sessionID); err != nil {
+		h.handleAuthError(w, r, err)
+		return
+	}
+	if sessionID == claims.SessionID {
+		if _, ok := h.cookie.read(r); ok {
+			h.cookie.clear(w)
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// RevokeSessionsResponseDTO reports how many sessions were signed out.
+type RevokeSessionsResponseDTO struct {
+	SessionsRevoked int64 `json:"sessions_revoked"`
+}
+
+// HandleRevokeOtherSessions signs out every session except the caller's.
+func (h *AuthHandlers) HandleRevokeOtherSessions(w http.ResponseWriter, r *http.Request) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+	revoked, err := h.authService.RevokeOtherSessions(r.Context(), claims.UserID, claims.SessionID)
+	if err != nil {
+		h.handleAuthError(w, r, err)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, RevokeSessionsResponseDTO{SessionsRevoked: revoked})
+}
+
 // handleAuthError maps auth service errors to appropriate HTTP responses
 func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, r *http.Request, err error) {
 	var locked *auth.LockedError
@@ -354,6 +432,8 @@ func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, r *http.Request, e
 		h.respondError(w, http.StatusUnauthorized, "token_expired", "Token has expired")
 	case errors.Is(err, auth.ErrTokenRevoked):
 		h.respondError(w, http.StatusUnauthorized, "token_revoked", "Token has been revoked")
+	case errors.Is(err, auth.ErrSessionNotFound):
+		h.respondError(w, http.StatusNotFound, "not_found", "Session not found")
 	case errors.Is(err, auth.ErrUserNotFound):
 		h.respondError(w, http.StatusNotFound, "user_not_found", "User not found")
 	case errors.Is(err, auth.ErrEmailNotVerified):

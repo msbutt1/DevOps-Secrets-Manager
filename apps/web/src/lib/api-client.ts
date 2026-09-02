@@ -27,6 +27,7 @@ import type {
   CreateInviteResponse,
   InviteLookup,
   ServiceToken,
+  Session,
   CreatedServiceToken,
   CreateServiceTokenRequest,
   AddMemberRequest,
@@ -359,6 +360,17 @@ export const serviceTokensApi = {
 
   revoke: (tokenId: string): Promise<void> =>
     apiFetch<void>(`/tokens/${tokenId}`, { method: 'DELETE' }),
+};
+
+// ============ SESSIONS API ============
+export const sessionsApi = {
+  list: (): Promise<Session[]> => apiFetch<Session[]>('/auth/sessions'),
+
+  revoke: (sessionId: string): Promise<void> =>
+    apiFetch<void>(`/auth/sessions/${sessionId}`, { method: 'DELETE' }),
+
+  revokeOthers: (): Promise<{ sessionsRevoked: number }> =>
+    apiFetch<{ sessionsRevoked: number }>('/auth/sessions/revoke-others', { method: 'POST' }),
 };
 
 // ============ ACCESS API ============

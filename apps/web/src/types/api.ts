@@ -51,6 +51,7 @@ export type RotationPolicy = Schema<'RotationPolicy'>;
 
 // Service token DTOs
 export type ServiceToken = Schema<'ServiceToken'>;
+export type Session = Schema<'Session'>;
 export type CreatedServiceToken = Schema<'CreatedServiceToken'>;
 export type CreateServiceTokenRequest = Schema<'CreateServiceTokenRequest'>;
 
@@ -129,6 +130,7 @@ export const AUDIT_ACTIONS = [
   { value: 'token.revoked', label: 'Service Token Revoked' },
   { value: 'env.exported', label: 'Environment Exported' },
   { value: 'user.password_changed', label: 'Password Changed' },
+  { value: 'user.sessions_revoked', label: 'Sessions Signed Out' },
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];

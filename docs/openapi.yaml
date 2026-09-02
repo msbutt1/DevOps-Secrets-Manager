@@ -247,6 +247,66 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /auth/sessions:
+    get:
+      tags: [Authentication]
+      summary: List sessions
+      description: |
+        The caller's active sessions: logins whose refresh token is still valid, most recently
+        used first. `current` marks the session the access token belongs to.
+      operationId: listSessions
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/sessions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Authentication]
+      summary: Sign out a session
+      description: |
+        Revokes the session's refresh token, so it cannot get new access tokens (an access token
+        it already holds stays valid for at most 15 minutes). Revoking the current session also
+        clears the refresh cookie. Audited as `user.sessions_revoked`.
+      operationId: revokeSession
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '204':
+          description: Signed out
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /auth/sessions/revoke-others:
+    post:
+      tags: [Authentication]
+      summary: Sign out everywhere else
+      description: Revokes every session of the caller except the current one. Audited as `user.sessions_revoked`.
+      operationId: revokeOtherSessions
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Sessions signed out
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions_revoked]
+                properties:
+                  sessions_revoked: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /orgs:
     get:
       tags: [Organizations]
@@ -1290,6 +1350,27 @@ components:
           type: integer
           description: Access token lifetime in seconds
 
+    Session:
+      type: object
+      required: [id, created_at, last_used_at, expires_at, ip_address, user_agent, current]
+      properties:
+        id: { type: string, format: uuid }
+        created_at:
+          type: string
+          format: date-time
+          description: When the user logged in
+        last_used_at:
+          type: string
+          format: date-time
+          description: Last login or token refresh
+        expires_at:
+          type: string
+          format: date-time
+          description: When the session ends unless refreshed
+        ip_address: { type: string, nullable: true }
+        user_agent: { type: string, nullable: true }
+        current: { type: boolean }
+
     ChangePasswordRequest:
       type: object
       required: [current_password, new_password]
@@ -1682,6 +1763,7 @@ components:
         - token.revoked
         - env.exported
         - user.password_changed
+        - user.sessions_revoked
 
     AuditEvent:
       type: object

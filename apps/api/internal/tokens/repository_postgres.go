@@ -119,14 +119,64 @@ func (r *postgresRepository) RevokeAllByUserIDExceptFamily(ctx context.Context, 
 			UPDATE refresh_tokens
 			SET revoked_at = CURRENT_TIMESTAMP
 			WHERE user_id = $1 AND token_family <> $2 AND revoked_at IS NULL
-			RETURNING token_family
+			RETURNING token_family, expires_at
 		)
-		SELECT COUNT(DISTINCT token_family) FROM revoked
+		SELECT COUNT(DISTINCT token_family) FROM revoked WHERE expires_at > CURRENT_TIMESTAMP
 	`, userID, keepFamily).Scan(&sessions)
 	if err != nil {
 		return 0, fmt.Errorf("failed to revoke other sessions: %w", err)
 	}
 	return sessions, nil
+}
+
+func (r *postgresRepository) TouchSession(ctx context.Context, sessionID, userID uuid.UUID, ipAddress, userAgent string) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO user_sessions (id, user_id, ip_address, user_agent)
+		VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''))
+		ON CONFLICT (id) DO UPDATE SET
+			last_used_at = CURRENT_TIMESTAMP,
+			ip_address = COALESCE(EXCLUDED.ip_address, user_sessions.ip_address),
+			user_agent = COALESCE(EXCLUDED.user_agent, user_sessions.user_agent)
+		WHERE user_sessions.user_id = EXCLUDED.user_id
+	`, sessionID, userID, ipAddress, userAgent)
+	if err != nil {
+		return fmt.Errorf("failed to record session: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresRepository) ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]Session, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT s.id, s.created_at, s.last_used_at, MAX(t.expires_at), s.ip_address, s.user_agent
+		FROM user_sessions s
+		JOIN refresh_tokens t ON t.token_family = s.id AND t.user_id = s.user_id
+		WHERE s.user_id = $1 AND t.revoked_at IS NULL AND t.expires_at > CURRENT_TIMESTAMP
+		GROUP BY s.id
+		ORDER BY s.last_used_at DESC
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	}
+	sessions, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Session, error) {
+		var s Session
+		return s, row.Scan(&s.ID, &s.CreatedAt, &s.LastUsedAt, &s.ExpiresAt, &s.IPAddress, &s.UserAgent)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list sessions: %w", err)
+	}
+	return sessions, nil
+}
+
+func (r *postgresRepository) RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) (bool, error) {
+	result, err := r.pool.Exec(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = CURRENT_TIMESTAMP
+		WHERE user_id = $1 AND token_family = $2 AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+	`, userID, sessionID)
+	if err != nil {
+		return false, fmt.Errorf("failed to revoke session: %w", err)
+	}
+	return result.RowsAffected() > 0, nil
 }
 
 // RevokeAllByTokenFamily revokes all refresh tokens in a specific token family

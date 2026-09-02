@@ -55,6 +55,9 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		// Protected routes - require authentication
 		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/me", authHandlers.HandleMe)
 		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Post("/change-password", authHandlers.HandleChangePassword)
+		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Get("/sessions", authHandlers.HandleListSessions)
+		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Delete("/sessions/{id}", authHandlers.HandleRevokeSession)
+		r.With(authmiddleware.AuthMiddleware(jwtSecret)).Post("/sessions/revoke-others", authHandlers.HandleRevokeOtherSessions)
 	})
 
 	// Organization routes (protected)
