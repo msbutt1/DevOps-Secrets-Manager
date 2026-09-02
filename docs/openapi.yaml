@@ -139,6 +139,67 @@ paths:
               schema: { $ref: '#/components/schemas/MessageResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
 
+  /auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request a password reset
+      description: |
+        Emails a single-use link to `/reset-password?token=...` that expires in one hour, if the
+        address belongs to an account; earlier reset links stop working. The response is the same
+        for unknown addresses. Limited to 3 requests per address and 10 per client IP per hour.
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailRequest' }
+      responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '202':
+          description: Accepted; an email is sent only if the account exists
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Reset password
+      description: |
+        Sets a new password with a reset token, marks the email verified, clears any login
+        lockout and signs out every session. The new password must meet the password policy; a
+        rejected password does not use up the token. Audited as `user.password_reset`.
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, new_password]
+              properties:
+                token: { type: string }
+                new_password: { type: string, format: password, minLength: 12, maxLength: 72 }
+      responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Password reset
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400':
+          description: Missing fields, a password that fails the policy (`validation_failed`), or an invalid, expired or used token (`invalid_reset_token`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /auth/login:
     post:
       tags: [Authentication]
@@ -1797,6 +1858,7 @@ components:
         - env.exported
         - user.password_changed
         - user.sessions_revoked
+        - user.password_reset
 
     AuditEvent:
       type: object

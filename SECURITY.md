@@ -27,7 +27,7 @@ Only the latest release receives security fixes.
 | Passwords | `users.password_hash` | bcrypt (cost 10); 12–72 bytes, checked against common passwords |
 | Refresh tokens | `refresh_tokens.token_hash` | Random, stored as SHA-256 hashes, rotated on every use |
 | Service tokens | `service_tokens.token_hash` | Random `dsm_st_` tokens, stored as SHA-256 hashes, shown once |
-| Verification and invite tokens | database | Random, stored as SHA-256 hashes, single use, expiring |
+| Verification, invite and password reset tokens | database | Random, stored as SHA-256 hashes, single use, expiring (reset links after one hour) |
 
 ## Threat model
 
@@ -59,9 +59,12 @@ Only the latest release receives security fixes.
   flow and fails if a password, token, cookie or secret value appears in the logs.
 - **Leaked CI credentials.** Service tokens read a single environment and nothing else, can
   expire, can be revoked instantly, and every read is audited with the token's name.
+- **Account enumeration.** Registration conflicts aside, the resend-verification and
+  forgot-password endpoints answer identically for every address and send mail in the
+  background, and both are limited to 3 requests per address per hour.
 - **A leaked password or a lost device.** Settings lists every signed-in session with its
   client, IP address and last activity. Any session can be signed out, and changing the password
-  signs out all the others; their refresh tokens are revoked and their access tokens expire within
+  signs out all the others, and a password reset signs out every session; their refresh tokens are revoked and their access tokens expire within
   15 minutes.
 - **Unaudited access.** Reveals, exports, membership and role changes, key rotations, logins,
   lockouts, password changes and session sign-outs are written to the audit log with the actor,

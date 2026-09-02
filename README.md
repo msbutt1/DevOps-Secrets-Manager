@@ -137,6 +137,8 @@ development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
 | POST | `/auth/register` | Register (sends a verification email) |
 | POST | `/auth/verify-email` | Verify an email address |
 | POST | `/auth/resend-verification` | Email a new verification link |
+| POST | `/auth/forgot-password` | Email a password reset link |
+| POST | `/auth/reset-password` | Set a new password with a reset link (signs out all sessions) |
 | POST | `/auth/login` | Log in |
 | POST | `/auth/refresh` | Exchange a refresh token for new tokens |
 | POST | `/auth/logout` | Revoke a refresh token |

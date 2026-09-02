@@ -248,6 +248,12 @@ func (r *EmailRecorder) SendVerificationEmail(_ context.Context, to, _, token st
 	return nil
 }
 
+// SendPasswordResetEmail records the reset token.
+func (r *EmailRecorder) SendPasswordResetEmail(_ context.Context, to, _, token string, _ time.Time) error {
+	r.record(to, token)
+	return nil
+}
+
 // SendInviteEmail records the invite token.
 func (r *EmailRecorder) SendInviteEmail(_ context.Context, invite email.Invite) error {
 	r.record(invite.To, invite.Token)

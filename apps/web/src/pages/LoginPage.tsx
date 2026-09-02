@@ -106,6 +106,12 @@ export const LoginPage = () => {
                 autoComplete="current-password"
                 disabled={isSubmitting}
               />
+              <Link
+                to="/forgot-password"
+                className="inline-block mt-1 text-win-small text-info hover:underline"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             <div className="flex justify-between items-center gap-2 pt-2 border-t border-border">

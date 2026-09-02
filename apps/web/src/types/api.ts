@@ -131,6 +131,7 @@ export const AUDIT_ACTIONS = [
   { value: 'env.exported', label: 'Environment Exported' },
   { value: 'user.password_changed', label: 'Password Changed' },
   { value: 'user.sessions_revoked', label: 'Sessions Signed Out' },
+  { value: 'user.password_reset', label: 'Password Reset' },
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];

@@ -84,6 +84,50 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/auth/forgot-password': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Request a password reset
+     * @description Emails a single-use link to `/reset-password?token=...` that expires in one hour, if the
+     *     address belongs to an account; earlier reset links stop working. The response is the same
+     *     for unknown addresses. Limited to 3 requests per address and 10 per client IP per hour.
+     */
+    post: operations['forgotPassword'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/auth/reset-password': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset password
+     * @description Sets a new password with a reset token, marks the email verified, clears any login
+     *     lockout and signs out every session. The new password must meet the password policy; a
+     *     rejected password does not use up the token. Audited as `user.password_reset`.
+     */
+    post: operations['resetPassword'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/auth/login': {
     parameters: {
       query?: never;
@@ -1267,7 +1311,8 @@ export interface components {
       | 'token.revoked'
       | 'env.exported'
       | 'user.password_changed'
-      | 'user.sessions_revoked';
+      | 'user.sessions_revoked'
+      | 'user.password_reset';
     AuditEvent: {
       /** Format: uuid */
       id: string;
@@ -1569,6 +1614,74 @@ export interface operations {
         };
       };
       400: components['responses']['BadRequest'];
+      413: components['responses']['PayloadTooLarge'];
+      429: components['responses']['TooManyRequests'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  forgotPassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EmailRequest'];
+      };
+    };
+    responses: {
+      /** @description Accepted; an email is sent only if the account exists */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MessageResponse'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      413: components['responses']['PayloadTooLarge'];
+      429: components['responses']['TooManyRequests'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  resetPassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+          /** Format: password */
+          new_password: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Password reset */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MessageResponse'];
+        };
+      };
+      /** @description Missing fields, a password that fails the policy (`validation_failed`), or an invalid, expired or used token (`invalid_reset_token`) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
       413: components['responses']['PayloadTooLarge'];
       429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];

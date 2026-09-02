@@ -324,6 +324,56 @@ func (h *AuthHandlers) HandleResendVerification(w http.ResponseWriter, r *http.R
 	})
 }
 
+// HandleForgotPassword emails a password reset link. The response is the same whether or not
+// the address belongs to an account.
+func (h *AuthHandlers) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req EmailRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if rejectInvalid(w, validate.Email(req.Email)) {
+		return
+	}
+	if err := h.authService.RequestPasswordReset(r.Context(), req.Email); err != nil {
+		h.handleAuthError(w, r, err)
+		return
+	}
+	h.respondJSON(w, http.StatusAccepted, VerifyEmailResponseDTO{
+		Message: "If that address belongs to an account, a password reset link is on its way. It expires in one hour.",
+	})
+}
+
+// ResetPasswordRequest sets a new password with a reset token.
+type ResetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+// HandleResetPassword sets a new password from a reset link and signs out every session.
+func (h *AuthHandlers) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req ResetPasswordRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Token == "" || req.NewPassword == "" {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Token and new password are required")
+		return
+	}
+	if rejectInvalid(w, validate.PasswordLength(req.NewPassword)) {
+		return
+	}
+	if err := h.authService.ResetPassword(r.Context(), req.Token, req.NewPassword); err != nil {
+		h.handleAuthError(w, r, err)
+		return
+	}
+	if _, ok := h.cookie.read(r); ok {
+		h.cookie.clear(w)
+	}
+	h.respondJSON(w, http.StatusOK, VerifyEmailResponseDTO{
+		Message: "Your password has been reset and all sessions were signed out. You can now log in.",
+	})
+}
+
 // HandleChangePassword handles password change requests
 func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Get claims from context (set by AuthMiddleware)
@@ -456,6 +506,8 @@ func (h *AuthHandlers) handleAuthError(w http.ResponseWriter, r *http.Request, e
 		h.respondError(w, http.StatusUnauthorized, "token_expired", "Token has expired")
 	case errors.Is(err, auth.ErrTokenRevoked):
 		h.respondError(w, http.StatusUnauthorized, "token_revoked", "Token has been revoked")
+	case errors.Is(err, auth.ErrInvalidResetToken):
+		h.respondError(w, http.StatusBadRequest, "invalid_reset_token", "This password reset link is invalid, expired or already used")
 	case errors.Is(err, auth.ErrSessionNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Session not found")
 	case errors.Is(err, auth.ErrUserNotFound):

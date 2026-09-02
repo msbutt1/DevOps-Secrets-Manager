@@ -62,6 +62,12 @@ func TestEveryAuditActionIsRecorded(t *testing.T) {
 		"invite_token": api.Email.WaitForToken(t, "joiner@example.test"),
 	})
 
+	// Last, because it signs the owner out everywhere (the access token keeps working briefly)
+	previousToken := api.Email.WaitForToken(t, f.owner.Email)
+	api.MustDo(http.StatusAccepted, "POST", "/auth/forgot-password", "", map[string]string{"email": f.owner.Email})
+	resetToken := waitForNewToken(t, api, f.owner.Email, previousToken)
+	api.MustDo(http.StatusOK, "POST", "/auth/reset-password", "", map[string]string{"token": resetToken, "new_password": apitest.TestPassword + "-reset"})
+
 	var page auditPage
 	api.MustDo(http.StatusOK, "GET", "/audit?limit=200", f.owner.Token, nil).Decode(t, &page)
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/crypto"
@@ -33,6 +34,7 @@ var (
 	ErrUserAlreadyExists      = errors.New("user already exists")
 	ErrInvalidVerification    = errors.New("invalid or expired verification token")
 	ErrSessionNotFound        = errors.New("session not found")
+	ErrInvalidResetToken      = errors.New("invalid or expired password reset token")
 	ErrInvalidCurrentPassword = errors.New("current password is incorrect")
 )
 
@@ -101,6 +103,11 @@ type AuthService interface {
 	// ResendVerification emails a new verification link if the address belongs to an unverified
 	// account, replacing earlier links. It reports nothing about whether the account exists.
 	ResendVerification(ctx context.Context, email string) error
+	// RequestPasswordReset emails a single-use reset link if the address belongs to an account.
+	// It reports nothing about whether the account exists.
+	RequestPasswordReset(ctx context.Context, email string) error
+	// ResetPassword sets a new password using a reset token and signs out every session.
+	ResetPassword(ctx context.Context, token, newPassword string) error
 	// ChangePassword sets a new password and signs out every other session of the user;
 	// currentSession (the refresh token family of the caller) stays signed in.
 	ChangePassword(ctx context.Context, userID, currentSession uuid.UUID, currentPassword, newPassword string) error
@@ -559,6 +566,119 @@ func (s *authService) ResendVerification(ctx context.Context, address string) er
 		return err
 	}
 	s.sendVerificationEmail(ctx, user, token)
+	return nil
+}
+
+// passwordResetTTL is how long a reset link works. It is short because the link is enough to
+// take over the account.
+const passwordResetTTL = time.Hour
+
+func (s *authService) RequestPasswordReset(ctx context.Context, address string) error {
+	user, err := s.userRepo.GetByEmail(ctx, users.NormalizeEmail(address))
+	if errors.Is(err, users.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	token, err := s.generateVerificationToken()
+	if err != nil {
+		return err
+	}
+	expiresAt := time.Now().Add(passwordResetTTL)
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	// Only the newest link works
+	if _, err := tx.Exec(ctx, `UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL`, user.ID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`, user.ID, s.hashToken(token), expiresAt); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	go func() {
+		if err := s.emailService.SendPasswordResetEmail(context.WithoutCancel(ctx), user.Email, user.Name, token, expiresAt); err != nil {
+			s.logger.ErrorContext(ctx, "failed to send password reset email", slog.String("user_id", user.ID.String()), slog.Any("error", err))
+		}
+	}()
+	return nil
+}
+
+func (s *authService) ResetPassword(ctx context.Context, token, newPassword string) error {
+	tokenHash := s.hashToken(token)
+	var userID uuid.UUID
+	err := s.pool.QueryRow(ctx, `
+		SELECT user_id FROM password_reset_tokens
+		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+	`, tokenHash).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrInvalidResetToken
+	}
+	if err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if errors.Is(err, users.ErrNotFound) {
+		return ErrInvalidResetToken
+	}
+	if err != nil {
+		return err
+	}
+	// Check the password before using up the token, so a rejected password can be retried
+	if err := validate.Password(newPassword, user.Email, user.Name); err != nil {
+		return err
+	}
+	passwordHash, err := crypto.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	result, err := tx.Exec(ctx, `
+		UPDATE password_reset_tokens SET used_at = NOW()
+		WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+	`, tokenHash)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrInvalidResetToken // used by a concurrent request
+	}
+	// Following the link proves the address, and the new password ends any lockout
+	if _, err := tx.Exec(ctx, `
+		UPDATE users SET password_hash = $2, email_verified = true, failed_login_attempts = 0,
+			login_locked_until = NULL, updated_at = NOW()
+		WHERE id = $1
+	`, userID, passwordHash); err != nil {
+		return err
+	}
+	revoked, err := tx.Exec(ctx, `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()`, userID)
+	if err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	_ = s.auditService.Record(ctx, audit.Event{
+		UserID:     user.ID,
+		Action:     audit.ActionPasswordReset,
+		TargetType: "user",
+		TargetID:   &user.ID,
+		TargetName: user.Email,
+		Metadata:   map[string]interface{}{"refresh_tokens_revoked": revoked.RowsAffected()},
+	})
 	return nil
 }
 

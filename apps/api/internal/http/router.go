@@ -51,6 +51,11 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 			rl.limit("resend-verification-email", 3, time.Hour, byLoginEmail),
 		).Post("/resend-verification", authHandlers.HandleResendVerification)
 		r.With(
+			rl.limit("forgot-password-ip", 10, time.Hour, byIP),
+			rl.limit("forgot-password-email", 3, time.Hour, byLoginEmail),
+		).Post("/forgot-password", authHandlers.HandleForgotPassword)
+		r.With(rl.limit("reset-password", 20, time.Hour, byIP)).Post("/reset-password", authHandlers.HandleResetPassword)
+		r.With(
 			rl.limit("login-ip", 20, time.Minute, byIP),
 			rl.limit("login-account", 10, 5*time.Minute, byLoginEmail),
 		).Post("/login", authHandlers.HandleLogin)

@@ -21,6 +21,7 @@ var ErrNotConfigured = errors.New("email delivery is not configured (set SMTP_HO
 type EmailService interface {
 	SendVerificationEmail(ctx context.Context, to, name, token string) error
 	SendInviteEmail(ctx context.Context, invite Invite) error
+	SendPasswordResetEmail(ctx context.Context, to, name, token string, expiresAt time.Time) error
 }
 
 // Invite describes an organization invitation email.
@@ -100,6 +101,20 @@ func (s *emailService) SendVerificationEmail(ctx context.Context, to, name, toke
 	return s.deliver(to, "Verify your email address", body, link)
 }
 
+// SendPasswordResetEmail sends a link to choose a new password
+func (s *emailService) SendPasswordResetEmail(ctx context.Context, to, name, token string, expiresAt time.Time) error {
+	link := s.link("/reset-password", token)
+	body, err := render(passwordResetTemplate, map[string]string{
+		"Name":    name,
+		"Link":    link,
+		"Expires": expiresAt.UTC().Format("2 January 2006 15:04 MST"),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to render email template: %w", err)
+	}
+	return s.deliver(to, "Reset your password", body, link)
+}
+
 // SendInviteEmail sends an invitation to join an organization
 func (s *emailService) SendInviteEmail(ctx context.Context, invite Invite) error {
 	link := s.link("/invite", invite.Token)
@@ -154,6 +169,21 @@ If you did not create an account, please ignore this email.
 
 Best regards,
 DevOps Secrets Manager Team
+`
+
+const passwordResetTemplate = `Hello {{.Name}},
+
+Someone asked to reset the password for your DevOps Secrets Manager account. If it was you,
+open the link below to choose a new password:
+
+{{.Link}}
+
+The link can be used once and expires on {{.Expires}}. Resetting your password signs out all
+of your sessions.
+
+If you did not ask for this, you can ignore this email; your password stays the same.
+
+DevOps Secrets Manager
 `
 
 const inviteTemplate = `Hello,
