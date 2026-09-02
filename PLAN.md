@@ -165,7 +165,7 @@ These are half-built or missing, but a team would need them.
 ### Account
 - [x] **Registration was not atomic.** (Found while reading the code.) The user and verification token were written outside the transaction that creates the organization, so a failure left an account with no organization that could never register again. Commit: `fix(api): create user, organization and token in one transaction`
 - [x] **Email addresses were case-sensitive.** (Found while designing invites.) `Ada@x.test` and `ada@x.test` could be two accounts, and logging in with different capitalisation failed. Addresses are now trimmed and lower-cased everywhere, with a case-insensitive unique index (migration 000014). Commit: `fix(api): treat email addresses case-insensitively`
-- [ ] **Change password.** The route and page exist. Test the whole flow end to end, and revoke all refresh tokens after a change. Commit: `fix(api): revoke sessions after password change`
+- [x] **Change password.** The route and page exist. Test the whole flow end to end, and revoke all refresh tokens after a change. Commit: `fix(api): revoke sessions after password change`
 - [ ] **Forgot password.** Emailed reset token, then a reset page. Commit: `feat: password reset by email`
 - [x] **Email verification in development.** Login is blocked until the email is verified, but local setups have no SMTP. Add a dev mode that logs the verification link (or a `APP_EMAIL_DISABLED=true` auto-verify switch that is off by default). Document it. Commit: `feat(api): log verification links when SMTP is not configured`
 - [ ] **Resend verification email.** Commit: `feat: resend verification email`

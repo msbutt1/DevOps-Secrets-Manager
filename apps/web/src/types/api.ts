@@ -128,6 +128,7 @@ export const AUDIT_ACTIONS = [
   { value: 'token.created', label: 'Service Token Created' },
   { value: 'token.revoked', label: 'Service Token Revoked' },
   { value: 'env.exported', label: 'Environment Exported' },
+  { value: 'user.password_changed', label: 'Password Changed' },
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];

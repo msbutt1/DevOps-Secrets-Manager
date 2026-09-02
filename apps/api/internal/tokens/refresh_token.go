@@ -28,6 +28,9 @@ type RefreshToken struct {
 
 // RefreshTokenRepository defines the interface for refresh token data access
 type RefreshTokenRepository interface {
+	// RevokeAllByUserIDExceptFamily revokes the user's tokens outside one family and returns
+	// how many sessions (families) were ended.
+	RevokeAllByUserIDExceptFamily(ctx context.Context, userID, keepFamily uuid.UUID) (int64, error)
 	Create(ctx context.Context, token *RefreshToken) error
 	GetByTokenHash(ctx context.Context, tokenHash string) (*RefreshToken, error)
 	RevokeByID(ctx context.Context, id uuid.UUID) error

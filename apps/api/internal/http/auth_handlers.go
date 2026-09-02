@@ -329,13 +329,13 @@ func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Change password
-	if err := h.authService.ChangePassword(r.Context(), claims.UserID, req.CurrentPassword, req.NewPassword); err != nil {
+	if err := h.authService.ChangePassword(r.Context(), claims.UserID, claims.SessionID, req.CurrentPassword, req.NewPassword); err != nil {
 		h.handleAuthError(w, r, err)
 		return
 	}
 
 	h.respondJSON(w, http.StatusOK, ChangePasswordResponseDTO{
-		Message: "Password changed successfully",
+		Message: "Password changed. Your other sessions have been signed out.",
 	})
 }
 

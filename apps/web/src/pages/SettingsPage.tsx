@@ -228,7 +228,12 @@ export const SettingsPage = () => {
               {success ? (
                 <div className="flex items-center gap-3 py-4">
                   <Check size={24} className="text-success" strokeWidth={1.5} />
-                  <p className="text-win-body">Password changed successfully!</p>
+                  <div>
+                    <p className="text-win-body">Password changed successfully!</p>
+                    <p className="text-win-small text-muted-foreground">
+                      Your other sessions have been signed out.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleChangePassword} className="space-y-3">

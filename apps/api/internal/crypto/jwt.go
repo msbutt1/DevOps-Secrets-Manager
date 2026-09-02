@@ -31,16 +31,19 @@ type CustomClaims struct {
 	UserID    uuid.UUID `json:"user_id"`
 	Email     string    `json:"email"`
 	TokenType string    `json:"token_type"`
+	// SessionID is the refresh token family the access token was issued for.
+	SessionID uuid.UUID `json:"sid"`
 	jwt.RegisteredClaims
 }
 
-// GenerateToken signs an HS256 token for the user.
-func GenerateToken(userID uuid.UUID, email, tokenType, secret string, duration time.Duration) (string, error) {
+// GenerateToken signs an HS256 token for the user's session.
+func GenerateToken(userID, sessionID uuid.UUID, email, tokenType, secret string, duration time.Duration) (string, error) {
 	now := time.Now()
 	claims := CustomClaims{
 		UserID:    userID,
 		Email:     email,
 		TokenType: tokenType,
+		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    TokenIssuer,
 			Subject:   userID.String(),

@@ -112,6 +112,23 @@ func (r *postgresRepository) RevokeAllByUserID(ctx context.Context, userID uuid.
 	return nil
 }
 
+func (r *postgresRepository) RevokeAllByUserIDExceptFamily(ctx context.Context, userID, keepFamily uuid.UUID) (int64, error) {
+	var sessions int64
+	err := r.pool.QueryRow(ctx, `
+		WITH revoked AS (
+			UPDATE refresh_tokens
+			SET revoked_at = CURRENT_TIMESTAMP
+			WHERE user_id = $1 AND token_family <> $2 AND revoked_at IS NULL
+			RETURNING token_family
+		)
+		SELECT COUNT(DISTINCT token_family) FROM revoked
+	`, userID, keepFamily).Scan(&sessions)
+	if err != nil {
+		return 0, fmt.Errorf("failed to revoke other sessions: %w", err)
+	}
+	return sessions, nil
+}
+
 // RevokeAllByTokenFamily revokes all refresh tokens in a specific token family
 func (r *postgresRepository) RevokeAllByTokenFamily(ctx context.Context, tokenFamily uuid.UUID) error {
 	query := `

@@ -97,7 +97,9 @@ type AuthService interface {
 	Me(ctx context.Context, userID uuid.UUID) (*UserProfile, error)
 	Register(ctx context.Context, req RegisterRequest) (*RegisterResult, error)
 	VerifyEmail(ctx context.Context, token string) error
-	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error
+	// ChangePassword sets a new password and signs out every other session of the user;
+	// currentSession (the refresh token family of the caller) stays signed in.
+	ChangePassword(ctx context.Context, userID, currentSession uuid.UUID, currentPassword, newPassword string) error
 }
 
 type authService struct {
@@ -186,9 +188,13 @@ func (s *authService) Login(ctx context.Context, email, password string) (*AuthR
 		return nil, ErrEmailNotVerified
 	}
 
+	// Each login starts a session: a family of refresh tokens that rotate on use
+	tokenFamily := uuid.New()
+
 	// Generate access token
 	accessToken, err := crypto.GenerateToken(
 		user.ID,
+		tokenFamily,
 		user.Email,
 		crypto.TokenTypeAccess,
 		s.jwtSecret,
@@ -203,9 +209,6 @@ func (s *authService) Login(ctx context.Context, email, password string) (*AuthR
 
 	// Hash refresh token with SHA-256
 	tokenHash := s.hashToken(refreshTokenPlaintext)
-
-	// Create token family for rotation
-	tokenFamily := uuid.New()
 
 	// Store refresh token in database
 	refreshTokenEntity := &tokens.RefreshToken{
@@ -271,6 +274,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 	// Generate new access token
 	accessToken, err := crypto.GenerateToken(
 		user.ID,
+		storedToken.TokenFamily,
 		user.Email,
 		crypto.TokenTypeAccess,
 		s.jwtSecret,
@@ -538,7 +542,7 @@ func (s *authService) generateVerificationToken() (string, error) {
 }
 
 // ChangePassword changes a user's password after verifying their current password
-func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+func (s *authService) ChangePassword(ctx context.Context, userID, currentSession uuid.UUID, currentPassword, newPassword string) error {
 	// Get user by ID
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
@@ -568,5 +572,19 @@ func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 		return err
 	}
 
+	// Whoever knew the old password may hold a session; end all of them except the caller's
+	revoked, err := s.refreshTokenRepo.RevokeAllByUserIDExceptFamily(ctx, userID, currentSession)
+	if err != nil {
+		return err
+	}
+
+	_ = s.auditService.Record(ctx, audit.Event{
+		UserID:     user.ID,
+		Action:     audit.ActionPasswordChanged,
+		TargetType: "user",
+		TargetID:   &user.ID,
+		TargetName: user.Email,
+		Metadata:   map[string]interface{}{"sessions_revoked": revoked},
+	})
 	return nil
 }

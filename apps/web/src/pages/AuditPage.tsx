@@ -69,6 +69,7 @@ const actionIcons: Record<string, string> = {
   'env.deleted': 'DELETE',
   'login.success': 'LOGIN',
   'login.failure': 'FAIL',
+  'user.password_changed': 'PASSWORD',
 };
 
 export const AuditPage = () => {

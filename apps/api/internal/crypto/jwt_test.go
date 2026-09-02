@@ -39,7 +39,8 @@ func sign(t *testing.T, method jwt.SigningMethod, key any, mutate func(*CustomCl
 
 func TestGenerateTokenRoundTrip(t *testing.T) {
 	userID := uuid.New()
-	token, err := GenerateToken(userID, "user@example.test", TokenTypeAccess, testJWTSecret, time.Minute)
+	sessionID := uuid.New()
+	token, err := GenerateToken(userID, sessionID, "user@example.test", TokenTypeAccess, testJWTSecret, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +48,7 @@ func TestGenerateTokenRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("valid token rejected: %v", err)
 	}
-	if claims.UserID != userID || claims.Issuer != TokenIssuer || claims.Subject != userID.String() || claims.ID == "" {
+	if claims.UserID != userID || claims.SessionID != sessionID || claims.Issuer != TokenIssuer || claims.Subject != userID.String() || claims.ID == "" {
 		t.Fatalf("unexpected claims: %+v", claims)
 	}
 	if len(claims.Audience) != 1 || claims.Audience[0] != TokenAudience {

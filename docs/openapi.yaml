@@ -221,6 +221,11 @@ paths:
     post:
       tags: [Authentication]
       summary: Change password
+      description: |
+        Sets a new password and signs out every other session of the user by revoking their
+        refresh tokens; the session making the request stays signed in. Access tokens already
+        issued to other sessions stay valid until they expire (at most 15 minutes). Audited as
+        `user.password_changed` with the number of sessions ended.
       operationId: changePassword
       requestBody:
         required: true
@@ -1676,6 +1681,7 @@ components:
         - token.created
         - token.revoked
         - env.exported
+        - user.password_changed
 
     AuditEvent:
       type: object

@@ -59,8 +59,10 @@ Only the latest release receives security fixes.
   flow and fails if a password, token, cookie or secret value appears in the logs.
 - **Leaked CI credentials.** Service tokens read a single environment and nothing else, can
   expire, can be revoked instantly, and every read is audited with the token's name.
-- **Unaudited access.** Reveals, exports, membership and role changes, key rotations, logins
-  and lockouts are written to the audit log with the actor, target, IP address and user agent.
+- **A leaked password.** Changing the password signs out every other session by revoking its
+  refresh tokens (their access tokens expire within 15 minutes).
+- **Unaudited access.** Reveals, exports, membership and role changes, key rotations, logins,
+  lockouts and password changes are written to the audit log with the actor, target, IP address and user agent.
 
 ### Not protected against
 
@@ -85,7 +87,6 @@ Only the latest release receives security fixes.
 
 - There is no multi-factor authentication or single sign-on.
 - Keys come from environment variables; there is no integration with a cloud KMS or HSM.
-- Changing a password does not yet end existing sessions.
 
 ## Operating securely
 

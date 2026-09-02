@@ -24,6 +24,7 @@ const (
 	ActionVaultUpdated      = "vault.updated"
 	ActionVaultDeleted      = "vault.deleted"
 	ActionVaultKeyRotated   = "vault.key_rotated"
+	ActionPasswordChanged   = "user.password_changed"
 	ActionEnvCreated        = "env.created"
 	ActionEnvUpdated        = "env.updated"
 	ActionEnvDeleted        = "env.deleted"
@@ -68,6 +69,7 @@ var Actions = []string{
 	ActionTokenCreated,
 	ActionTokenRevoked,
 	ActionEnvExported,
+	ActionPasswordChanged,
 }
 
 // Event describes something to record in the audit log. The actor is UserID, or ServiceTokenID

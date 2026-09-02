@@ -151,7 +151,13 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Change password */
+    /**
+     * Change password
+     * @description Sets a new password and signs out every other session of the user by revoking their
+     *     refresh tokens; the session making the request stays signed in. Access tokens already
+     *     issued to other sessions stay valid until they expire (at most 15 minutes). Audited as
+     *     `user.password_changed` with the number of sessions ended.
+     */
     post: operations['changePassword'];
     delete?: never;
     options?: never;
@@ -1145,7 +1151,8 @@ export interface components {
       | 'invite.accepted'
       | 'token.created'
       | 'token.revoked'
-      | 'env.exported';
+      | 'env.exported'
+      | 'user.password_changed';
     AuditEvent: {
       /** Format: uuid */
       id: string;
