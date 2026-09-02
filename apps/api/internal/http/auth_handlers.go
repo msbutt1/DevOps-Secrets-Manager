@@ -300,6 +300,30 @@ func (h *AuthHandlers) HandleVerifyEmail(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// EmailRequest carries just an email address.
+type EmailRequest struct {
+	Email string `json:"email"`
+}
+
+// HandleResendVerification sends a new verification link. The response is the same whether or
+// not the address belongs to an unverified account.
+func (h *AuthHandlers) HandleResendVerification(w http.ResponseWriter, r *http.Request) {
+	var req EmailRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if rejectInvalid(w, validate.Email(req.Email)) {
+		return
+	}
+	if err := h.authService.ResendVerification(r.Context(), req.Email); err != nil {
+		h.handleAuthError(w, r, err)
+		return
+	}
+	h.respondJSON(w, http.StatusAccepted, VerifyEmailResponseDTO{
+		Message: "If that address belongs to an account that still needs verifying, a new link is on its way.",
+	})
+}
+
 // HandleChangePassword handles password change requests
 func (h *AuthHandlers) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Get claims from context (set by AuthMiddleware)

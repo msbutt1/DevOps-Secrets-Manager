@@ -3,11 +3,14 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Input, Panel } from '@/components/win95';
 import { Shield, AlertTriangle } from 'lucide-react';
+import { ApiRequestError } from '@/lib/api-client';
+import { ResendVerificationButton } from '@/components/ResendVerificationButton';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const { login, error, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,13 +22,15 @@ export const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setNeedsVerification(false);
     setIsSubmitting(true);
 
     try {
       await login({ email, password });
       navigate(from, { replace: true });
-    } catch {
-      // Error is handled by AuthContext
+    } catch (err) {
+      // The message is shown by AuthContext; unverified accounts also get a resend option
+      setNeedsVerification(err instanceof ApiRequestError && err.code === 'email_not_verified');
     } finally {
       setIsSubmitting(false);
     }
@@ -62,6 +67,11 @@ export const LoginPage = () => {
               <div>
                 <p className="text-win-body text-warning font-semibold">Authentication Failed</p>
                 <p className="text-win-small">{error}</p>
+                {needsVerification && (
+                  <div className="mt-2">
+                    <ResendVerificationButton email={email} />
+                  </div>
+                )}
               </div>
             </div>
           )}

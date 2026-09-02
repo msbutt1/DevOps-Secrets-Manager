@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { authApi, clearTokens, isAuthenticated } from './api-client';
+import { ApiRequestError, authApi, clearTokens, isAuthenticated } from './api-client';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -72,6 +72,22 @@ describe('auth token handling', () => {
     await expect(authApi.me()).resolves.toEqual({ id: 'u1' });
     expect(fetchMock.mock.calls[2][0]).toBe('/api/auth/refresh');
     expect(fetchMock.mock.calls[3][1].headers.Authorization).toBe('Bearer new');
+  });
+
+  it('keeps the error code of failed requests', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json(403, { error: 'email_not_verified', message: 'Please verify your email address' }),
+    );
+
+    const failure = await authApi
+      .login({ email: 'a@example.test', password: 'pw' })
+      .catch((e) => e);
+    expect(failure).toBeInstanceOf(ApiRequestError);
+    expect(failure).toMatchObject({
+      code: 'email_not_verified',
+      status: 403,
+      message: 'Please verify your email address',
+    });
   });
 
   it('does not try to refresh after a failed login', async () => {

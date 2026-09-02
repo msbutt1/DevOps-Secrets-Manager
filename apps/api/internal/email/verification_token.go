@@ -34,6 +34,8 @@ type VerificationTokenRepository interface {
 	Create(ctx context.Context, token *VerificationToken) error
 	GetByTokenHash(ctx context.Context, tokenHash string) (*VerificationToken, error)
 	MarkAsUsed(ctx context.Context, id uuid.UUID) error
+	// InvalidateForUser marks all of the user's unused tokens as used, so only a newer one works.
+	InvalidateForUser(ctx context.Context, userID uuid.UUID) error
 	// WithTx returns a repository bound to the transaction.
 	WithTx(tx pgx.Tx) VerificationTokenRepository
 }
@@ -108,6 +110,13 @@ func (r *verificationTokenRepository) GetByTokenHash(ctx context.Context, tokenH
 }
 
 // MarkAsUsed marks a verification token as used
+func (r *verificationTokenRepository) InvalidateForUser(ctx context.Context, userID uuid.UUID) error {
+	if _, err := r.pool.Exec(ctx, `UPDATE email_verification_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL`, userID); err != nil {
+		return fmt.Errorf("failed to invalidate verification tokens: %w", err)
+	}
+	return nil
+}
+
 func (r *verificationTokenRepository) MarkAsUsed(ctx context.Context, id uuid.UUID) error {
 	query := `
 		UPDATE email_verification_tokens

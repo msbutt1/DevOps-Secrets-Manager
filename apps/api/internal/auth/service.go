@@ -98,6 +98,9 @@ type AuthService interface {
 	Me(ctx context.Context, userID uuid.UUID) (*UserProfile, error)
 	Register(ctx context.Context, req RegisterRequest) (*RegisterResult, error)
 	VerifyEmail(ctx context.Context, token string) error
+	// ResendVerification emails a new verification link if the address belongs to an unverified
+	// account, replacing earlier links. It reports nothing about whether the account exists.
+	ResendVerification(ctx context.Context, email string) error
 	// ChangePassword sets a new password and signs out every other session of the user;
 	// currentSession (the refresh token family of the caller) stays signed in.
 	ChangePassword(ctx context.Context, userID, currentSession uuid.UUID, currentPassword, newPassword string) error
@@ -521,22 +524,8 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*Regis
 		return nil, err
 	}
 
-	// Generate verification token
-	verificationToken, err := s.generateVerificationToken()
+	verificationToken, err := s.issueVerificationToken(ctx, s.verificationTokenRepo.WithTx(tx), userID)
 	if err != nil {
-		return nil, err
-	}
-
-	// Store the verification token hash
-	token := &email.VerificationToken{
-		ID:        uuid.New(),
-		UserID:    userID,
-		TokenHash: s.hashToken(verificationToken),
-		ExpiresAt: time.Now().Add(s.verificationTokenTTL),
-		CreatedAt: time.Now(),
-	}
-
-	if err := s.verificationTokenRepo.WithTx(tx).Create(ctx, token); err != nil {
 		return nil, err
 	}
 
@@ -545,15 +534,58 @@ func (s *authService) Register(ctx context.Context, req RegisterRequest) (*Regis
 		return nil, err
 	}
 
-	// Send verification email (async, don't block on this)
-	go func() {
-		if err := s.emailService.SendVerificationEmail(context.Background(), user.Email, req.Name, verificationToken); err != nil {
-			// Log error but don't fail registration
-			s.logger.ErrorContext(ctx, "failed to send verification email", slog.String("user_id", userID.String()), slog.Any("error", err))
-		}
-	}()
+	s.sendVerificationEmail(ctx, user, verificationToken)
 
 	return &RegisterResult{UserID: userID, VerificationRequired: true, OrganizationID: orgID}, nil
+}
+
+func (s *authService) ResendVerification(ctx context.Context, address string) error {
+	user, err := s.userRepo.GetByEmail(ctx, users.NormalizeEmail(address))
+	if errors.Is(err, users.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if user.EmailVerified {
+		return nil
+	}
+
+	if err := s.verificationTokenRepo.InvalidateForUser(ctx, user.ID); err != nil {
+		return err
+	}
+	token, err := s.issueVerificationToken(ctx, s.verificationTokenRepo, user.ID)
+	if err != nil {
+		return err
+	}
+	s.sendVerificationEmail(ctx, user, token)
+	return nil
+}
+
+// issueVerificationToken stores the hash of a new verification token and returns the token.
+func (s *authService) issueVerificationToken(ctx context.Context, repo email.VerificationTokenRepository, userID uuid.UUID) (string, error) {
+	token, err := s.generateVerificationToken()
+	if err != nil {
+		return "", err
+	}
+	err = repo.Create(ctx, &email.VerificationToken{
+		ID:        uuid.New(),
+		UserID:    userID,
+		TokenHash: s.hashToken(token),
+		ExpiresAt: time.Now().Add(s.verificationTokenTTL),
+		CreatedAt: time.Now(),
+	})
+	return token, err
+}
+
+// sendVerificationEmail sends in the background, so response time does not reveal whether an
+// account exists, and a mail failure does not fail the request.
+func (s *authService) sendVerificationEmail(ctx context.Context, user *users.User, token string) {
+	go func() {
+		if err := s.emailService.SendVerificationEmail(context.WithoutCancel(ctx), user.Email, user.Name, token); err != nil {
+			s.logger.ErrorContext(ctx, "failed to send verification email", slog.String("user_id", user.ID.String()), slog.Any("error", err))
+		}
+	}()
 }
 
 // VerifyEmail verifies a user's email using a verification token

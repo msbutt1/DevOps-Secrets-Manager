@@ -61,6 +61,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/auth/resend-verification': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend verification email
+     * @description Emails a new verification link if the address belongs to an account that is not verified
+     *     yet; earlier links stop working. The response is the same for unknown and already
+     *     verified addresses, so it cannot be used to discover accounts. Limited to 3 requests per
+     *     address and 10 per client IP per hour.
+     */
+    post: operations['resendVerification'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/auth/login': {
     parameters: {
       query?: never;
@@ -840,6 +863,10 @@ export interface components {
     VerifyEmailRequest: {
       token: string;
     };
+    EmailRequest: {
+      /** Format: email */
+      email: string;
+    };
     LoginRequest: {
       /** Format: email */
       email: string;
@@ -1514,6 +1541,34 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
+      413: components['responses']['PayloadTooLarge'];
+      429: components['responses']['TooManyRequests'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  resendVerification: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EmailRequest'];
+      };
+    };
+    responses: {
+      /** @description Accepted; an email is sent only if the account needs verifying */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MessageResponse'];
+        };
+      };
+      400: components['responses']['BadRequest'];
       413: components['responses']['PayloadTooLarge'];
       429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];

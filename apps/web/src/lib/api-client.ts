@@ -44,6 +44,18 @@ import { toCamelCase, toSnakeCase } from './case-transform';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+/** An error response from the API, keeping its machine-readable code (e.g. `email_not_verified`). */
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
 // The access token lives only in memory. The refresh token is an HttpOnly cookie set by the
 // API, so scripts on the page (including injected ones) can never read it.
 let accessToken: string | null = null;
@@ -120,11 +132,12 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}, retry = 
   }
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      code: 'UNKNOWN_ERROR',
-      message: 'An unexpected error occurred',
-    }));
-    throw new Error(error.message);
+    const error: Partial<ApiError> = await response.json().catch(() => ({}));
+    throw new ApiRequestError(
+      error.message ?? 'An unexpected error occurred',
+      error.error ?? 'unknown_error',
+      response.status,
+    );
   }
 
   // Handle empty responses
@@ -189,6 +202,12 @@ export const authApi = {
       body: JSON.stringify(data),
     });
   },
+
+  resendVerification: (email: string): Promise<{ message: string }> =>
+    apiFetch<{ message: string }>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
 
   verifyEmail: async (data: VerifyEmailRequest): Promise<VerifyEmailResponse> => {
     return apiFetch<VerifyEmailResponse>('/auth/verify-email', {

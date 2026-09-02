@@ -168,7 +168,7 @@ These are half-built or missing, but a team would need them.
 - [x] **Change password.** The route and page exist. Test the whole flow end to end, and revoke all refresh tokens after a change. Commit: `fix(api): revoke sessions after password change`
 - [ ] **Forgot password.** Emailed reset token, then a reset page. Commit: `feat: password reset by email`
 - [x] **Email verification in development.** Login is blocked until the email is verified, but local setups have no SMTP. Add a dev mode that logs the verification link (or a `APP_EMAIL_DISABLED=true` auto-verify switch that is off by default). Document it. Commit: `feat(api): log verification links when SMTP is not configured`
-- [ ] **Resend verification email.** Commit: `feat: resend verification email`
+- [x] **Resend verification email.** Commit: `feat: resend verification email`
 - [x] **Sessions.** List active sessions (refresh tokens) in Settings and allow "sign out everywhere". The Settings page's "Current Session" panel is currently hard-coded ("Chrome on Windows", 192.168.1.100) and must show real data or go. Commit: `feat: view and revoke active sessions`
 
 ### Secrets lifecycle

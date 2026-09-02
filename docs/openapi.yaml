@@ -112,6 +112,33 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /auth/resend-verification:
+    post:
+      tags: [Authentication]
+      summary: Resend verification email
+      description: |
+        Emails a new verification link if the address belongs to an account that is not verified
+        yet; earlier links stop working. The response is the same for unknown and already
+        verified addresses, so it cannot be used to discover accounts. Limited to 3 requests per
+        address and 10 per client IP per hour.
+      operationId: resendVerification
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailRequest' }
+      responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '202':
+          description: Accepted; an email is sent only if the account needs verifying
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
   /auth/login:
     post:
       tags: [Authentication]
@@ -1310,6 +1337,12 @@ components:
       required: [token]
       properties:
         token: { type: string }
+
+    EmailRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
 
     LoginRequest:
       type: object

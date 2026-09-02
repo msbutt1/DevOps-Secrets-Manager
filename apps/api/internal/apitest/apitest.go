@@ -254,6 +254,13 @@ func (r *EmailRecorder) SendInviteEmail(_ context.Context, invite email.Invite) 
 	return nil
 }
 
+// Count returns how many emails with tokens were sent to the address so far.
+func (r *EmailRecorder) Count(to string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.tokens[strings.ToLower(to)])
+}
+
 // WaitForToken returns the newest token emailed to the address, waiting for asynchronous sends.
 func (r *EmailRecorder) WaitForToken(t *testing.T, to string) string {
 	t.Helper()

@@ -7,6 +7,7 @@ import { Shield, AlertTriangle, Check } from 'lucide-react';
 import { authApi, invitesApi } from '@/lib/api-client';
 import { passwordProblem } from '@/lib/password';
 import { PasswordStrengthHint } from '@/components/PasswordStrengthHint';
+import { ResendVerificationButton } from '@/components/ResendVerificationButton';
 
 export const RegisterPage = () => {
   const [email, setEmail] = useState('');
@@ -98,7 +99,8 @@ export const RegisterPage = () => {
               </div>
             </Panel>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <div className="flex justify-between items-start gap-2 pt-2 border-t border-border">
+              <ResendVerificationButton email={email} />
               <Button onClick={() => navigate('/login')}>Go to Login</Button>
             </div>
           </div>

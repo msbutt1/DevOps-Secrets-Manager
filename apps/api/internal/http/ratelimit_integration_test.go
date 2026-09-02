@@ -35,4 +35,12 @@ func TestRateLimits(t *testing.T) {
 	// Other accounts are unaffected
 	api.Login(other.Email, apitest.TestPassword)
 
+	// Verification emails can be requested three times an hour per address.
+	resend := map[string]string{"email": "flooded@example.test"}
+	for i := 0; i < 3; i++ {
+		api.MustDo(http.StatusAccepted, "POST", "/auth/resend-verification", "", resend)
+	}
+	api.MustDo(http.StatusTooManyRequests, "POST", "/auth/resend-verification", "", resend)
+	api.MustDo(http.StatusAccepted, "POST", "/auth/resend-verification", "", map[string]string{"email": "someone.else@example.test"})
+
 }
