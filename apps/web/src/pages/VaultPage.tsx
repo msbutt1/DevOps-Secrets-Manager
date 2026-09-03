@@ -7,6 +7,7 @@ import { SecretFormDialog } from '@/components/SecretFormDialog';
 import { EnvironmentFormDialog } from '@/components/EnvironmentFormDialog';
 import { RevealSecretDialog } from '@/components/RevealSecretDialog';
 import { ExpiryBadge } from '@/components/ExpiryBadge';
+import { rotationStatus } from '@/lib/rotation';
 import { ServiceTokensDialog } from '@/components/ServiceTokensDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { RoleBadge } from '@/components/RoleBadge';
@@ -441,10 +442,9 @@ export const VaultPage = () => {
                     </thead>
                     <tbody>
                       {secrets.map((secret, idx) => {
-                        const needsRotation =
-                          secret.rotationPolicy?.nextRotationAt &&
-                          new Date(secret.rotationPolicy.nextRotationAt) <
-                            new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                        const rotation = secret.rotationPolicy
+                          ? rotationStatus(secret.rotationPolicy.nextRotationAt)
+                          : null;
 
                         return (
                           <tr
@@ -476,12 +476,16 @@ export const VaultPage = () => {
                               <div className="text-muted-foreground">{secret.lastUpdatedBy}</div>
                             </td>
                             <td className="px-2 py-1">
-                              {secret.rotationPolicy ? (
+                              {secret.rotationPolicy && rotation ? (
                                 <div
-                                  className={`flex items-center gap-1 ${needsRotation ? 'text-warning' : ''}`}
+                                  className={`flex flex-col ${rotation.state === 'overdue' ? 'text-destructive font-semibold' : rotation.state === 'due' ? 'text-warning font-semibold' : ''}`}
+                                  title={`Every ${secret.rotationPolicy.intervalDays} days; next rotation ${new Date(secret.rotationPolicy.nextRotationAt).toLocaleDateString()}`}
                                 >
-                                  <RefreshCw size={10} strokeWidth={1.5} />
-                                  <span>{secret.rotationPolicy.intervalDays}d</span>
+                                  <span className="flex items-center gap-1">
+                                    <RefreshCw size={10} strokeWidth={1.5} />
+                                    {secret.rotationPolicy.intervalDays}d
+                                  </span>
+                                  <span className="text-win-small">{rotation.label}</span>
                                 </div>
                               ) : (
                                 <span className="text-muted-foreground">—</span>

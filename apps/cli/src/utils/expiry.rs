@@ -17,6 +17,20 @@ pub fn describe(expires_at: Option<&str>, now: DateTime<Utc>) -> Option<String> 
     (days < WARNING_DAYS).then(|| format!("expires in {days}d ({})", expires.format("%Y-%m-%d")))
 }
 
+/// Describes a rotation due date: "overdue since 2026-09-01", "due in 3d", or None when it is
+/// more than a week away or cannot be parsed.
+pub fn describe_rotation(next_rotation_at: &str, now: DateTime<Utc>) -> Option<String> {
+    let due = DateTime::parse_from_rfc3339(next_rotation_at)
+        .ok()?
+        .with_timezone(&Utc);
+    let remaining = due - now;
+    if remaining.num_seconds() <= 0 {
+        return Some(format!("overdue since {}", due.format("%Y-%m-%d")));
+    }
+    let days = remaining.num_days();
+    (days < 7).then(|| format!("due in {days}d"))
+}
+
 /// Warning lines for expired or soon-expiring secrets, printed to stderr by run and pull.
 /// Expired values are still used: a stale credential is the caller's call, but it should be loud.
 pub fn warnings<'a>(
@@ -61,6 +75,19 @@ mod tests {
         assert_eq!(describe(Some("2026-12-01T00:00:00Z"), now()), None);
         assert_eq!(describe(None, now()), None);
         assert_eq!(describe(Some("not a date"), now()), None);
+    }
+
+    #[test]
+    fn describes_rotation_due_dates() {
+        assert_eq!(
+            describe_rotation("2026-09-01T00:00:00Z", now()).as_deref(),
+            Some("overdue since 2026-09-01")
+        );
+        assert_eq!(
+            describe_rotation("2026-09-17T13:00:00Z", now()).as_deref(),
+            Some("due in 2d")
+        );
+        assert_eq!(describe_rotation("2026-10-30T00:00:00Z", now()), None);
     }
 
     #[test]

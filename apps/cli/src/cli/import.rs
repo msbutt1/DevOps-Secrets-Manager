@@ -138,6 +138,7 @@ mod tests {
             rotation_interval_days: None,
             expires_at: None,
             metadata: None,
+            rotation_policy: None,
         }
     }
 

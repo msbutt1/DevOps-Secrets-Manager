@@ -135,9 +135,17 @@ impl TablePrinter {
             table.add_row(vec![
                 s.key_name.clone(),
                 s.description.clone().unwrap_or_else(|| "-".into()),
-                s.rotation_interval_days
-                    .map(|d| format!("every {d}d"))
-                    .unwrap_or_else(|| "-".into()),
+                match (&s.rotation_policy, s.rotation_interval_days) {
+                    (Some(policy), _) => match super::expiry::describe_rotation(
+                        &policy.next_rotation_at,
+                        chrono::Utc::now(),
+                    ) {
+                        Some(due) => format!("every {}d, {due}", policy.interval_days),
+                        None => format!("every {}d", policy.interval_days),
+                    },
+                    (None, Some(d)) => format!("every {d}d"),
+                    (None, None) => "-".into(),
+                },
                 match (
                     &s.expires_at,
                     super::expiry::describe(s.expires_at.as_deref(), chrono::Utc::now()),

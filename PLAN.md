@@ -177,10 +177,11 @@ These are half-built or missing, but a team would need them.
   - Show expired or expiring badges.
   - Decide whether expired secrets can be revealed or pulled; recommended: allowed, with a warning in the CLI output.
   - Commit: `feat: surface secret expiry in web and CLI`
-- [ ] **Rotation reminders.**
+- [x] **Rotation reminders.**
   - `rotation_interval_days` and `last_rotated_at` are stored, but nothing computes when a secret is due.
   - Compute `next_rotation_at`, set `last_rotated_at` when the value changes, and list overdue secrets.
   - Commit: `feat(api): track rotation due dates`
+  - The API part shipped with the vault page contract and dashboard work (`rotation_policy.next_rotation_at`, `last_rotated_at` on value changes, overdue counts and alerts); the due status in the vault table and `secrets list` followed as `feat: show rotation due dates in web and CLI`.
 - [ ] **Version history.** Keep previous encrypted values (a `secret_versions` table) so a bad update can be rolled back. Record the version number in the audit log. Commit: `feat: secret version history and rollback`
 - [ ] **Bulk import and export.**
   - Paste or upload a `.env` file into an environment, with a preview of what gets created, updated or skipped.

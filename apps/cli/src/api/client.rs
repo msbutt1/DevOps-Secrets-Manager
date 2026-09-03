@@ -80,6 +80,15 @@ pub struct Secret {
     pub expires_at: Option<String>,
     #[serde(default)]
     pub metadata: Option<serde_json::Value>,
+    #[serde(default)]
+    pub rotation_policy: Option<RotationPolicy>,
+}
+
+/// When a secret with a rotation interval is next due.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RotationPolicy {
+    pub interval_days: i32,
+    pub next_rotation_at: String,
 }
 
 /// Body for PUT /secrets/{id}. The API replaces description, rotation interval, expiry and
