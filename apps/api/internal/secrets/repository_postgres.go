@@ -51,7 +51,7 @@ func (r *postgresRepository) Create(ctx context.Context, secret *Secret, wrapped
 	}
 
 	err = r.withVaultKey(ctx, secret.EnvironmentID, wrappedDEK, func(tx pgx.Tx) error {
-		return tx.QueryRow(
+		err := tx.QueryRow(
 			ctx,
 			query,
 			secret.ID,
@@ -68,6 +68,15 @@ func (r *postgresRepository) Create(ctx context.Context, secret *Secret, wrapped
 			secret.CreatedAt,
 			secret.UpdatedAt,
 		).Scan(&secret.ID, &secret.CreatedAt, &secret.UpdatedAt)
+		if err != nil {
+			return err
+		}
+		secret.Version = 1
+		_, err = tx.Exec(ctx, `
+			INSERT INTO secret_versions (secret_id, version, encrypted_value, nonce, created_by, created_at)
+			VALUES ($1, 1, $2, $3, $4, $5)
+		`, secret.ID, secret.EncryptedValue, secret.Nonce, secret.CreatedBy, secret.CreatedAt)
+		return err
 	})
 
 	if err != nil {
@@ -90,7 +99,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, secretID uuid.UUID) (*
 		SELECT
 			s.id, s.environment_id, s.key_name, s.encrypted_value, s.nonce,
 			s.description, s.rotation_interval_days, s.last_rotated_at, s.expires_at,
-			s.metadata, s.created_by, s.updated_by, COALESCE(u.name, ''), s.created_at, s.updated_at, s.deleted_at
+			s.metadata, s.created_by, s.updated_by, COALESCE(u.name, ''), s.created_at, s.updated_at, s.deleted_at, s.version
 		FROM secrets s
 		LEFT JOIN users u ON u.id = s.updated_by
 		WHERE s.id = $1 AND s.deleted_at IS NULL
@@ -116,6 +125,7 @@ func (r *postgresRepository) GetByID(ctx context.Context, secretID uuid.UUID) (*
 		&secret.CreatedAt,
 		&secret.UpdatedAt,
 		&secret.DeletedAt,
+		&secret.Version,
 	)
 
 	if err != nil {
@@ -141,7 +151,7 @@ func (r *postgresRepository) ListByEnvironmentID(ctx context.Context, envID uuid
 		SELECT
 			s.id, s.environment_id, s.key_name, s.encrypted_value, s.nonce,
 			s.description, s.rotation_interval_days, s.last_rotated_at, s.expires_at,
-			s.metadata, s.created_by, s.updated_by, COALESCE(u.name, ''), s.created_at, s.updated_at, s.deleted_at
+			s.metadata, s.created_by, s.updated_by, COALESCE(u.name, ''), s.created_at, s.updated_at, s.deleted_at, s.version
 		FROM secrets s
 		LEFT JOIN users u ON u.id = s.updated_by
 		WHERE s.environment_id = $1 AND s.deleted_at IS NULL
@@ -176,6 +186,7 @@ func (r *postgresRepository) ListByEnvironmentID(ctx context.Context, envID uuid
 			&secret.CreatedAt,
 			&secret.UpdatedAt,
 			&secret.DeletedAt,
+			&secret.Version,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan secret: %w", err)
@@ -199,7 +210,7 @@ func (r *postgresRepository) ListByEnvironmentID(ctx context.Context, envID uuid
 }
 
 // Update modifies an existing secret in the database
-func (r *postgresRepository) Update(ctx context.Context, secret *Secret, wrappedDEK []byte) error {
+func (r *postgresRepository) Update(ctx context.Context, secret *Secret, wrappedDEK []byte, valueChanged bool, restoredFrom *int) error {
 	query := `
 		UPDATE secrets
 		SET
@@ -211,9 +222,10 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret, wrapped
 			expires_at = $7,
 			metadata = $8,
 			updated_at = $9,
-			updated_by = $10
+			updated_by = $10,
+			version = version + CASE WHEN $11 THEN 1 ELSE 0 END
 		WHERE id = $1 AND deleted_at IS NULL
-		RETURNING updated_at
+		RETURNING updated_at, version
 	`
 
 	// Convert metadata map to JSONB
@@ -227,7 +239,7 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret, wrapped
 	}
 
 	err = r.withVaultKey(ctx, secret.EnvironmentID, wrappedDEK, func(tx pgx.Tx) error {
-		return tx.QueryRow(
+		err := tx.QueryRow(
 			ctx,
 			query,
 			secret.ID,
@@ -240,7 +252,16 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret, wrapped
 			metadataJSON,
 			secret.UpdatedAt,
 			secret.UpdatedBy,
-		).Scan(&secret.UpdatedAt)
+			valueChanged,
+		).Scan(&secret.UpdatedAt, &secret.Version)
+		if err != nil || !valueChanged {
+			return err
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO secret_versions (secret_id, version, encrypted_value, nonce, created_by, created_at, restored_from)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, secret.ID, secret.Version, secret.EncryptedValue, secret.Nonce, secret.UpdatedBy, secret.UpdatedAt, restoredFrom)
+		return err
 	})
 
 	if err != nil {
@@ -258,6 +279,44 @@ func (r *postgresRepository) Update(ctx context.Context, secret *Secret, wrapped
 	}
 
 	return nil
+}
+
+func (r *postgresRepository) ListVersions(ctx context.Context, secretID uuid.UUID) ([]Version, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT v.version, v.created_by, COALESCE(u.name, ''), v.created_at, v.restored_from
+		FROM secret_versions v
+		LEFT JOIN users u ON u.id = v.created_by
+		WHERE v.secret_id = $1
+		ORDER BY v.version DESC
+	`, secretID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secret versions: %w", err)
+	}
+	versions, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Version, error) {
+		var v Version
+		return v, row.Scan(&v.Version, &v.CreatedBy, &v.CreatedByName, &v.CreatedAt, &v.RestoredFrom)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secret versions: %w", err)
+	}
+	return versions, nil
+}
+
+func (r *postgresRepository) GetVersion(ctx context.Context, secretID uuid.UUID, version int) (*Version, error) {
+	v := Version{Version: version}
+	err := r.pool.QueryRow(ctx, `
+		SELECT v.encrypted_value, v.nonce, v.created_by, COALESCE(u.name, ''), v.created_at, v.restored_from
+		FROM secret_versions v
+		LEFT JOIN users u ON u.id = v.created_by
+		WHERE v.secret_id = $1 AND v.version = $2
+	`, secretID, version).Scan(&v.EncryptedValue, &v.Nonce, &v.CreatedBy, &v.CreatedByName, &v.CreatedAt, &v.RestoredFrom)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret version: %w", err)
+	}
+	return &v, nil
 }
 
 // withVaultKey runs fn in a transaction that holds a share lock on the environment's vault and

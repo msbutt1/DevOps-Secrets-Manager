@@ -25,6 +25,12 @@ type SecretService interface {
 	// ExportEnvironment decrypts every secret in an environment. It records one env.exported
 	// audit event for the given actor (a user, or a service token with uuid.Nil as user).
 	ExportEnvironment(ctx context.Context, envID uuid.UUID, actor audit.Event) ([]KeyValue, error)
+	// ListVersions lists a secret's earlier and current values without decrypting them.
+	ListVersions(ctx context.Context, secretID uuid.UUID) ([]Version, error)
+	// RevealVersion decrypts one version of a secret and audits it like a reveal.
+	RevealVersion(ctx context.Context, secretID uuid.UUID, version int, requestedBy uuid.UUID) (string, error)
+	// RestoreVersion makes an earlier value current again as a new version.
+	RestoreVersion(ctx context.Context, secretID uuid.UUID, version int, restoredBy uuid.UUID) (*Secret, error)
 }
 
 // KeyValue is a decrypted secret.
@@ -181,7 +187,7 @@ func (s *secretService) UpdateSecret(
 		secret.UpdatedAt = time.Now()
 		secret.UpdatedBy = &updatedBy
 
-		if err := s.secretRepo.Update(ctx, secret, vault.EncryptedDEK); err != nil {
+		if err := s.secretRepo.Update(ctx, secret, vault.EncryptedDEK, newPlaintextValue != nil, nil); err != nil {
 			return fmt.Errorf("failed to update secret: %w", err)
 		}
 		return nil
@@ -200,7 +206,7 @@ func (s *secretService) UpdateSecret(
 		OrganizationID: &vault.OrganizationID,
 		VaultID:        &vault.ID,
 		EnvironmentID:  &secret.EnvironmentID,
-		Metadata:       map[string]interface{}{"value_changed": newPlaintextValue != nil},
+		Metadata:       map[string]interface{}{"value_changed": newPlaintextValue != nil, "version": secret.Version},
 	})
 
 	return secret, nil
@@ -333,6 +339,103 @@ func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, 
 	s.record(ctx, actor)
 
 	return values, nil
+}
+
+func (s *secretService) ListVersions(ctx context.Context, secretID uuid.UUID) ([]Version, error) {
+	if _, err := s.secretRepo.GetByID(ctx, secretID); err != nil {
+		return nil, fmt.Errorf("failed to get secret: %w", err)
+	}
+	return s.secretRepo.ListVersions(ctx, secretID)
+}
+
+func (s *secretService) RevealVersion(ctx context.Context, secretID uuid.UUID, version int, requestedBy uuid.UUID) (string, error) {
+	var secret *Secret
+	var vault *vaults.Vault
+	var plaintext []byte
+	err := retryOnKeyChange(func() error {
+		var err error
+		if secret, vault, err = s.secretWithVault(ctx, secretID); err != nil {
+			return err
+		}
+		v, err := s.secretRepo.GetVersion(ctx, secretID, version)
+		if err != nil {
+			return err
+		}
+		plaintext, err = s.decrypt(vault, &Secret{KeyName: secret.KeyName, EncryptedValue: v.EncryptedValue, Nonce: v.Nonce})
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	s.record(ctx, audit.Event{
+		UserID:         requestedBy,
+		Action:         audit.ActionSecretRevealed,
+		TargetType:     "secret",
+		TargetID:       &secretID,
+		TargetName:     secret.KeyName,
+		OrganizationID: &vault.OrganizationID,
+		VaultID:        &vault.ID,
+		EnvironmentID:  &secret.EnvironmentID,
+		Metadata:       map[string]interface{}{"version": version},
+	})
+	return string(plaintext), nil
+}
+
+func (s *secretService) RestoreVersion(ctx context.Context, secretID uuid.UUID, version int, restoredBy uuid.UUID) (*Secret, error) {
+	var secret *Secret
+	var vault *vaults.Vault
+	err := retryOnKeyChange(func() error {
+		var err error
+		if secret, vault, err = s.secretWithVault(ctx, secretID); err != nil {
+			return err
+		}
+		if version == secret.Version {
+			return ErrVersionIsCurrent
+		}
+		v, err := s.secretRepo.GetVersion(ctx, secretID, version)
+		if err != nil {
+			return err
+		}
+		// Versions are kept under the vault's current data key, so the ciphertext is reused as is
+		now := time.Now()
+		secret.EncryptedValue, secret.Nonce = v.EncryptedValue, v.Nonce
+		secret.LastRotatedAt = &now
+		secret.UpdatedAt = now
+		secret.UpdatedBy = &restoredBy
+		return s.secretRepo.Update(ctx, secret, vault.EncryptedDEK, true, &version)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.record(ctx, audit.Event{
+		UserID:         restoredBy,
+		Action:         audit.ActionSecretRestored,
+		TargetType:     "secret",
+		TargetID:       &secretID,
+		TargetName:     secret.KeyName,
+		OrganizationID: &vault.OrganizationID,
+		VaultID:        &vault.ID,
+		EnvironmentID:  &secret.EnvironmentID,
+		Metadata:       map[string]interface{}{"restored_version": version, "version": secret.Version},
+	})
+	return secret, nil
+}
+
+// secretWithVault reads a secret and the vault that owns it.
+func (s *secretService) secretWithVault(ctx context.Context, secretID uuid.UUID) (*Secret, *vaults.Vault, error) {
+	secret, err := s.secretRepo.GetByID(ctx, secretID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get secret: %w", err)
+	}
+	env, err := s.envRepo.GetByID(ctx, secret.EnvironmentID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+	vault, err := s.vaultRepo.GetByID(ctx, env.VaultID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get vault: %w", err)
+	}
+	return secret, vault, nil
 }
 
 // maxKeyAttempts bounds how often a write is retried when a data key rotation races with it.

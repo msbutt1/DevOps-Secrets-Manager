@@ -14,6 +14,10 @@ var (
 	// ErrKeyChanged means the vault's data key was rotated after the value was encrypted; the
 	// caller should read the vault again and retry.
 	ErrKeyChanged = errors.New("vault data key changed during the write")
+	// ErrVersionNotFound means the secret has no version with that number.
+	ErrVersionNotFound = errors.New("secret version not found")
+	// ErrVersionIsCurrent means a restore named the version that is already current.
+	ErrVersionIsCurrent = errors.New("that version is already the current value")
 )
 
 type Secret struct {
@@ -32,7 +36,9 @@ type Secret struct {
 	UpdatedByName        string                 `json:"-"` // joined from users on read
 	CreatedAt            time.Time              `json:"created_at"`
 	UpdatedAt            time.Time              `json:"updated_at"`
-	DeletedAt            *time.Time             `json:"deleted_at,omitempty"`
+	// Version is the number of the current value; it goes up each time the value changes.
+	Version   int        `json:"version"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty"`
 }
 
 type Repository interface {
@@ -41,6 +47,23 @@ type Repository interface {
 	Create(ctx context.Context, secret *Secret, wrappedDEK []byte) error
 	GetByID(ctx context.Context, secretID uuid.UUID) (*Secret, error)
 	ListByEnvironmentID(ctx context.Context, envID uuid.UUID) ([]*Secret, error)
-	Update(ctx context.Context, secret *Secret, wrappedDEK []byte) error
+	// Update stores the secret; with valueChanged its version goes up and the new ciphertext is
+	// kept as a version (restoredFrom names the version it was copied from, if any).
+	Update(ctx context.Context, secret *Secret, wrappedDEK []byte, valueChanged bool, restoredFrom *int) error
+	// ListVersions returns a secret's versions, newest first, without ciphertext.
+	ListVersions(ctx context.Context, secretID uuid.UUID) ([]Version, error)
+	// GetVersion returns one version including its ciphertext.
+	GetVersion(ctx context.Context, secretID uuid.UUID, version int) (*Version, error)
 	Delete(ctx context.Context, secretID uuid.UUID) error
+}
+
+// Version is one value a secret has had.
+type Version struct {
+	Version        int
+	EncryptedValue []byte
+	Nonce          []byte
+	CreatedBy      *uuid.UUID
+	CreatedByName  string
+	CreatedAt      time.Time
+	RestoredFrom   *int
 }

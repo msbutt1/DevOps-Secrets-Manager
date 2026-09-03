@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -54,6 +55,17 @@ type SecretMetadataResponse struct {
 	LastUpdatedByID      *uuid.UUID              `json:"last_updated_by_id"`
 	LastUpdatedBy        string                  `json:"last_updated_by"`
 	RotationPolicy       *RotationPolicyResponse `json:"rotation_policy"`
+	Version              int                     `json:"version"`
+}
+
+// SecretVersionResponse describes one value a secret has had, without the value.
+type SecretVersionResponse struct {
+	Version      int        `json:"version"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CreatedByID  *uuid.UUID `json:"created_by_id"`
+	CreatedBy    string     `json:"created_by"`
+	RestoredFrom *int       `json:"restored_from"`
+	Current      bool       `json:"current"`
 }
 
 // RotationPolicyResponse describes when a secret with a rotation interval is next due.
@@ -381,6 +393,106 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 	h.respondJSON(w, http.StatusOK, response)
 }
 
+// authorizeSecret resolves the secret in the URL and checks the caller's role on its vault. It
+// writes the error response and returns false when the request cannot continue.
+func (h *SecretHandlers) authorizeSecret(w http.ResponseWriter, r *http.Request, action policy.Action) (uuid.UUID, *secrets.Secret, bool) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return uuid.Nil, nil, false
+	}
+	secretID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid secret ID format")
+		return uuid.Nil, nil, false
+	}
+	secret, err := h.secretService.GetSecretMetadata(r.Context(), secretID)
+	if err != nil {
+		h.handleSecretError(w, r, err)
+		return uuid.Nil, nil, false
+	}
+	environment, err := h.envService.GetEnvironment(r.Context(), secret.EnvironmentID)
+	if err != nil {
+		if errors.Is(err, environments.ErrNotFound) {
+			h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
+			return uuid.Nil, nil, false
+		}
+		h.handleEnvironmentError(w, r, err)
+		return uuid.Nil, nil, false
+	}
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, environment.VaultID, action, "Secret", h.logPolicyError); !ok {
+		return uuid.Nil, nil, false
+	}
+	return claims.UserID, secret, true
+}
+
+// versionParam parses the {version} URL parameter.
+func (h *SecretHandlers) versionParam(w http.ResponseWriter, r *http.Request) (int, bool) {
+	version, err := strconv.Atoi(chi.URLParam(r, "version"))
+	if err != nil || version < 1 {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Version must be a positive integer")
+		return 0, false
+	}
+	return version, true
+}
+
+// HandleListVersions lists a secret's versions (read permission).
+func (h *SecretHandlers) HandleListVersions(w http.ResponseWriter, r *http.Request) {
+	_, secret, ok := h.authorizeSecret(w, r, policy.ActionSecretRead)
+	if !ok {
+		return
+	}
+	versions, err := h.secretService.ListVersions(r.Context(), secret.ID)
+	if err != nil {
+		h.handleSecretError(w, r, err)
+		return
+	}
+	out := make([]SecretVersionResponse, 0, len(versions))
+	for _, v := range versions {
+		out = append(out, SecretVersionResponse{
+			Version: v.Version, CreatedAt: v.CreatedAt, CreatedByID: v.CreatedBy, CreatedBy: v.CreatedByName,
+			RestoredFrom: v.RestoredFrom, Current: v.Version == secret.Version,
+		})
+	}
+	h.respondJSON(w, http.StatusOK, out)
+}
+
+// HandleRevealVersion decrypts one earlier value (reveal permission, audited).
+func (h *SecretHandlers) HandleRevealVersion(w http.ResponseWriter, r *http.Request) {
+	userID, secret, ok := h.authorizeSecret(w, r, policy.ActionSecretReveal)
+	if !ok {
+		return
+	}
+	version, ok := h.versionParam(w, r)
+	if !ok {
+		return
+	}
+	value, err := h.secretService.RevealVersion(r.Context(), secret.ID, version, userID)
+	if err != nil {
+		h.handleSecretError(w, r, err)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, SecretRevealResponse{ID: secret.ID, KeyName: secret.KeyName, Value: value, ExpiresIn: h.revealAutoHideSeconds})
+}
+
+// HandleRestoreVersion makes an earlier value current again (write permission, audited).
+func (h *SecretHandlers) HandleRestoreVersion(w http.ResponseWriter, r *http.Request) {
+	userID, secret, ok := h.authorizeSecret(w, r, policy.ActionSecretWrite)
+	if !ok {
+		return
+	}
+	version, ok := h.versionParam(w, r)
+	if !ok {
+		return
+	}
+	restored, err := h.secretService.RestoreVersion(r.Context(), secret.ID, version, userID)
+	if err != nil {
+		h.handleSecretError(w, r, err)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, h.toSecretMetadataResponse(h.reload(r, restored)))
+}
+
 // logPolicyError logs a failed permission lookup
 func (h *SecretHandlers) logPolicyError(ctx context.Context, err error) {
 	h.logger.ErrorContext(ctx, "Failed to check vault permissions", slog.Any("error", err))
@@ -404,6 +516,7 @@ func (h *SecretHandlers) toSecretMetadataResponse(secret *secrets.Secret) Secret
 		LastUpdatedByID:      secret.UpdatedBy,
 		LastUpdatedBy:        secret.UpdatedByName,
 		RotationPolicy:       rotationPolicy(secret),
+		Version:              secret.Version,
 	}
 }
 
@@ -439,6 +552,10 @@ func (h *SecretHandlers) handleSecretError(w http.ResponseWriter, r *http.Reques
 	switch {
 	case errors.Is(err, secrets.ErrNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
+	case errors.Is(err, secrets.ErrVersionNotFound):
+		h.respondError(w, http.StatusNotFound, "not_found", "Secret version not found")
+	case errors.Is(err, secrets.ErrVersionIsCurrent):
+		h.respondError(w, http.StatusConflict, "version_is_current", "That version is already the current value")
 	case errors.Is(err, secrets.ErrDuplicate):
 		h.respondError(w, http.StatusConflict, "duplicate", "Secret with this key already exists in the environment")
 	default:

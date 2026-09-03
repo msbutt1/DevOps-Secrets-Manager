@@ -7,6 +7,7 @@ import { SecretFormDialog } from '@/components/SecretFormDialog';
 import { EnvironmentFormDialog } from '@/components/EnvironmentFormDialog';
 import { RevealSecretDialog } from '@/components/RevealSecretDialog';
 import { ExpiryBadge } from '@/components/ExpiryBadge';
+import { SecretHistoryDialog } from '@/components/SecretHistoryDialog';
 import { rotationStatus } from '@/lib/rotation';
 import { ServiceTokensDialog } from '@/components/ServiceTokensDialog';
 import { EmptyState } from '@/components/EmptyState';
@@ -29,6 +30,7 @@ import {
 } from '@/hooks/use-secrets';
 import {
   Eye,
+  History,
   EyeOff,
   Pencil,
   Trash2,
@@ -45,6 +47,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import type { Secret, Environment, EnvironmentName } from '@/types/api';
+import { ROLE_PERMISSIONS } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
 
 const formatDate = (dateStr: string) => {
@@ -75,6 +78,7 @@ export const VaultPage = () => {
 
   // Dialog states
   const [revealSecret, setRevealSecret] = useState<Secret | null>(null);
+  const [historySecret, setHistorySecret] = useState<Secret | null>(null);
   const [revealedValue, setRevealedValue] = useState<string | null>(null);
   const [revealExpiresIn, setRevealExpiresIn] = useState<number | undefined>(undefined);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -542,6 +546,14 @@ export const VaultPage = () => {
                                     )}
                                   </button>
                                 </PermissionGate>
+                                <button
+                                  onClick={() => setHistorySecret(secret)}
+                                  className="win-button !min-w-0 !px-1 !py-[2px]"
+                                  title={`History (version ${secret.version})`}
+                                  aria-label={`History of ${secret.keyName}`}
+                                >
+                                  <History size={12} />
+                                </button>
                                 <PermissionGate
                                   permission="canWrite"
                                   userRole={vault?.userRole || 'viewer'}
@@ -589,6 +601,15 @@ export const VaultPage = () => {
       </div>
 
       {/* Reveal Secret Dialog */}
+      {historySecret && (
+        <SecretHistoryDialog
+          secret={historySecret}
+          canReveal={ROLE_PERMISSIONS[vault?.userRole ?? 'viewer'].canReveal}
+          canRestore={ROLE_PERMISSIONS[vault?.userRole ?? 'viewer'].canWrite}
+          onClose={() => setHistorySecret(null)}
+        />
+      )}
+
       <RevealSecretDialog
         isOpen={!!revealSecret}
         secretName={revealSecret?.keyName || ''}

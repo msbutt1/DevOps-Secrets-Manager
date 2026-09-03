@@ -21,7 +21,7 @@ Only the latest release receives security fixes.
 
 | Asset | Where it lives | Protection |
 |-------|----------------|------------|
-| Secret values | `secrets.encrypted_value` | AES-256-GCM with the vault's data key; decrypted only in the API, on reveal or export |
+| Secret values and their history | `secrets.encrypted_value`, `secret_versions` | AES-256-GCM with the vault's data key; decrypted only in the API, on reveal or export; data key rotation re-encrypts every earlier value too |
 | Vault data keys | `vaults.encrypted_dek` | AES-256-GCM with the master key (KEK); the version that wrapped each key is recorded |
 | Master key | `MASTER_KEK` environment variable | Never stored in the database; the API refuses weak, placeholder or published values |
 | Passwords | `users.password_hash` | bcrypt (cost 10); 12–72 bytes, checked against common passwords |

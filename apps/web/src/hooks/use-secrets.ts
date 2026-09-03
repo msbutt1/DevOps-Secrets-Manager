@@ -7,6 +7,7 @@ export const secretKeys = {
   all: ['secrets'] as const,
   list: (envId: string) => [...secretKeys.all, 'list', envId] as const,
   detail: (id: string) => [...secretKeys.all, 'detail', id] as const,
+  versions: (id: string) => [...secretKeys.all, 'versions', id] as const,
 };
 
 export function useSecrets(envId: string) {
@@ -52,5 +53,25 @@ export function useDeleteSecret() {
 export function useRevealSecret() {
   return useMutation({
     mutationFn: (id: string) => secretsApi.reveal(id),
+  });
+}
+
+export function useSecretVersions(secretId: string | undefined) {
+  return useQuery({
+    queryKey: secretKeys.versions(secretId ?? ''),
+    queryFn: () => secretsApi.versions(secretId!),
+    enabled: !!secretId,
+  });
+}
+
+export function useRestoreSecretVersion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      secretsApi.restoreVersion(id, version),
+    onSuccess: () => {
+      // Refreshes the list, the new version's metadata and the history
+      queryClient.invalidateQueries({ queryKey: secretKeys.all });
+    },
   });
 }

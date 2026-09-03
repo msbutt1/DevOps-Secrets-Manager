@@ -201,6 +201,45 @@ func RotateVaultDEK(ctx context.Context, pool *pgxpool.Pool, keyring *crypto.Key
 		}
 	}
 
+	// Earlier values are kept for rollback and must stay readable under the new key
+	versionRows, err := tx.Query(ctx, `
+		SELECT v.secret_id, v.version, v.encrypted_value, v.nonce
+		FROM secret_versions v
+		JOIN secrets s ON s.id = v.secret_id
+		JOIN environments e ON e.id = s.environment_id
+		WHERE e.vault_id = $1
+		FOR UPDATE OF v
+	`, vaultID)
+	if err != nil {
+		return result, fmt.Errorf("list secret versions: %w", err)
+	}
+	type encryptedVersion struct {
+		secretID   uuid.UUID
+		version    int
+		ciphertext []byte
+		nonce      []byte
+	}
+	versions, err := pgx.CollectRows(versionRows, func(row pgx.CollectableRow) (encryptedVersion, error) {
+		var v encryptedVersion
+		return v, row.Scan(&v.secretID, &v.version, &v.ciphertext, &v.nonce)
+	})
+	if err != nil {
+		return result, fmt.Errorf("list secret versions: %w", err)
+	}
+	for _, v := range versions {
+		plaintext, err := crypto.DecryptValue(v.ciphertext, v.nonce, oldDEK)
+		if err != nil {
+			return result, fmt.Errorf("decrypt version %d of secret %s: %w", v.version, v.secretID, err)
+		}
+		ciphertext, nonce, err := crypto.EncryptValue(plaintext, newDEK)
+		if err != nil {
+			return result, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE secret_versions SET encrypted_value = $3, nonce = $4 WHERE secret_id = $1 AND version = $2`, v.secretID, v.version, ciphertext, nonce); err != nil {
+			return result, fmt.Errorf("update version %d of secret %s: %w", v.version, v.secretID, err)
+		}
+	}
+
 	newWrapped, newVersion, err := keyring.WrapDEK(newDEK)
 	if err != nil {
 		return result, err

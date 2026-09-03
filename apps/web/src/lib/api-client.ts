@@ -28,6 +28,7 @@ import type {
   InviteLookup,
   ServiceToken,
   Session,
+  SecretVersion,
   CreatedServiceToken,
   CreateServiceTokenRequest,
   AddMemberRequest,
@@ -376,6 +377,17 @@ export const secretsApi = {
     apiFetch<SecretRevealResponse>(`/secrets/${secretId}/reveal`, {
       method: 'POST',
     }),
+
+  versions: (secretId: string): Promise<SecretVersion[]> =>
+    apiFetch<SecretVersion[]>(`/secrets/${secretId}/versions`),
+
+  revealVersion: (secretId: string, version: number): Promise<SecretRevealResponse> =>
+    apiFetch<SecretRevealResponse>(`/secrets/${secretId}/versions/${version}/reveal`, {
+      method: 'POST',
+    }),
+
+  restoreVersion: (secretId: string, version: number): Promise<Secret> =>
+    apiFetch<Secret>(`/secrets/${secretId}/versions/${version}/restore`, { method: 'POST' }),
 };
 
 // ============ SERVICE TOKENS API ============

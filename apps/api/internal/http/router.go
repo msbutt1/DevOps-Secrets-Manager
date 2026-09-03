@@ -130,6 +130,9 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		r.Put("/{id}", secretHandlers.HandleUpdateSecret)
 		r.Delete("/{id}", secretHandlers.HandleDeleteSecret)
 		r.With(rl.limit("reveal", 60, time.Minute, byUser)).Post("/{id}/reveal", secretHandlers.HandleRevealSecret)
+		r.Get("/{id}/versions", secretHandlers.HandleListVersions)
+		r.With(rl.limit("reveal", 60, time.Minute, byUser)).Post("/{id}/versions/{version}/reveal", secretHandlers.HandleRevealVersion)
+		r.Post("/{id}/versions/{version}/restore", secretHandlers.HandleRestoreVersion)
 	})
 
 	// Dashboard statistics (protected)

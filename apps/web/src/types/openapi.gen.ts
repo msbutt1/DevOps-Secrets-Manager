@@ -755,6 +755,76 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/secrets/{id}/versions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['SecretIdPath'];
+      };
+      cookie?: never;
+    };
+    /**
+     * List secret versions
+     * @description Every value the secret has had, newest first, without the values. A new version is added
+     *     each time the value changes or an earlier version is restored. Requires read permission.
+     */
+    get: operations['listSecretVersions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/secrets/{id}/versions/{version}/reveal': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['SecretIdPath'];
+        version: components['parameters']['VersionPath'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reveal an earlier value
+     * @description Requires reveal permission. Audited as `secret.revealed` with the version number.
+     */
+    post: operations['revealSecretVersion'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/secrets/{id}/versions/{version}/restore': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['SecretIdPath'];
+        version: components['parameters']['VersionPath'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Roll back to an earlier value
+     * @description Makes the value of an earlier version current again by adding it as a new version, so
+     *     history is never rewritten. Requires write permission. Audited as `secret.restored`.
+     */
+    post: operations['restoreSecretVersion'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/vaults/{id}/members': {
     parameters: {
       query?: never;
@@ -1159,6 +1229,20 @@ export interface components {
       /** @description Display name of the last editor */
       last_updated_by: string;
       rotation_policy: components['schemas']['RotationPolicy'] | null;
+      /** @description Number of the current value; it increases each time the value changes */
+      version: number;
+    };
+    SecretVersion: {
+      version: number;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      created_by_id: string | null;
+      /** @description Display name of whoever set this value; empty when unknown */
+      created_by: string;
+      /** @description The earlier version this one was restored from */
+      restored_from: number | null;
+      current: boolean;
     };
     CreateSecretRequest: {
       key_name: string;
@@ -1317,7 +1401,8 @@ export interface components {
       | 'env.exported'
       | 'user.password_changed'
       | 'user.sessions_revoked'
-      | 'user.password_reset';
+      | 'user.password_reset'
+      | 'secret.restored';
     AuditEvent: {
       /** Format: uuid */
       id: string;
@@ -1485,6 +1570,7 @@ export interface components {
     OrganizationIdPath: string;
     VaultIdPath: string;
     EnvironmentIdPath: string;
+    VersionPath: number;
     SecretIdPath: string;
   };
   requestBodies: never;
@@ -2854,6 +2940,98 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       429: components['responses']['TooManyRequests'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  listSecretVersions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['SecretIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Versions */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SecretVersion'][];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      404: components['responses']['NotFound'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  revealSecretVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['SecretIdPath'];
+        version: components['parameters']['VersionPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Decrypted value of that version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SecretReveal'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['TooManyRequests'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  restoreSecretVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['SecretIdPath'];
+        version: components['parameters']['VersionPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The secret with its new current version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SecretMetadata'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The version is already current (`version_is_current`) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
       500: components['responses']['InternalError'];
     };
   };

@@ -1070,6 +1070,79 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /secrets/{id}/versions:
+    parameters:
+      - $ref: '#/components/parameters/SecretIdPath'
+    get:
+      tags: [Secrets]
+      summary: List secret versions
+      description: |
+        Every value the secret has had, newest first, without the values. A new version is added
+        each time the value changes or an earlier version is restored. Requires read permission.
+      operationId: listSecretVersions
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SecretVersion' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /secrets/{id}/versions/{version}/reveal:
+    parameters:
+      - $ref: '#/components/parameters/SecretIdPath'
+      - $ref: '#/components/parameters/VersionPath'
+    post:
+      tags: [Secrets]
+      summary: Reveal an earlier value
+      description: Requires reveal permission. Audited as `secret.revealed` with the version number.
+      operationId: revealSecretVersion
+      responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Decrypted value of that version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SecretReveal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /secrets/{id}/versions/{version}/restore:
+    parameters:
+      - $ref: '#/components/parameters/SecretIdPath'
+      - $ref: '#/components/parameters/VersionPath'
+    post:
+      tags: [Secrets]
+      summary: Roll back to an earlier value
+      description: |
+        Makes the value of an earlier version current again by adding it as a new version, so
+        history is never rewritten. Requires write permission. Audited as `secret.restored`.
+      operationId: restoreSecretVersion
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: The secret with its new current version
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SecretMetadata' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The version is already current (`version_is_current`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /vaults/{id}/members:
     parameters:
       - $ref: '#/components/parameters/VaultIdPath'
@@ -1298,6 +1371,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    VersionPath:
+      name: version
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
     SecretIdPath:
       name: id
       in: path
@@ -1663,7 +1741,7 @@ components:
 
     SecretMetadata:
       type: object
-      required: [id, environment_id, key_name, created_by, created_at, updated_at, last_updated_at, last_updated_by_id, last_updated_by, rotation_policy]
+      required: [id, environment_id, key_name, created_by, created_at, updated_at, last_updated_at, last_updated_by_id, last_updated_by, rotation_policy, version]
       properties:
         id: { type: string, format: uuid }
         environment_id: { type: string, format: uuid }
@@ -1687,6 +1765,25 @@ components:
           allOf:
             - $ref: '#/components/schemas/RotationPolicy'
           nullable: true
+        version:
+          type: integer
+          description: Number of the current value; it increases each time the value changes
+
+    SecretVersion:
+      type: object
+      required: [version, created_at, created_by_id, created_by, restored_from, current]
+      properties:
+        version: { type: integer }
+        created_at: { type: string, format: date-time }
+        created_by_id: { type: string, format: uuid, nullable: true }
+        created_by:
+          type: string
+          description: Display name of whoever set this value; empty when unknown
+        restored_from:
+          type: integer
+          nullable: true
+          description: The earlier version this one was restored from
+        current: { type: boolean }
 
     CreateSecretRequest:
       type: object
@@ -1864,6 +1961,7 @@ components:
         - user.password_changed
         - user.sessions_revoked
         - user.password_reset
+        - secret.restored
 
     AuditEvent:
       type: object

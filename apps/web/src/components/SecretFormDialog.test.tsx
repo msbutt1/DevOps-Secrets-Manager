@@ -19,6 +19,7 @@ const existing: Secret = {
     nextRotationAt: '2026-11-30T00:00:00Z',
   },
   metadata: { team_name: 'payments' },
+  version: 1,
 };
 
 describe('SecretFormDialog', () => {
