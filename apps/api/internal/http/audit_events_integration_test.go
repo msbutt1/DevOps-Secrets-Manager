@@ -19,6 +19,7 @@ func TestEveryAuditActionIsRecorded(t *testing.T) {
 	api.MustDo(http.StatusOK, "PUT", "/envs/"+f.envID, f.owner.Token, map[string]any{"name": "prod"})
 	api.MustDo(http.StatusOK, "PUT", "/secrets/"+f.secretID, f.owner.Token, map[string]any{"value": "new"})
 	api.MustDo(http.StatusOK, "POST", "/secrets/"+f.secretID+"/versions/1/restore", f.owner.Token, nil)
+	api.MustDo(http.StatusOK, "POST", "/envs/"+f.envID+"/import", f.owner.Token, map[string]any{"secrets": []map[string]string{{"key": "IMPORTED", "value": "x"}}})
 	api.MustDo(http.StatusOK, "POST", "/secrets/"+f.secretID+"/reveal", f.owner.Token, nil)
 	api.MustDo(http.StatusOK, "POST", "/vaults/"+f.vaultID+"/rotate-key", f.owner.Token, nil)
 	api.MustDo(http.StatusOK, "POST", "/auth/sessions/revoke-others", f.owner.Token, nil)

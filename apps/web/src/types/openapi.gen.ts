@@ -642,6 +642,55 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/envs/{id}/export': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Export environment values
+     * @description Decrypts every value in the environment, for downloading as a `.env` file. Requires reveal
+     *     permission. Audited once as `env.exported` with the key names.
+     */
+    post: operations['exportEnvironment'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/envs/{id}/import': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import values
+     * @description Creates keys that do not exist. With `overwrite`, existing keys get the new value unless it
+     *     is the same (no new version is added then); otherwise they are skipped. With `dry_run`
+     *     nothing is written and the response is a preview. Requires write permission. Each key is
+     *     written separately and audited as usual, and a real import adds one `env.imported` event;
+     *     if a write fails part-way, the keys before it stay imported.
+     */
+    post: operations['importEnvironment'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/envs/{id}/tokens': {
     parameters: {
       query?: never;
@@ -1232,6 +1281,21 @@ export interface components {
       /** @description Number of the current value; it increases each time the value changes */
       version: number;
     };
+    ExportedSecret: {
+      key: string;
+      value: string;
+      /** Format: date-time */
+      expires_at: string | null;
+    };
+    ImportResult: {
+      created: string[];
+      updated: string[];
+      /** @description Existing keys that already have the imported value */
+      unchanged: string[];
+      /** @description Existing keys left alone because overwrite was off */
+      skipped: string[];
+      dry_run: boolean;
+    };
     SecretVersion: {
       version: number;
       /** Format: date-time */
@@ -1402,7 +1466,8 @@ export interface components {
       | 'user.password_changed'
       | 'user.sessions_revoked'
       | 'user.password_reset'
-      | 'secret.restored';
+      | 'secret.restored'
+      | 'env.imported';
     AuditEvent: {
       /** Format: uuid */
       id: string;
@@ -2747,6 +2812,78 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       409: components['responses']['Conflict'];
+      413: components['responses']['PayloadTooLarge'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  exportEnvironment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Decrypted values */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            secrets: components['schemas']['ExportedSecret'][];
+          };
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['TooManyRequests'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  importEnvironment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          secrets: {
+            key: string;
+            /** Format: password */
+            value: string;
+          }[];
+          /** @description Update existing keys (default false) */
+          overwrite?: boolean;
+          /** @description Only report what would happen (default false) */
+          dry_run?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description What was (or would be) done with each key */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImportResult'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
       413: components['responses']['PayloadTooLarge'];
       500: components['responses']['InternalError'];
     };

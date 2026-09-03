@@ -118,6 +118,8 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		// Secret routes nested under environments
 		r.Get("/{id}/secrets", secretHandlers.HandleListSecrets)
 		r.Post("/{id}/secrets", secretHandlers.HandleCreateSecret)
+		r.With(rl.limit("export", 30, time.Minute, byUser)).Post("/{id}/export", secretHandlers.HandleExportEnvironment)
+		r.Post("/{id}/import", secretHandlers.HandleImportEnvironment)
 
 		// Service tokens scoped to the environment
 		r.Get("/{id}/tokens", serviceTokenHandlers.HandleList)

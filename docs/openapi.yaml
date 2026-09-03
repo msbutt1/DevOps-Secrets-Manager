@@ -929,6 +929,81 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /envs/{id}/export:
+    parameters:
+      - $ref: '#/components/parameters/EnvironmentIdPath'
+    post:
+      tags: [Secrets]
+      summary: Export environment values
+      description: |
+        Decrypts every value in the environment, for downloading as a `.env` file. Requires reveal
+        permission. Audited once as `env.exported` with the key names.
+      operationId: exportEnvironment
+      responses:
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Decrypted values
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secrets]
+                properties:
+                  secrets:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExportedSecret' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /envs/{id}/import:
+    parameters:
+      - $ref: '#/components/parameters/EnvironmentIdPath'
+    post:
+      tags: [Secrets]
+      summary: Import values
+      description: |
+        Creates keys that do not exist. With `overwrite`, existing keys get the new value unless it
+        is the same (no new version is added then); otherwise they are skipped. With `dry_run`
+        nothing is written and the response is a preview. Requires write permission. Each key is
+        written separately and audited as usual, and a real import adds one `env.imported` event;
+        if a write fails part-way, the keys before it stay imported.
+      operationId: importEnvironment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [secrets]
+              properties:
+                secrets:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items:
+                    type: object
+                    required: [key, value]
+                    properties:
+                      key: { type: string, pattern: '^[A-Za-z_][A-Za-z0-9_]*$', maxLength: 255 }
+                      value: { type: string, format: password }
+                overwrite: { type: boolean, description: Update existing keys (default false) }
+                dry_run: { type: boolean, description: Only report what would happen (default false) }
+      responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: What was (or would be) done with each key
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /envs/{id}/tokens:
     parameters:
       - $ref: '#/components/parameters/EnvironmentIdPath'
@@ -1769,6 +1844,30 @@ components:
           type: integer
           description: Number of the current value; it increases each time the value changes
 
+    ExportedSecret:
+      type: object
+      required: [key, value, expires_at]
+      properties:
+        key: { type: string }
+        value: { type: string }
+        expires_at: { type: string, format: date-time, nullable: true }
+
+    ImportResult:
+      type: object
+      required: [created, updated, unchanged, skipped, dry_run]
+      properties:
+        created: { type: array, items: { type: string } }
+        updated: { type: array, items: { type: string } }
+        unchanged:
+          type: array
+          items: { type: string }
+          description: Existing keys that already have the imported value
+        skipped:
+          type: array
+          items: { type: string }
+          description: Existing keys left alone because overwrite was off
+        dry_run: { type: boolean }
+
     SecretVersion:
       type: object
       required: [version, created_at, created_by_id, created_by, restored_from, current]
@@ -1962,6 +2061,7 @@ components:
         - user.sessions_revoked
         - user.password_reset
         - secret.restored
+        - env.imported
 
     AuditEvent:
       type: object

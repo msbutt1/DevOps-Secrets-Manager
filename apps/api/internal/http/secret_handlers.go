@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/audit"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/environments"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/policy"
@@ -391,6 +393,117 @@ func (h *SecretHandlers) HandleRevealSecret(w http.ResponseWriter, r *http.Reque
 	}
 
 	h.respondJSON(w, http.StatusOK, response)
+}
+
+// authorizeEnvironment checks the caller's role on the vault that owns the environment in the URL.
+func (h *SecretHandlers) authorizeEnvironment(w http.ResponseWriter, r *http.Request, action policy.Action) (uuid.UUID, uuid.UUID, bool) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		h.respondError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return uuid.Nil, uuid.Nil, false
+	}
+	envID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "Invalid environment ID format")
+		return uuid.Nil, uuid.Nil, false
+	}
+	environment, err := h.envService.GetEnvironment(r.Context(), envID)
+	if err != nil {
+		h.handleEnvironmentError(w, r, err)
+		return uuid.Nil, uuid.Nil, false
+	}
+	if _, ok := authorizeVault(w, r, h.policyService, claims.UserID, environment.VaultID, action, "Environment", h.logPolicyError); !ok {
+		return uuid.Nil, uuid.Nil, false
+	}
+	return claims.UserID, envID, true
+}
+
+// ExportResponse holds every decrypted value of an environment.
+type ExportResponse struct {
+	Secrets []TokenSecret `json:"secrets"`
+}
+
+// HandleExportEnvironment decrypts all values of an environment for download (reveal
+// permission). Audited once as env.exported with the keys.
+func (h *SecretHandlers) HandleExportEnvironment(w http.ResponseWriter, r *http.Request) {
+	userID, envID, ok := h.authorizeEnvironment(w, r, policy.ActionSecretReveal)
+	if !ok {
+		return
+	}
+	values, err := h.secretService.ExportEnvironment(r.Context(), envID, audit.Event{
+		UserID:   userID,
+		Metadata: map[string]interface{}{"via": "web_export"},
+	})
+	if err != nil {
+		h.handleSecretError(w, r, err)
+		return
+	}
+	out := ExportResponse{Secrets: make([]TokenSecret, 0, len(values))}
+	for _, v := range values {
+		out.Secrets = append(out.Secrets, TokenSecret{Key: v.Key, Value: v.Value, ExpiresAt: v.ExpiresAt})
+	}
+	h.respondJSON(w, http.StatusOK, out)
+}
+
+// MaxImportEntries bounds one import request.
+const MaxImportEntries = 500
+
+// ImportRequest carries parsed .env pairs.
+type ImportRequest struct {
+	Secrets []struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	} `json:"secrets"`
+	Overwrite bool `json:"overwrite"`
+	DryRun    bool `json:"dry_run"`
+}
+
+// ImportResponse lists what the import did, or would do for a dry run.
+type ImportResponse struct {
+	Created   []string `json:"created"`
+	Updated   []string `json:"updated"`
+	Unchanged []string `json:"unchanged"`
+	Skipped   []string `json:"skipped"`
+	DryRun    bool     `json:"dry_run"`
+}
+
+// HandleImportEnvironment creates and optionally updates secrets from .env pairs (write permission).
+func (h *SecretHandlers) HandleImportEnvironment(w http.ResponseWriter, r *http.Request) {
+	userID, envID, ok := h.authorizeEnvironment(w, r, policy.ActionSecretWrite)
+	if !ok {
+		return
+	}
+	var req ImportRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Secrets) == 0 || len(req.Secrets) > MaxImportEntries {
+		h.respondError(w, http.StatusBadRequest, "validation_failed", fmt.Sprintf("secrets must contain between 1 and %d entries", MaxImportEntries))
+		return
+	}
+	pairs := make([]secrets.KeyValue, 0, len(req.Secrets))
+	seen := make(map[string]bool, len(req.Secrets))
+	for _, s := range req.Secrets {
+		if err := validate.First(validate.KeyName(s.Key), validate.SecretValue(s.Value)); err != nil {
+			h.respondError(w, http.StatusBadRequest, "validation_failed", s.Key+": "+err.Error())
+			return
+		}
+		if seen[s.Key] {
+			h.respondError(w, http.StatusBadRequest, "validation_failed", "duplicate key "+s.Key)
+			return
+		}
+		seen[s.Key] = true
+		pairs = append(pairs, secrets.KeyValue{Key: s.Key, Value: s.Value})
+	}
+	result, err := h.secretService.ImportEnvironment(r.Context(), envID, pairs, req.Overwrite, req.DryRun, userID)
+	if err != nil {
+		h.handleSecretError(w, r, err)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, ImportResponse{
+		Created: result.Created, Updated: result.Updated, Unchanged: result.Unchanged,
+		Skipped: result.Skipped, DryRun: req.DryRun,
+	})
 }
 
 // authorizeSecret resolves the secret in the URL and checks the caller's role on its vault. It

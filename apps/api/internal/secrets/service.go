@@ -25,12 +25,24 @@ type SecretService interface {
 	// ExportEnvironment decrypts every secret in an environment. It records one env.exported
 	// audit event for the given actor (a user, or a service token with uuid.Nil as user).
 	ExportEnvironment(ctx context.Context, envID uuid.UUID, actor audit.Event) ([]KeyValue, error)
+	// ImportEnvironment creates missing keys and, with overwrite, updates keys whose value
+	// differs. With dryRun nothing is written. One env.imported event summarises a real import.
+	ImportEnvironment(ctx context.Context, envID uuid.UUID, pairs []KeyValue, overwrite, dryRun bool, importedBy uuid.UUID) (*ImportResult, error)
 	// ListVersions lists a secret's earlier and current values without decrypting them.
 	ListVersions(ctx context.Context, secretID uuid.UUID) ([]Version, error)
 	// RevealVersion decrypts one version of a secret and audits it like a reveal.
 	RevealVersion(ctx context.Context, secretID uuid.UUID, version int, requestedBy uuid.UUID) (string, error)
 	// RestoreVersion makes an earlier value current again as a new version.
 	RestoreVersion(ctx context.Context, secretID uuid.UUID, version int, restoredBy uuid.UUID) (*Secret, error)
+}
+
+// ImportResult lists which keys an import creates, updates, leaves alone because the value is
+// the same, or skips because they exist and overwrite was off.
+type ImportResult struct {
+	Created   []string
+	Updated   []string
+	Unchanged []string
+	Skipped   []string
 }
 
 // KeyValue is a decrypted secret.
@@ -339,6 +351,73 @@ func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, 
 	s.record(ctx, actor)
 
 	return values, nil
+}
+
+func (s *secretService) ImportEnvironment(ctx context.Context, envID uuid.UUID, pairs []KeyValue, overwrite, dryRun bool, importedBy uuid.UUID) (*ImportResult, error) {
+	env, err := s.envRepo.GetByID(ctx, envID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+	vault, err := s.vaultRepo.GetByID(ctx, env.VaultID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vault: %w", err)
+	}
+	existing, err := s.secretRepo.ListByEnvironmentID(ctx, envID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %w", err)
+	}
+	byKey := make(map[string]*Secret, len(existing))
+	for _, secret := range existing {
+		byKey[secret.KeyName] = secret
+	}
+
+	result := &ImportResult{Created: []string{}, Updated: []string{}, Unchanged: []string{}, Skipped: []string{}}
+	for _, pair := range pairs {
+		current, exists := byKey[pair.Key]
+		switch {
+		case !exists:
+			result.Created = append(result.Created, pair.Key)
+			if !dryRun {
+				if _, err := s.CreateSecret(ctx, envID, pair.Key, pair.Value, nil, nil, nil, nil, importedBy); err != nil {
+					return nil, fmt.Errorf("import %s: %w", pair.Key, err)
+				}
+			}
+		case !overwrite:
+			result.Skipped = append(result.Skipped, pair.Key)
+		default:
+			// Compare inside the API so an identical value does not add a version
+			plaintext, err := s.decrypt(vault, current)
+			if err == nil && string(plaintext) == pair.Value {
+				result.Unchanged = append(result.Unchanged, pair.Key)
+				continue
+			}
+			result.Updated = append(result.Updated, pair.Key)
+			if !dryRun {
+				value := pair.Value
+				if _, err := s.UpdateSecret(ctx, current.ID, &value, current.Description, current.RotationIntervalDays, current.ExpiresAt, current.Metadata, importedBy); err != nil {
+					return nil, fmt.Errorf("import %s: %w", pair.Key, err)
+				}
+			}
+		}
+	}
+
+	if !dryRun {
+		s.record(ctx, audit.Event{
+			UserID:         importedBy,
+			Action:         audit.ActionEnvImported,
+			TargetType:     "environment",
+			TargetID:       &env.ID,
+			TargetName:     env.Name,
+			OrganizationID: &vault.OrganizationID,
+			VaultID:        &vault.ID,
+			EnvironmentID:  &env.ID,
+			Metadata: map[string]interface{}{
+				"created": result.Created, "updated": result.Updated,
+				"unchanged": len(result.Unchanged), "skipped": len(result.Skipped),
+			},
+		})
+	}
+	return result, nil
 }
 
 func (s *secretService) ListVersions(ctx context.Context, secretID uuid.UUID) ([]Version, error) {

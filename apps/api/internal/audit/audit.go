@@ -28,6 +28,7 @@ const (
 	ActionSessionsRevoked   = "user.sessions_revoked"
 	ActionPasswordReset     = "user.password_reset"
 	ActionSecretRestored    = "secret.restored"
+	ActionEnvImported       = "env.imported"
 	ActionEnvCreated        = "env.created"
 	ActionEnvUpdated        = "env.updated"
 	ActionEnvDeleted        = "env.deleted"
@@ -76,6 +77,7 @@ var Actions = []string{
 	ActionSessionsRevoked,
 	ActionPasswordReset,
 	ActionSecretRestored,
+	ActionEnvImported,
 }
 
 // Event describes something to record in the audit log. The actor is UserID, or ServiceTokenID

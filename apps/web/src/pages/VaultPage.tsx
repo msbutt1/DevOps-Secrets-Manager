@@ -8,6 +8,10 @@ import { EnvironmentFormDialog } from '@/components/EnvironmentFormDialog';
 import { RevealSecretDialog } from '@/components/RevealSecretDialog';
 import { ExpiryBadge } from '@/components/ExpiryBadge';
 import { SecretHistoryDialog } from '@/components/SecretHistoryDialog';
+import { ImportEnvDialog } from '@/components/ImportEnvDialog';
+import { formatDotenv } from '@/lib/dotenv';
+import { downloadText } from '@/lib/download';
+import { secretsApi } from '@/lib/api-client';
 import { rotationStatus } from '@/lib/rotation';
 import { ServiceTokensDialog } from '@/components/ServiceTokensDialog';
 import { EmptyState } from '@/components/EmptyState';
@@ -31,6 +35,8 @@ import {
 import {
   Eye,
   History,
+  Upload,
+  Download,
   EyeOff,
   Pencil,
   Trash2,
@@ -86,6 +92,9 @@ export const VaultPage = () => {
   const [showCreateSecret, setShowCreateSecret] = useState(false);
   const [showCreateEnv, setShowCreateEnv] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // Copy to clipboard state
   const [copyingSecretId, setCopyingSecretId] = useState<string | null>(null);
@@ -161,6 +170,23 @@ export const VaultPage = () => {
     console.log('Bulk delete:', Array.from(selectedSecrets));
     setSelectedSecrets(new Set());
   }, [selectedSecrets]);
+
+  const handleExport = useCallback(async () => {
+    if (!currentEnvId) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const { secrets: values } = await secretsApi.exportEnvironment(currentEnvId);
+      downloadText(
+        `${vault?.name ?? 'vault'}-${activeEnv}.env`,
+        formatDotenv(values.map((s) => [s.key, s.value])),
+      );
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  }, [currentEnvId, vault?.name, activeEnv]);
 
   const handleCopySecret = useCallback(
     async (secretId: string) => {
@@ -373,6 +399,29 @@ export const VaultPage = () => {
                 )}
 
                 <div className="flex-1" />
+
+                <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
+                  <Button
+                    className="!min-w-0 flex items-center gap-1"
+                    onClick={() => setShowImport(true)}
+                    disabled={!currentEnvId}
+                  >
+                    <Upload size={12} strokeWidth={1.5} />
+                    Import
+                  </Button>
+                </PermissionGate>
+
+                <PermissionGate permission="canReveal" userRole={vault?.userRole || 'viewer'}>
+                  <Button
+                    className="!min-w-0 flex items-center gap-1"
+                    onClick={handleExport}
+                    disabled={!currentEnvId || exporting || secrets.length === 0}
+                    title="Download every value in this environment as a .env file (audited)"
+                  >
+                    <Download size={12} strokeWidth={1.5} />
+                    {exporting ? 'Exporting...' : 'Export'}
+                  </Button>
+                </PermissionGate>
 
                 <PermissionGate
                   permission="canManageMembers"
@@ -601,6 +650,14 @@ export const VaultPage = () => {
       </div>
 
       {/* Reveal Secret Dialog */}
+      {showImport && currentEnvId && (
+        <ImportEnvDialog
+          envId={currentEnvId}
+          environmentName={activeEnv}
+          onClose={() => setShowImport(false)}
+        />
+      )}
+
       {historySecret && (
         <SecretHistoryDialog
           secret={historySecret}

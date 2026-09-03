@@ -29,6 +29,8 @@ import type {
   ServiceToken,
   Session,
   SecretVersion,
+  ImportResult,
+  ExportedSecret,
   CreatedServiceToken,
   CreateServiceTokenRequest,
   AddMemberRequest,
@@ -376,6 +378,18 @@ export const secretsApi = {
   reveal: (secretId: string): Promise<SecretRevealResponse> =>
     apiFetch<SecretRevealResponse>(`/secrets/${secretId}/reveal`, {
       method: 'POST',
+    }),
+
+  exportEnvironment: (envId: string): Promise<{ secrets: ExportedSecret[] }> =>
+    apiFetch<{ secrets: ExportedSecret[] }>(`/envs/${envId}/export`, { method: 'POST' }),
+
+  importEnvironment: (
+    envId: string,
+    data: { secrets: { key: string; value: string }[]; overwrite: boolean; dryRun: boolean },
+  ): Promise<ImportResult> =>
+    apiFetch<ImportResult>(`/envs/${envId}/import`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 
   versions: (secretId: string): Promise<SecretVersion[]> =>

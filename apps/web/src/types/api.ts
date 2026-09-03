@@ -53,6 +53,8 @@ export type RotationPolicy = Schema<'RotationPolicy'>;
 export type ServiceToken = Schema<'ServiceToken'>;
 export type Session = Schema<'Session'>;
 export type SecretVersion = Schema<'SecretVersion'>;
+export type ImportResult = Schema<'ImportResult'>;
+export type ExportedSecret = Schema<'ExportedSecret'>;
 export type CreatedServiceToken = Schema<'CreatedServiceToken'>;
 export type CreateServiceTokenRequest = Schema<'CreateServiceTokenRequest'>;
 
@@ -134,6 +136,7 @@ export const AUDIT_ACTIONS = [
   { value: 'user.sessions_revoked', label: 'Sessions Signed Out' },
   { value: 'user.password_reset', label: 'Password Reset' },
   { value: 'secret.restored', label: 'Secret Restored' },
+  { value: 'env.imported', label: 'Environment Imported' },
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]['value'];
