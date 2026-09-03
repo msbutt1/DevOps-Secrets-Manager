@@ -1280,6 +1280,11 @@ export interface components {
       secrets: {
         key: string;
         value: string;
+        /**
+         * Format: date-time
+         * @description When the value expires; expired values are still returned so callers can warn
+         */
+        expires_at: string | null;
       }[];
     };
     /** @enum {string} */

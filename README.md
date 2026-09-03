@@ -89,7 +89,7 @@ cargo install --path apps/cli  # optional: puts `secrets` on your PATH
 1. **Register and verify**: Create an account at `http://localhost:5173` and open the verification link (logged by the API in development)
 2. **Organization**: Registration creates your own organization, where you are the owner
 3. **Create a vault**: Organize secrets by project or service, then add environments such as `staging` or `production`
-4. **Add secrets**: Store key-value pairs with optional description, rotation interval, expiry and labels
+4. **Add secrets**: Store key-value pairs with optional description, rotation interval, expiry and labels. Expired and soon-to-expire secrets are flagged in the vault, on reveal, on the dashboard, and by `secrets run`, `pull` and `list`; expired values still work so a deploy is not broken without warning
 5. **Manage members**: Give people in your organization a role on the vault
 
 ### CLI Commands

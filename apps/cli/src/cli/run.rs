@@ -24,6 +24,7 @@ pub async fn execute(
 
     // Values only ever go into the child's environment
     let loaded = source::load(client, token, vault, env_name).await?;
+    loaded.warn_about_expiry();
     let secret_env_vars = loaded.pairs;
 
     if secret_env_vars.is_empty() {

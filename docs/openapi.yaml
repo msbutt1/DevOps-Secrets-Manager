@@ -1822,10 +1822,15 @@ components:
           type: array
           items:
             type: object
-            required: [key, value]
+            required: [key, value, expires_at]
             properties:
               key: { type: string }
               value: { type: string }
+              expires_at:
+                type: string
+                format: date-time
+                nullable: true
+                description: When the value expires; expired values are still returned so callers can warn
 
     AuditAction:
       type: string

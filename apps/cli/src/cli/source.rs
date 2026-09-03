@@ -1,5 +1,6 @@
 use crate::api::ApiClient;
 use crate::cli::resolve;
+use crate::utils::expiry;
 use anyhow::{bail, Context, Result};
 
 /// Environment variable holding a service token for non-interactive use (CI, servers).
@@ -10,6 +11,21 @@ pub struct EnvironmentSecrets {
     pub vault: String,
     pub environment: String,
     pub pairs: Vec<(String, String)>,
+    /// Expiry date of each key, where set
+    pub expiries: Vec<(String, Option<String>)>,
+}
+
+impl EnvironmentSecrets {
+    /// Prints a warning to stderr for each expired or soon-expiring secret.
+    pub fn warn_about_expiry(&self) {
+        let items = self
+            .expiries
+            .iter()
+            .map(|(k, e)| (k.as_str(), e.as_deref()));
+        for line in expiry::warnings(items, chrono::Utc::now()) {
+            eprintln!("{line}");
+        }
+    }
 }
 
 /// Loads every secret of an environment, either with a service token (which is scoped to one
@@ -28,10 +44,16 @@ pub async fn load(
             .context("Service token authentication failed")?;
         check_scope("vault", vault, &data.vault_name)?;
         check_scope("environment", env, &data.environment_name)?;
+        let expiries = data
+            .secrets
+            .iter()
+            .map(|s| (s.key.clone(), s.expires_at.clone()))
+            .collect();
         return Ok(EnvironmentSecrets {
             vault: data.vault_name,
             environment: data.environment_name,
             pairs: data.secrets.into_iter().map(|s| (s.key, s.value)).collect(),
+            expiries,
         });
     }
 
@@ -52,6 +74,10 @@ pub async fn load(
         vault: vault.name,
         environment: env.name,
         pairs,
+        expiries: secrets
+            .iter()
+            .map(|s| (s.key_name.clone(), s.expires_at.clone()))
+            .collect(),
     })
 }
 

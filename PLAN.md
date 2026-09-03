@@ -172,7 +172,7 @@ These are half-built or missing, but a team would need them.
 - [x] **Sessions.** List active sessions (refresh tokens) in Settings and allow "sign out everywhere". The Settings page's "Current Session" panel is currently hard-coded ("Chrome on Windows", 192.168.1.100) and must show real data or go. Commit: `feat: view and revoke active sessions`
 
 ### Secrets lifecycle
-- [ ] **Expiry.**
+- [x] **Expiry.**
   - `expires_at` is stored but nothing acts on it.
   - Show expired or expiring badges.
   - Decide whether expired secrets can be revealed or pulled; recommended: allowed, with a warning in the CLI output.

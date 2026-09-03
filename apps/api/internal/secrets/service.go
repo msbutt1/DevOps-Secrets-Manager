@@ -29,8 +29,9 @@ type SecretService interface {
 
 // KeyValue is a decrypted secret.
 type KeyValue struct {
-	Key   string
-	Value string
+	Key       string
+	Value     string
+	ExpiresAt *time.Time
 }
 
 type secretService struct {
@@ -309,7 +310,7 @@ func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, 
 			if err != nil {
 				return err
 			}
-			values = append(values, KeyValue{Key: secret.KeyName, Value: string(plaintext)})
+			values = append(values, KeyValue{Key: secret.KeyName, Value: string(plaintext), ExpiresAt: secret.ExpiresAt})
 			keys = append(keys, secret.KeyName)
 		}
 		return nil

@@ -138,7 +138,16 @@ impl TablePrinter {
                 s.rotation_interval_days
                     .map(|d| format!("every {d}d"))
                     .unwrap_or_else(|| "-".into()),
-                s.expires_at.clone().unwrap_or_else(|| "-".into()),
+                match (
+                    &s.expires_at,
+                    super::expiry::describe(s.expires_at.as_deref(), chrono::Utc::now()),
+                ) {
+                    (Some(_), Some(status)) => status,
+                    (Some(date), None) => chrono::DateTime::parse_from_rfc3339(date)
+                        .map(|d| d.with_timezone(&chrono::Utc).format("%Y-%m-%d").to_string())
+                        .unwrap_or_else(|_| date.clone()),
+                    (None, _) => "-".into(),
+                },
             ]);
         }
         println!("{}", table);

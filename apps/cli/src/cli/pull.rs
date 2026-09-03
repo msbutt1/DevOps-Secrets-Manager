@@ -12,6 +12,7 @@ pub async fn execute(
     out: Option<&str>,
 ) -> Result<()> {
     let loaded = source::load(client, token, vault, env).await?;
+    loaded.warn_about_expiry();
 
     if loaded.pairs.is_empty() {
         eprintln!(

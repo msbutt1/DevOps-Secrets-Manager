@@ -47,8 +47,9 @@ type CreateServiceTokenRequest struct {
 
 // TokenSecret is one decrypted value returned to a service token
 type TokenSecret struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key       string     `json:"key"`
+	Value     string     `json:"value"`
+	ExpiresAt *time.Time `json:"expires_at"`
 }
 
 // TokenSecretsResponse is everything a service token can read
@@ -211,7 +212,7 @@ func (h *ServiceTokenHandlers) HandleTokenSecrets(w http.ResponseWriter, r *http
 
 	out := TokenSecretsResponse{VaultName: token.VaultName, EnvironmentName: token.EnvironmentName, TokenName: token.Name, Secrets: make([]TokenSecret, 0, len(values))}
 	for _, v := range values {
-		out.Secrets = append(out.Secrets, TokenSecret{Key: v.Key, Value: v.Value})
+		out.Secrets = append(out.Secrets, TokenSecret{Key: v.Key, Value: v.Value, ExpiresAt: v.ExpiresAt})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

@@ -142,6 +142,8 @@ pub struct AuditPage {
 pub struct TokenSecret {
     pub key: String,
     pub value: String,
+    #[serde(default)]
+    pub expires_at: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]

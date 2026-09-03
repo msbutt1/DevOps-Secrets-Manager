@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SecretFormDialog } from '@/components/SecretFormDialog';
 import { EnvironmentFormDialog } from '@/components/EnvironmentFormDialog';
 import { RevealSecretDialog } from '@/components/RevealSecretDialog';
+import { ExpiryBadge } from '@/components/ExpiryBadge';
 import { ServiceTokensDialog } from '@/components/ServiceTokensDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { RoleBadge } from '@/components/RoleBadge';
@@ -36,7 +37,6 @@ import {
   Layers,
   Users,
   RefreshCw,
-  Clock,
   Tag,
   Copy,
   Check,
@@ -441,10 +441,6 @@ export const VaultPage = () => {
                     </thead>
                     <tbody>
                       {secrets.map((secret, idx) => {
-                        const isExpiringSoon =
-                          secret.expiresAt &&
-                          new Date(secret.expiresAt) <
-                            new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
                         const needsRotation =
                           secret.rotationPolicy?.nextRotationAt &&
                           new Date(secret.rotationPolicy.nextRotationAt) <
@@ -491,17 +487,8 @@ export const VaultPage = () => {
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </td>
-                            <td
-                              className={`px-2 py-1 ${isExpiringSoon ? 'text-warning font-semibold' : ''}`}
-                            >
-                              {secret.expiresAt ? (
-                                <div className="flex items-center gap-1">
-                                  <Clock size={10} strokeWidth={1.5} />
-                                  <span>{formatDate(secret.expiresAt)}</span>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                            <td className="px-2 py-1">
+                              <ExpiryBadge expiresAt={secret.expiresAt} />
                             </td>
                             <td className="px-2 py-1">
                               {secret.metadata && Object.keys(secret.metadata).length > 0 ? (
@@ -601,6 +588,7 @@ export const VaultPage = () => {
       <RevealSecretDialog
         isOpen={!!revealSecret}
         secretName={revealSecret?.keyName || ''}
+        expiresAt={revealSecret?.expiresAt}
         secretValue={revealedValue}
         expiresIn={revealExpiresIn}
         onClose={() => {

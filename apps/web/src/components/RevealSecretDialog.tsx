@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button, Panel } from '@/components/win95';
 import { Eye, Copy, Check, AlertTriangle } from 'lucide-react';
+import { expiryStatus } from '@/lib/expiry';
 
 interface RevealSecretDialogProps {
   isOpen: boolean;
@@ -8,6 +9,8 @@ interface RevealSecretDialogProps {
   secretValue: string | null;
   /** Seconds to show the value before hiding it, as returned by the API */
   expiresIn?: number;
+  /** The secret's own expiry date; expired values can still be revealed, with a warning */
+  expiresAt?: string | null;
   isLoading?: boolean;
   onClose: () => void;
   onReveal: () => void;
@@ -18,6 +21,7 @@ export const RevealSecretDialog = ({
   secretName,
   secretValue,
   expiresIn = 30,
+  expiresAt,
   isLoading = false,
   onClose,
   onReveal,
@@ -102,6 +106,20 @@ export const RevealSecretDialog = ({
               value will be hidden automatically after {expiresIn} seconds.
             </div>
           </Panel>
+
+          {expiryStatus(expiresAt).state === 'expired' && (
+            <Panel className="flex items-start gap-2 !p-2">
+              <AlertTriangle
+                size={14}
+                className="text-destructive flex-shrink-0 mt-[2px]"
+                strokeWidth={1.5}
+              />
+              <div className="text-win-small" role="alert">
+                <strong>Expired:</strong> this value expired on{' '}
+                {new Date(expiresAt!).toLocaleDateString()}. It may no longer work; rotate it.
+              </div>
+            </Panel>
+          )}
 
           {/* Secret Name */}
           <div className="win-border-groove p-2">

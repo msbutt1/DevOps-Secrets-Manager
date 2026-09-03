@@ -81,4 +81,19 @@ describe('RevealSecretDialog', () => {
     );
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('warns when the secret has expired but still allows revealing it', () => {
+    render(
+      <RevealSecretDialog
+        isOpen
+        secretName="OLD_KEY"
+        secretValue={null}
+        expiresAt="2020-01-01T00:00:00Z"
+        onClose={vi.fn()}
+        onReveal={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('this value expired');
+    expect(screen.getByRole('button', { name: /Reveal Secret Value/ })).toBeEnabled();
+  });
 });
