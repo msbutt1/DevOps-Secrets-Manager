@@ -183,7 +183,7 @@ These are half-built or missing, but a team would need them.
   - Commit: `feat(api): track rotation due dates`
   - The API part shipped with the vault page contract and dashboard work (`rotation_policy.next_rotation_at`, `last_rotated_at` on value changes, overdue counts and alerts); the due status in the vault table and `secrets list` followed as `feat: show rotation due dates in web and CLI`.
 - [x] **Version history.** Keep previous encrypted values (a `secret_versions` table) so a bad update can be rolled back. Record the version number in the audit log. Commit: `feat: secret version history and rollback`
-- [ ] **Bulk import and export.**
+- [x] **Bulk import and export.**
   - Paste or upload a `.env` file into an environment, with a preview of what gets created, updated or skipped.
   - Export an environment (reveal permission required, and audited).
   - Commit: `feat: import and export environments as .env`

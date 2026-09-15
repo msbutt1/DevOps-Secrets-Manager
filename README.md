@@ -155,6 +155,8 @@ development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
 | GET, POST | `/envs/{id}/secrets` | List secret metadata or create a secret |
 | PUT, DELETE | `/secrets/{id}` | Update or delete a secret |
 | POST | `/secrets/{id}/reveal` | Decrypt a secret value (audited) |
+| POST | `/envs/{id}/export` | Decrypt a whole environment for download (audited) |
+| POST | `/envs/{id}/import` | Create or update secrets from `.env` pairs, with a dry run |
 | GET | `/secrets/{id}/versions` | List a secret's earlier values (without the values) |
 | POST | `/secrets/{id}/versions/{version}/reveal` | Reveal an earlier value (audited) |
 | POST | `/secrets/{id}/versions/{version}/restore` | Roll back to an earlier value as a new version |
