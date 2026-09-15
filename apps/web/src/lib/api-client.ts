@@ -392,6 +392,15 @@ export const secretsApi = {
       body: JSON.stringify(data),
     }),
 
+  copyFrom: (
+    envId: string,
+    data: { sourceEnvironmentId: string; keys: string[]; overwrite: boolean; dryRun: boolean },
+  ): Promise<ImportResult> =>
+    apiFetch<ImportResult>(`/envs/${envId}/copy-from`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   versions: (secretId: string): Promise<SecretVersion[]> =>
     apiFetch<SecretVersion[]>(`/secrets/${secretId}/versions`),
 

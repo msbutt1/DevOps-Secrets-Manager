@@ -28,6 +28,9 @@ type SecretService interface {
 	// ImportEnvironment creates missing keys and, with overwrite, updates keys whose value
 	// differs. With dryRun nothing is written. One env.imported event summarises a real import.
 	ImportEnvironment(ctx context.Context, envID uuid.UUID, pairs []KeyValue, overwrite, dryRun bool, importedBy uuid.UUID) (*ImportResult, error)
+	// CopySecrets copies chosen keys (all of them when keys is empty) from one environment to
+	// another in the same vault, following the same rules as an import.
+	CopySecrets(ctx context.Context, sourceEnvID, targetEnvID uuid.UUID, keys []string, overwrite, dryRun bool, copiedBy uuid.UUID) (*ImportResult, error)
 	// ListVersions lists a secret's earlier and current values without decrypting them.
 	ListVersions(ctx context.Context, secretID uuid.UUID) ([]Version, error)
 	// RevealVersion decrypts one version of a secret and audits it like a reveal.
@@ -354,6 +357,85 @@ func (s *secretService) ExportEnvironment(ctx context.Context, envID uuid.UUID, 
 }
 
 func (s *secretService) ImportEnvironment(ctx context.Context, envID uuid.UUID, pairs []KeyValue, overwrite, dryRun bool, importedBy uuid.UUID) (*ImportResult, error) {
+	return s.importPairs(ctx, envID, pairs, overwrite, dryRun, importedBy, nil)
+}
+
+// CopySecrets copies chosen keys from one environment to another in the same vault. The values
+// are read (which needs reveal permission and is audited on the source) and written like an
+// import, so they are encrypted again for the target.
+func (s *secretService) CopySecrets(ctx context.Context, sourceEnvID, targetEnvID uuid.UUID, keys []string, overwrite, dryRun bool, copiedBy uuid.UUID) (*ImportResult, error) {
+	if sourceEnvID == targetEnvID {
+		return nil, ErrSameEnvironment
+	}
+	source, err := s.envRepo.GetByID(ctx, sourceEnvID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+	target, err := s.envRepo.GetByID(ctx, targetEnvID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+	if source.VaultID != target.VaultID {
+		return nil, ErrDifferentVaults
+	}
+	vault, err := s.vaultRepo.GetByID(ctx, source.VaultID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vault: %w", err)
+	}
+
+	wanted := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		wanted[key] = true
+	}
+
+	var pairs []KeyValue
+	err = retryOnKeyChange(func() error {
+		secrets, err := s.secretRepo.ListByEnvironmentID(ctx, sourceEnvID)
+		if err != nil {
+			return fmt.Errorf("failed to list secrets: %w", err)
+		}
+		pairs = pairs[:0]
+		for _, secret := range secrets {
+			if len(wanted) > 0 && !wanted[secret.KeyName] {
+				continue
+			}
+			plaintext, err := s.decrypt(vault, secret)
+			if err != nil {
+				return err
+			}
+			pairs = append(pairs, KeyValue{Key: secret.KeyName, Value: string(plaintext)})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(pairs) == 0 {
+		return nil, ErrNoMatchingKeys
+	}
+
+	copied := make([]string, 0, len(pairs))
+	for _, pair := range pairs {
+		copied = append(copied, pair.Key)
+	}
+	if !dryRun {
+		// Reading the values is a decryption of the source environment, so record it there
+		s.record(ctx, audit.Event{
+			UserID:         copiedBy,
+			Action:         audit.ActionEnvExported,
+			TargetType:     "environment",
+			TargetID:       &source.ID,
+			TargetName:     source.Name,
+			OrganizationID: &vault.OrganizationID,
+			VaultID:        &vault.ID,
+			EnvironmentID:  &source.ID,
+			Metadata:       map[string]interface{}{"via": "copy", "keys": copied, "copied_to": target.Name},
+		})
+	}
+	return s.importPairs(ctx, targetEnvID, pairs, overwrite, dryRun, copiedBy, map[string]interface{}{"copied_from": source.Name})
+}
+
+func (s *secretService) importPairs(ctx context.Context, envID uuid.UUID, pairs []KeyValue, overwrite, dryRun bool, importedBy uuid.UUID, extra map[string]interface{}) (*ImportResult, error) {
 	env, err := s.envRepo.GetByID(ctx, envID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get environment: %w", err)
@@ -402,6 +484,13 @@ func (s *secretService) ImportEnvironment(ctx context.Context, envID uuid.UUID, 
 	}
 
 	if !dryRun {
+		metadata := map[string]interface{}{
+			"created": result.Created, "updated": result.Updated,
+			"unchanged": len(result.Unchanged), "skipped": len(result.Skipped),
+		}
+		for k, v := range extra {
+			metadata[k] = v
+		}
 		s.record(ctx, audit.Event{
 			UserID:         importedBy,
 			Action:         audit.ActionEnvImported,
@@ -411,10 +500,7 @@ func (s *secretService) ImportEnvironment(ctx context.Context, envID uuid.UUID, 
 			OrganizationID: &vault.OrganizationID,
 			VaultID:        &vault.ID,
 			EnvironmentID:  &env.ID,
-			Metadata: map[string]interface{}{
-				"created": result.Created, "updated": result.Updated,
-				"unchanged": len(result.Unchanged), "skipped": len(result.Skipped),
-			},
+			Metadata:       metadata,
 		})
 	}
 	return result, nil

@@ -120,6 +120,7 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 		r.Post("/{id}/secrets", secretHandlers.HandleCreateSecret)
 		r.With(rl.limit("export", 30, time.Minute, byUser)).Post("/{id}/export", secretHandlers.HandleExportEnvironment)
 		r.Post("/{id}/import", secretHandlers.HandleImportEnvironment)
+		r.With(rl.limit("export", 30, time.Minute, byUser)).Post("/{id}/copy-from", secretHandlers.HandleCopySecrets)
 
 		// Service tokens scoped to the environment
 		r.Get("/{id}/tokens", serviceTokenHandlers.HandleList)

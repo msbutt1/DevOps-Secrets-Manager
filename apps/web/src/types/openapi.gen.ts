@@ -691,6 +691,32 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/envs/{id}/copy-from': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Copy values from another environment
+     * @description Copies the named keys (or all of them) from another environment of the same vault, using
+     *     the same rules as an import: missing keys are created, existing ones are updated only with
+     *     `overwrite`, and identical values are left alone. Requires write permission on the vault
+     *     and reveal permission, because the source values are decrypted; the read is audited on the
+     *     source as `env.exported` and the write as `env.imported`.
+     */
+    post: operations['copySecrets'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/envs/{id}/tokens': {
     parameters: {
       query?: never;
@@ -2885,6 +2911,54 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       413: components['responses']['PayloadTooLarge'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  copySecrets: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components['parameters']['EnvironmentIdPath'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          source_environment_id: string;
+          /** @description Keys to copy; omit or leave empty to copy them all */
+          keys?: string[];
+          overwrite?: boolean;
+          dry_run?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description What was (or would be) done with each key */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ImportResult'];
+        };
+      };
+      /** @description Missing source, the same environment, a different vault, or no matching keys (`validation_failed`) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      413: components['responses']['PayloadTooLarge'];
+      429: components['responses']['TooManyRequests'];
       500: components['responses']['InternalError'];
     };
   };

@@ -506,6 +506,59 @@ func (h *SecretHandlers) HandleImportEnvironment(w http.ResponseWriter, r *http.
 	})
 }
 
+// CopyRequest copies keys from another environment of the same vault.
+type CopyRequest struct {
+	SourceEnvironmentID uuid.UUID `json:"source_environment_id"`
+	// Keys limits the copy; empty means every key in the source environment.
+	Keys      []string `json:"keys"`
+	Overwrite bool     `json:"overwrite"`
+	DryRun    bool     `json:"dry_run"`
+}
+
+// HandleCopySecrets copies values from another environment. It needs write permission on the
+// vault (checked for the target) and reveal permission to read the source values.
+func (h *SecretHandlers) HandleCopySecrets(w http.ResponseWriter, r *http.Request) {
+	userID, targetEnvID, ok := h.authorizeEnvironment(w, r, policy.ActionSecretWrite)
+	if !ok {
+		return
+	}
+	var req CopyRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.SourceEnvironmentID == uuid.Nil {
+		h.respondError(w, http.StatusBadRequest, "invalid_request", "source_environment_id is required")
+		return
+	}
+	if len(req.Keys) > MaxImportEntries {
+		h.respondError(w, http.StatusBadRequest, "validation_failed", fmt.Sprintf("keys must contain at most %d entries", MaxImportEntries))
+		return
+	}
+	// Reading the source values is a decryption, so the caller must be allowed to reveal
+	source, err := h.envService.GetEnvironment(r.Context(), req.SourceEnvironmentID)
+	if err != nil {
+		if errors.Is(err, environments.ErrNotFound) {
+			h.respondError(w, http.StatusNotFound, "not_found", "Environment not found")
+			return
+		}
+		h.handleEnvironmentError(w, r, err)
+		return
+	}
+	if _, ok := authorizeVault(w, r, h.policyService, userID, source.VaultID, policy.ActionSecretReveal, "Environment", h.logPolicyError); !ok {
+		return
+	}
+
+	result, err := h.secretService.CopySecrets(r.Context(), req.SourceEnvironmentID, targetEnvID, req.Keys, req.Overwrite, req.DryRun, userID)
+	if err != nil {
+		h.handleSecretError(w, r, err)
+		return
+	}
+	h.respondJSON(w, http.StatusOK, ImportResponse{
+		Created: result.Created, Updated: result.Updated, Unchanged: result.Unchanged,
+		Skipped: result.Skipped, DryRun: req.DryRun,
+	})
+}
+
 // authorizeSecret resolves the secret in the URL and checks the caller's role on its vault. It
 // writes the error response and returns false when the request cannot continue.
 func (h *SecretHandlers) authorizeSecret(w http.ResponseWriter, r *http.Request, action policy.Action) (uuid.UUID, *secrets.Secret, bool) {
@@ -665,6 +718,8 @@ func (h *SecretHandlers) handleSecretError(w http.ResponseWriter, r *http.Reques
 	switch {
 	case errors.Is(err, secrets.ErrNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Secret not found")
+	case errors.Is(err, secrets.ErrSameEnvironment), errors.Is(err, secrets.ErrDifferentVaults), errors.Is(err, secrets.ErrNoMatchingKeys):
+		h.respondError(w, http.StatusBadRequest, "validation_failed", err.Error())
 	case errors.Is(err, secrets.ErrVersionNotFound):
 		h.respondError(w, http.StatusNotFound, "not_found", "Secret version not found")
 	case errors.Is(err, secrets.ErrVersionIsCurrent):

@@ -187,7 +187,7 @@ These are half-built or missing, but a team would need them.
   - Paste or upload a `.env` file into an environment, with a preview of what gets created, updated or skipped.
   - Export an environment (reveal permission required, and audited).
   - Commit: `feat: import and export environments as .env`
-- [ ] **Copy between environments.** Copy selected keys from staging to prod, with values re-encrypted. Commit: `feat: copy secrets between environments`
+- [x] **Copy between environments.** Copy selected keys from staging to prod, with values re-encrypted. Commit: `feat: copy secrets between environments`
 - [ ] **Search.** Search key names across all vaults the user can see. Commit: `feat: search secrets by key name`
 
 ### Encryption and key management

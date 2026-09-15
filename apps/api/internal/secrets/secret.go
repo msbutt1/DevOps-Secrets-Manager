@@ -16,6 +16,12 @@ var (
 	ErrKeyChanged = errors.New("vault data key changed during the write")
 	// ErrVersionNotFound means the secret has no version with that number.
 	ErrVersionNotFound = errors.New("secret version not found")
+	// ErrSameEnvironment means a copy named one environment as both source and target.
+	ErrSameEnvironment = errors.New("source and target environments are the same")
+	// ErrDifferentVaults means a copy crossed vaults, which is not allowed.
+	ErrDifferentVaults = errors.New("environments belong to different vaults")
+	// ErrNoMatchingKeys means a copy matched no secrets in the source environment.
+	ErrNoMatchingKeys = errors.New("no matching secrets in the source environment")
 	// ErrVersionIsCurrent means a restore named the version that is already current.
 	ErrVersionIsCurrent = errors.New("that version is already the current value")
 )

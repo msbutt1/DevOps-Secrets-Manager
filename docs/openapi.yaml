@@ -1004,6 +1004,53 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /envs/{id}/copy-from:
+    parameters:
+      - $ref: '#/components/parameters/EnvironmentIdPath'
+    post:
+      tags: [Secrets]
+      summary: Copy values from another environment
+      description: |
+        Copies the named keys (or all of them) from another environment of the same vault, using
+        the same rules as an import: missing keys are created, existing ones are updated only with
+        `overwrite`, and identical values are left alone. Requires write permission on the vault
+        and reveal permission, because the source values are decrypted; the read is audited on the
+        source as `env.exported` and the write as `env.imported`.
+      operationId: copySecrets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_environment_id]
+              properties:
+                source_environment_id: { type: string, format: uuid }
+                keys:
+                  type: array
+                  maxItems: 500
+                  items: { type: string }
+                  description: Keys to copy; omit or leave empty to copy them all
+                overwrite: { type: boolean }
+                dry_run: { type: boolean }
+      responses:
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: What was (or would be) done with each key
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportResult' }
+        '400':
+          description: Missing source, the same environment, a different vault, or no matching keys (`validation_failed`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /envs/{id}/tokens:
     parameters:
       - $ref: '#/components/parameters/EnvironmentIdPath'

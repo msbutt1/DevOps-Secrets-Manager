@@ -9,6 +9,7 @@ import { RevealSecretDialog } from '@/components/RevealSecretDialog';
 import { ExpiryBadge } from '@/components/ExpiryBadge';
 import { SecretHistoryDialog } from '@/components/SecretHistoryDialog';
 import { ImportEnvDialog } from '@/components/ImportEnvDialog';
+import { CopySecretsDialog } from '@/components/CopySecretsDialog';
 import { formatDotenv } from '@/lib/dotenv';
 import { downloadText } from '@/lib/download';
 import { secretsApi } from '@/lib/api-client';
@@ -93,6 +94,7 @@ export const VaultPage = () => {
   const [showCreateEnv, setShowCreateEnv] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showCopy, setShowCopy] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -411,6 +413,20 @@ export const VaultPage = () => {
                   </Button>
                 </PermissionGate>
 
+                {ROLE_PERMISSIONS[vault?.userRole ?? 'viewer'].canWrite && (
+                  <PermissionGate permission="canReveal" userRole={vault?.userRole || 'viewer'}>
+                    <Button
+                      className="!min-w-0 flex items-center gap-1"
+                      onClick={() => setShowCopy(true)}
+                      disabled={!currentEnvId || environments.length < 2}
+                      title="Copy values from another environment of this vault"
+                    >
+                      <Copy size={12} strokeWidth={1.5} />
+                      Copy From
+                    </Button>
+                  </PermissionGate>
+                )}
+
                 <PermissionGate permission="canReveal" userRole={vault?.userRole || 'viewer'}>
                   <Button
                     className="!min-w-0 flex items-center gap-1"
@@ -650,6 +666,15 @@ export const VaultPage = () => {
       </div>
 
       {/* Reveal Secret Dialog */}
+      {showCopy && currentEnvId && (
+        <CopySecretsDialog
+          environments={environments}
+          targetEnvId={currentEnvId}
+          targetName={activeEnv}
+          onClose={() => setShowCopy(false)}
+        />
+      )}
+
       {showImport && currentEnvId && (
         <ImportEnvDialog
           envId={currentEnvId}
