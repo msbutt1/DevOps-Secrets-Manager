@@ -72,7 +72,10 @@ export const OrganizationPage = () => {
   if (error || !org) {
     return (
       <AppLayout>
-        <ErrorMessage error={error ?? new Error('You are not a member of any organization')} />
+        <ErrorMessage
+          error={error ?? new Error('You are not a member of any organization')}
+          action="load this organization"
+        />
       </AppLayout>
     );
   }

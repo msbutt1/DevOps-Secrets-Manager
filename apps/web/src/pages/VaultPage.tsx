@@ -105,7 +105,13 @@ export const VaultPage = () => {
   const [copiedSecretId, setCopiedSecretId] = useState<string | null>(null);
 
   // Fetch vault details
-  const { data: vault, isLoading: vaultLoading, error: vaultError } = useVault(id || '');
+  const {
+    data: vault,
+    isLoading: vaultLoading,
+    error: vaultError,
+    refetch: refetchVault,
+    isFetching: refetchingVault,
+  } = useVault(id || '');
 
   // Fetch environments for this vault
   const { data: environments = [], isLoading: envsLoading } = useEnvironments(id || '');
@@ -278,7 +284,12 @@ export const VaultPage = () => {
               Vaults
             </Link>
           </div>
-          <ErrorMessage error={vaultError || new Error('Vault not found')} />
+          <ErrorMessage
+            error={vaultError || new Error('Vault not found')}
+            action="load this vault"
+            onRetry={() => refetchVault()}
+            isRetrying={refetchingVault}
+          />
         </div>
       </AppLayout>
     );

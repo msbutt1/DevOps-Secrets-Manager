@@ -73,7 +73,13 @@ export const DashboardPage = () => {
   // Fetch real data
   const { currentOrganization } = useCurrentOrganization();
   const orgId = currentOrganization?.id;
-  const { data: vaults = [], isLoading: vaultsLoading, error: vaultsError } = useVaults(orgId);
+  const {
+    data: vaults = [],
+    isLoading: vaultsLoading,
+    error: vaultsError,
+    refetch: refetchVaults,
+    isFetching: refetchingVaults,
+  } = useVaults(orgId);
   // Recent changes and reveals; logins would crowd everything else out
   const { data: auditData, isLoading: auditLoading } = useAuditLogs({
     limit: 5,
@@ -115,7 +121,12 @@ export const DashboardPage = () => {
   if (vaultsError || statsError || !stats) {
     return (
       <AppLayout>
-        <ErrorMessage error={vaultsError || statsError || new Error('Failed to load dashboard')} />
+        <ErrorMessage
+          error={vaultsError || statsError || new Error('Failed to load dashboard')}
+          action="load the dashboard"
+          onRetry={() => refetchVaults()}
+          isRetrying={refetchingVaults}
+        />
       </AppLayout>
     );
   }

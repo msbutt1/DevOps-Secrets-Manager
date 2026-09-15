@@ -2,6 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input, Select } from '@/components/win95';
 import { EmptyState } from '@/components/EmptyState';
+import { LoadingState } from '@/components/LoadingState';
+import { ErrorMessage } from '@/components/ErrorMessage';
 import { ChevronLeft, ChevronRight, X, Download, FileText } from 'lucide-react';
 import { AUDIT_ACTIONS } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
@@ -102,7 +104,7 @@ export const AuditPage = () => {
   };
 
   // Fetch audit logs
-  const { data, isLoading, error } = useAuditLogs(apiFilters);
+  const { data, isLoading, error, refetch, isFetching } = useAuditLogs(apiFilters);
 
   const events = useMemo(() => data?.data ?? [], [data]);
   const total = data?.total || 0;
@@ -236,18 +238,14 @@ export const AuditPage = () => {
 
             {/* Events Table */}
             {error ? (
-              <Panel className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-warning font-semibold mb-2">Error loading audit logs</p>
-                  <p className="text-win-body text-muted-foreground">{error.message}</p>
-                </div>
-              </Panel>
+              <ErrorMessage
+                error={error}
+                action="load the audit log"
+                onRetry={() => refetch()}
+                isRetrying={isFetching}
+              />
             ) : isLoading ? (
-              <Panel className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-win-body text-muted-foreground">Loading audit logs...</p>
-                </div>
-              </Panel>
+              <LoadingState type="table" rows={8} columns={6} />
             ) : events.length === 0 ? (
               <EmptyState type="audit" />
             ) : (

@@ -23,7 +23,13 @@ export const VaultsListPage = () => {
 
   // Fetch vaults
   const { currentOrganization } = useCurrentOrganization();
-  const { data: vaults = [], isLoading, error } = useVaults(currentOrganization?.id);
+  const {
+    data: vaults = [],
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useVaults(currentOrganization?.id);
 
   // Mutations
   const createVault = useCreateVault();
@@ -103,7 +109,12 @@ export const VaultsListPage = () => {
           <div className="win-border-raised bg-background p-2">
             <h1 className="text-win-title font-semibold">Vault Registry</h1>
           </div>
-          <ErrorMessage error={error} />
+          <ErrorMessage
+            error={error}
+            action="load your vaults"
+            onRetry={() => refetch()}
+            isRetrying={isFetching}
+          />
         </div>
       </AppLayout>
     );

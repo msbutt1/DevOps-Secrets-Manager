@@ -3,6 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input, Select } from '@/components/win95';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { LoadingState } from '@/components/LoadingState';
+import { EmptyState } from '@/components/EmptyState';
+import { ErrorMessage } from '@/components/ErrorMessage';
 import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -33,7 +36,13 @@ export const AccessPage = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { data: vault } = useVault(id || '');
-  const { data: members = [], isLoading } = useVaultMembers(id || '');
+  const {
+    data: members = [],
+    isLoading,
+    error: membersError,
+    refetch: refetchMembers,
+    isFetching: refetchingMembers,
+  } = useVaultMembers(id || '');
   const addMemberMutation = useAddMember();
   const updateMemberMutation = useUpdateMember();
   const removeMemberMutation = useRemoveMember();
@@ -180,14 +189,22 @@ export const AccessPage = () => {
               )}
 
               {/* Members Table */}
-              <div className="win-border-sunken bg-input">
-                {isLoading ? (
-                  <div className="p-4 text-center text-muted-foreground">Loading members...</div>
-                ) : members.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground">
-                    No members found. Add a member to get started.
-                  </div>
-                ) : (
+              {membersError ? (
+                <ErrorMessage
+                  error={membersError}
+                  action="load the members of this vault"
+                  onRetry={() => refetchMembers()}
+                  isRetrying={refetchingMembers}
+                />
+              ) : isLoading ? (
+                <LoadingState type="table" rows={3} columns={4} />
+              ) : members.length === 0 ? (
+                <EmptyState
+                  type="members"
+                  message="Only organization owners and admins can see this vault so far. Add a member to give someone else access."
+                />
+              ) : (
+                <div className="win-border-sunken bg-input overflow-x-auto">
                   <table className="w-full text-win-body">
                     <thead>
                       <tr className="bg-secondary border-b border-border">
@@ -262,8 +279,8 @@ export const AccessPage = () => {
                       ))}
                     </tbody>
                   </table>
-                )}
-              </div>
+                </div>
+              )}
             </Panel>
           </div>
 

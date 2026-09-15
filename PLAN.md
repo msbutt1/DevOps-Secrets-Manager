@@ -281,7 +281,7 @@ These are half-built or missing, but a team would need them.
 
 ## Phase 5: Polish and presentation
 
-- [ ] **Loading, empty and error states** on every page (vaults, environments, secrets, audit, members). Commit: `feat(web): consistent loading, empty and error states`
+- [x] **Loading, empty and error states** on every page (vaults, environments, secrets, audit, members). Commit: `feat(web): consistent loading, empty and error states`
 - [ ] **Confirmations.** Deleting a vault, environment or secret, or removing a member, requires typing the name. Commit: `feat(web): typed confirmation for destructive actions`
 - [ ] **Keyboard and accessibility.** Focus order, visible focus, labelled icon buttons, dialogs that trap and restore focus, checked with axe. Commit: `fix(web): accessibility pass`
 - [ ] **Responsive layout.** The Windows 95 look breaks on narrow screens; make tables scroll and dialogs fit. Commit: `fix(web): responsive layout`
