@@ -56,6 +56,7 @@ import {
 import type { Secret, Environment, EnvironmentName } from '@/types/api';
 import { ROLE_PERMISSIONS } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
+import { useToast } from '@/hooks/use-toast';
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -91,6 +92,8 @@ export const VaultPage = () => {
   const [revealedValue, setRevealedValue] = useState<string | null>(null);
   const [revealExpiresIn, setRevealExpiresIn] = useState<number | undefined>(undefined);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteEnvConfirm, setDeleteEnvConfirm] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [editSecret, setEditSecret] = useState<Secret | null>(null);
   const [showCreateSecret, setShowCreateSecret] = useState(false);
   const [showCreateEnv, setShowCreateEnv] = useState(false);
@@ -146,6 +149,8 @@ export const VaultPage = () => {
   // Mutations
   const createEnvMutation = useCreateEnvironment();
   const deleteSecretMutation = useDeleteSecret();
+  const deleteEnvironmentMutation = useDeleteEnvironment();
+  const { toast } = useToast();
   const revealMutation = useRevealSecret();
   const createSecretMutation = useCreateSecret();
   const updateSecretMutation = useUpdateSecret();
@@ -186,10 +191,48 @@ export const VaultPage = () => {
     [deleteSecretMutation],
   );
 
-  const handleBulkDelete = useCallback(() => {
-    console.log('Bulk delete:', Array.from(selectedSecrets));
+  const handleBulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedSecrets);
+    const failures: string[] = [];
+    for (const id of ids) {
+      try {
+        await deleteSecretMutation.mutateAsync(id);
+      } catch {
+        failures.push(allSecrets.find((s) => s.id === id)?.keyName ?? id);
+      }
+    }
+    setBulkDeleteConfirm(false);
     setSelectedSecrets(new Set());
-  }, [selectedSecrets]);
+    if (failures.length > 0) {
+      toast({
+        title: 'Some secrets were not deleted',
+        description: failures.join(', '),
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: `Deleted ${ids.length} secret${ids.length === 1 ? '' : 's'}`,
+        description: 'The deletions are recorded in the audit log.',
+      });
+    }
+  }, [selectedSecrets, deleteSecretMutation, allSecrets, toast]);
+
+  const handleDeleteEnvironment = useCallback(async () => {
+    if (!currentEnvId) return;
+    try {
+      await deleteEnvironmentMutation.mutateAsync(currentEnvId);
+      setDeleteEnvConfirm(false);
+      setActiveEnv('');
+      toast({ title: `Deleted the ${activeEnv} environment` });
+    } catch (err) {
+      setDeleteEnvConfirm(false);
+      toast({
+        title: 'Could not delete the environment',
+        description: err instanceof Error ? err.message : 'Please try again',
+        variant: 'destructive',
+      });
+    }
+  }, [currentEnvId, deleteEnvironmentMutation, activeEnv, toast]);
 
   const handleExport = useCallback(async () => {
     if (!currentEnvId) return;
@@ -384,6 +427,18 @@ export const VaultPage = () => {
                     Add
                   </button>
                 </PermissionGate>
+                <div className="flex-1 border-b border-border" />
+                <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
+                  <button
+                    onClick={() => setDeleteEnvConfirm(true)}
+                    disabled={!currentEnvId}
+                    className="px-3 py-2 text-win-body bg-secondary hover:bg-background flex items-center gap-1 text-warning disabled:opacity-50"
+                    title={`Delete the ${activeEnv} environment and its secrets`}
+                  >
+                    <Trash2 size={12} strokeWidth={1.5} />
+                    Delete Environment
+                  </button>
+                </PermissionGate>
               </div>
 
               {/* Production Warning */}
@@ -414,7 +469,7 @@ export const VaultPage = () => {
                     <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
                       <Button
                         className="!min-w-0 flex items-center gap-1 text-warning"
-                        onClick={handleBulkDelete}
+                        onClick={() => setBulkDeleteConfirm(true)}
                       >
                         <Trash2 size={12} strokeWidth={1.5} />
                         Delete
@@ -732,11 +787,37 @@ export const VaultPage = () => {
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Delete Secret"
-        message="Are you sure you want to permanently delete this secret? This action cannot be undone and will be logged."
+        message="Deleting this secret removes it and its history from the environment. This cannot be undone and is recorded in the audit log."
         type="error"
         confirmLabel="Delete"
+        confirmText={allSecrets.find((s) => s.id === deleteConfirm)?.keyName}
+        confirmTextLabel="key name"
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={bulkDeleteConfirm}
+        title="Delete Secrets"
+        message={`Deleting ${selectedSecrets.size} secret${selectedSecrets.size === 1 ? '' : 's'} from ${activeEnv} cannot be undone. Every deletion is recorded in the audit log.`}
+        type="error"
+        confirmLabel="Delete"
+        confirmText={`delete ${selectedSecrets.size}`}
+        confirmTextLabel="phrase"
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteConfirm(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteEnvConfirm}
+        title="Delete Environment"
+        message={`Deleting ${activeEnv} removes the environment and all ${allSecrets.length} secret${allSecrets.length === 1 ? '' : 's'} in it. This cannot be undone.`}
+        type="error"
+        confirmLabel="Delete Environment"
+        confirmText={activeEnv}
+        confirmTextLabel="environment name"
+        onConfirm={handleDeleteEnvironment}
+        onCancel={() => setDeleteEnvConfirm(false)}
       />
 
       {/* Create/Edit Secret Dialog */}
@@ -791,8 +872,10 @@ export const VaultPage = () => {
           createEnvMutation.mutate(
             { vaultId: id, data },
             {
-              onSuccess: () => {
+              onSuccess: (created) => {
                 setShowCreateEnv(false);
+                // Show the environment that was just created
+                setActiveEnv(created.name);
               },
               onError: (error) => {
                 console.error('Failed to create environment:', error);

@@ -282,7 +282,8 @@ These are half-built or missing, but a team would need them.
 ## Phase 5: Polish and presentation
 
 - [x] **Loading, empty and error states** on every page (vaults, environments, secrets, audit, members). Commit: `feat(web): consistent loading, empty and error states`
-- [ ] **Confirmations.** Deleting a vault, environment or secret, or removing a member, requires typing the name. Commit: `feat(web): typed confirmation for destructive actions`
+- [x] **Confirmations.** Deleting a vault, environment or secret, or removing a member, requires typing the name. Commit: `feat(web): typed confirmation for destructive actions`
+  - Found while doing this: the bulk Delete button only logged to the console and cleared the selection, and there was no way to delete an environment even though the API supports it. Both now work, with typed confirmations.
 - [ ] **Keyboard and accessibility.** Focus order, visible focus, labelled icon buttons, dialogs that trap and restore focus, checked with axe. Commit: `fix(web): accessibility pass`
 - [ ] **Responsive layout.** The Windows 95 look breaks on narrow screens; make tables scroll and dialogs fit. Commit: `fix(web): responsive layout`
 - [ ] **Theme.** Keep the retro Windows 95 look (it's distinctive) but tidy it: consistent spacing, one icon set, and a modern theme toggle if wanted. Commit: `style(web): refine UI theme`

@@ -330,9 +330,11 @@ export const AccessPage = () => {
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Remove Member"
-        message="Are you sure you want to remove this member from the vault? They will lose all access immediately."
+        message="Removing this member takes away their access to the vault immediately."
         type="warning"
         confirmLabel="Remove"
+        confirmText={members.find((m) => m.userId === deleteConfirm)?.email}
+        confirmTextLabel="email address"
         onConfirm={() => deleteConfirm && handleRemove(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
       />

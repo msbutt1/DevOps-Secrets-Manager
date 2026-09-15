@@ -280,9 +280,11 @@ export const VaultsListPage = () => {
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         title="Delete Vault"
-        message="Are you sure you want to delete this vault? All environments and secrets within it will be permanently removed. This action cannot be undone."
+        message={`Deleting this vault permanently removes its environments and every secret in them. This cannot be undone.`}
         type="error"
         confirmLabel="Delete Vault"
+        confirmText={vaults.find((v) => v.id === deleteConfirm)?.name}
+        confirmTextLabel="vault name"
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
       />

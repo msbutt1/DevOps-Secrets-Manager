@@ -334,8 +334,10 @@ export const OrganizationPage = () => {
       <ConfirmDialog
         isOpen={!!removing}
         title="Remove Member"
-        message={`Remove ${removing?.email} from ${org.name}? They lose access to every vault in the organization.`}
+        message={`Removing this member takes away their access to every vault in ${org.name}.`}
         confirmLabel="Remove"
+        confirmText={removing?.email}
+        confirmTextLabel="email address"
         onConfirm={confirmRemove}
         onCancel={() => setRemoving(null)}
       />
