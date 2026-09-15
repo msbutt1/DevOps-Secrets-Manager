@@ -975,6 +975,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/search': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Search secrets by key name
+     * @description Case-insensitive substring match on key names across every vault the caller can read,
+     *     newest matches first, at most 50 results. Only names and metadata are returned, never
+     *     values, so read permission is enough and nothing is audited.
+     */
+    get: operations['searchSecrets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/stats': {
     parameters: {
       query?: never;
@@ -1312,6 +1334,20 @@ export interface components {
       value: string;
       /** Format: date-time */
       expires_at: string | null;
+    };
+    SearchResult: {
+      /** Format: uuid */
+      secret_id: string;
+      key_name: string;
+      description: string | null;
+      /** Format: uuid */
+      vault_id: string;
+      vault_name: string;
+      /** Format: uuid */
+      environment_id: string;
+      environment_name: string;
+      /** Format: date-time */
+      updated_at: string;
     };
     ImportResult: {
       created: string[];
@@ -3412,6 +3448,33 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['AuditEventPage'];
+        };
+      };
+      400: components['responses']['BadRequest'];
+      401: components['responses']['Unauthorized'];
+      500: components['responses']['InternalError'];
+    };
+  };
+  searchSecrets: {
+    parameters: {
+      query: {
+        q: string;
+        /** @description Limit the search to one organization */
+        organizationId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Matching secrets */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SearchResult'][];
         };
       };
       400: components['responses']['BadRequest'];

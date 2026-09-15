@@ -6,12 +6,15 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/http/middleware"
+	"github.com/msbutt1/DevOps-Secrets-Manager/apps/api/internal/validate"
 )
 
 // accessibleVaultsCTE selects the IDs of live vaults user $1 can access, limited to organization
@@ -328,4 +331,77 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
+}
+
+// SearchResult is one secret matching a search, with where it lives.
+type SearchResult struct {
+	SecretID        uuid.UUID `json:"secret_id"`
+	KeyName         string    `json:"key_name"`
+	Description     *string   `json:"description"`
+	VaultID         uuid.UUID `json:"vault_id"`
+	VaultName       string    `json:"vault_name"`
+	EnvironmentID   uuid.UUID `json:"environment_id"`
+	EnvironmentName string    `json:"environment_name"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// maxSearchResults caps one search response.
+const maxSearchResults = 50
+
+// HandleSearch finds secrets by key name across the vaults the caller can read. Only names and
+// metadata are returned, never values, so it needs no more than read access.
+func (h *StatsHandlers) HandleSearch(w http.ResponseWriter, r *http.Request) {
+	claims, err := middleware.GetUserClaims(r.Context())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "q is required")
+		return
+	}
+	if len(query) > validate.MaxKeyNameLength {
+		writeError(w, http.StatusBadRequest, "invalid_request", "q is too long")
+		return
+	}
+	orgFilter, ok := organizationFilter(w, r)
+	if !ok {
+		return
+	}
+
+	rows, err := h.db.Query(r.Context(), `WITH`+accessibleVaultsCTE+`
+		SELECT s.id, s.key_name, s.description, v.id, v.name, e.id, e.name, s.updated_at
+		FROM secrets s
+		JOIN environments e ON e.id = s.environment_id AND e.deleted_at IS NULL
+		JOIN accessible a ON a.id = e.vault_id
+		JOIN vaults v ON v.id = a.id
+		WHERE s.deleted_at IS NULL AND s.key_name ILIKE '%' || $3 || '%'
+		ORDER BY s.key_name, v.name, e.name
+		LIMIT $4
+	`, claims.UserID, orgFilter, query, maxSearchResults)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "Failed to search secrets", slog.Any("error", err))
+		writeError(w, http.StatusInternalServerError, "internal_error", "Search failed")
+		return
+	}
+	defer rows.Close()
+
+	results := make([]SearchResult, 0)
+	for rows.Next() {
+		var result SearchResult
+		if err := rows.Scan(&result.SecretID, &result.KeyName, &result.Description,
+			&result.VaultID, &result.VaultName, &result.EnvironmentID, &result.EnvironmentName, &result.UpdatedAt); err != nil {
+			h.logger.ErrorContext(r.Context(), "Failed to scan search result", slog.Any("error", err))
+			writeError(w, http.StatusInternalServerError, "internal_error", "Search failed")
+			return
+		}
+		results = append(results, result)
+	}
+	if err := rows.Err(); err != nil {
+		h.logger.ErrorContext(r.Context(), "Failed to read search results", slog.Any("error", err))
+		writeError(w, http.StatusInternalServerError, "internal_error", "Search failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, results)
 }

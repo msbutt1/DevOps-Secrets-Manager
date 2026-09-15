@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input } from '@/components/win95';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -80,7 +80,9 @@ const formatDateTime = (dateStr: string) => {
 export const VaultPage = () => {
   const { id } = useParams<{ id: string }>();
   const [activeEnv, setActiveEnv] = useState<EnvironmentName>('');
-  const [filter, setFilter] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // A search result links here with the environment and key name it matched
+  const [filter, setFilter] = useState(() => searchParams.get('q') ?? '');
   const [selectedSecrets, setSelectedSecrets] = useState<Set<string>>(new Set());
 
   // Dialog states
@@ -107,6 +109,16 @@ export const VaultPage = () => {
 
   // Fetch environments for this vault
   const { data: environments = [], isLoading: envsLoading } = useEnvironments(id || '');
+
+  // Follow ?env= and ?q= from a search result, then drop them from the address bar
+  useEffect(() => {
+    const wantedEnv = searchParams.get('env');
+    const wantedKey = searchParams.get('q');
+    if (!wantedEnv && !wantedKey) return;
+    if (wantedEnv && environments.some((e) => e.name === wantedEnv)) setActiveEnv(wantedEnv);
+    if (wantedKey) setFilter(wantedKey);
+    if (!wantedEnv || environments.length > 0) setSearchParams({}, { replace: true });
+  }, [searchParams, environments, setSearchParams]);
 
   // Set activeEnv to first available environment when environments load
   useEffect(() => {

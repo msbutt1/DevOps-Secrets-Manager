@@ -1421,6 +1421,37 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /search:
+    get:
+      tags: [Dashboard]
+      summary: Search secrets by key name
+      description: |
+        Case-insensitive substring match on key names across every vault the caller can read,
+        newest matches first, at most 50 results. Only names and metadata are returned, never
+        values, so read permission is enough and nothing is audited.
+      operationId: searchSecrets
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, maxLength: 255 }
+        - name: organizationId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Limit the search to one organization
+      responses:
+        '500': { $ref: '#/components/responses/InternalError' }
+        '200':
+          description: Matching secrets
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SearchResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /stats:
     get:
       tags: [Dashboard]
@@ -1898,6 +1929,19 @@ components:
         key: { type: string }
         value: { type: string }
         expires_at: { type: string, format: date-time, nullable: true }
+
+    SearchResult:
+      type: object
+      required: [secret_id, key_name, description, vault_id, vault_name, environment_id, environment_name, updated_at]
+      properties:
+        secret_id: { type: string, format: uuid }
+        key_name: { type: string }
+        description: { type: string, nullable: true }
+        vault_id: { type: string, format: uuid }
+        vault_name: { type: string }
+        environment_id: { type: string, format: uuid }
+        environment_name: { type: string }
+        updated_at: { type: string, format: date-time }
 
     ImportResult:
       type: object

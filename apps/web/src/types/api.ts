@@ -54,6 +54,7 @@ export type ServiceToken = Schema<'ServiceToken'>;
 export type Session = Schema<'Session'>;
 export type SecretVersion = Schema<'SecretVersion'>;
 export type ImportResult = Schema<'ImportResult'>;
+export type SearchResult = Schema<'SearchResult'>;
 export type ExportedSecret = Schema<'ExportedSecret'>;
 export type CreatedServiceToken = Schema<'CreatedServiceToken'>;
 export type CreateServiceTokenRequest = Schema<'CreateServiceTokenRequest'>;

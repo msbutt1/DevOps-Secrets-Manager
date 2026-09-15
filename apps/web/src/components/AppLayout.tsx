@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/win95';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
+import { GlobalSearch } from '@/components/GlobalSearch';
 import { Shield, Database, Building, FileText, LogOut, Home, Settings } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -58,7 +59,11 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           );
         })}
         <div className="flex-1" />
-        <Button className="!min-w-0 !px-2 !py-1 flex items-center gap-1" onClick={handleLogout}>
+        <GlobalSearch />
+        <Button
+          className="!min-w-0 !px-2 !py-1 flex items-center gap-1 ml-2"
+          onClick={handleLogout}
+        >
           <LogOut size={12} strokeWidth={1.5} />
           <span>Logout</span>
         </Button>

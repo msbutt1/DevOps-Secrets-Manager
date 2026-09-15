@@ -30,6 +30,7 @@ import type {
   Session,
   SecretVersion,
   ImportResult,
+  SearchResult,
   ExportedSecret,
   CreatedServiceToken,
   CreateServiceTokenRequest,
@@ -426,6 +427,14 @@ export const serviceTokensApi = {
 
   revoke: (tokenId: string): Promise<void> =>
     apiFetch<void>(`/tokens/${tokenId}`, { method: 'DELETE' }),
+};
+
+// ============ SEARCH API ============
+export const searchApi = {
+  secrets: (query: string, organizationId?: string): Promise<SearchResult[]> =>
+    apiFetch<SearchResult[]>(
+      `/search?q=${encodeURIComponent(query)}${organizationId ? `&organizationId=${organizationId}` : ''}`,
+    ),
 };
 
 // ============ SESSIONS API ============

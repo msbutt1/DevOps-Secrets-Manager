@@ -164,6 +164,7 @@ development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
 | GET, POST | `/vaults/{id}/members` | List or add vault members |
 | PUT, DELETE | `/vaults/{id}/members/{userId}` | Change a member's role or remove them |
 | GET | `/audit` | Paginated, filterable audit log |
+| GET | `/search` | Find secrets by key name across accessible vaults |
 | GET | `/stats`, `/alerts` | Dashboard counts and alerts |
 | GET | `/health` | Database, schema version and uptime |
 
