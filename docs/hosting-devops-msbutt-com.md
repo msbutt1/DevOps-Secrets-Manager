@@ -217,11 +217,18 @@ inside it, a second one may not.
 
 ## 7. Afterwards
 
-- **Decide what this instance is.** If it is a portfolio demo, seed it, turn on the banner
-  (`VITE_DEMO_BANNER` at build time) and reset it nightly, as in
-  [operations.md](operations.md#a-demo-deployment). If it holds anything real, take backups:
-  Neon keeps its own point-in-time history, and `scripts/backup.sh` can pull dumps somewhere you
-  control.
+- **This instance is not a demo.** Registration is open and people are expected to keep real
+  credentials here, so nothing is ever wiped on a schedule and the demo banner stays off. That
+  makes three things obligatory rather than advisable:
+  - **Backups.** Neon's free tier keeps its own point-in-time history, which covers a mistaken
+    delete but not a closed account or an expired free tier. Pull dumps somewhere you control
+    with `scripts/backup.sh` as well.
+  - **The master key.** `MASTER_KEK` lives only in Render's secret store. If that is lost,
+    every secret anyone has stored is unreadable forever, backups included. Keep a copy
+    somewhere that survives losing the laptop and the Render account.
+  - **Saying who can read what.** You hold the master key, so you can decrypt anything stored
+    here. That is inherent to the design, not a flaw, but anyone else storing credentials is
+    trusting you personally and should be told so plainly.
 - **Close signups if you are the only user.** Cloudflare Access in front of `devops.msbutt.com`
   puts a login before any request reaches the app. Short of that, Cloudflare rate limiting rules
   on `/api/auth/*` cost nothing and stop the spam that would otherwise burn your Resend
