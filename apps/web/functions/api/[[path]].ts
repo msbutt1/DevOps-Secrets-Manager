@@ -23,9 +23,16 @@ export const onRequest: PagesFunction<Env> = async ({ request, params, env }) =>
   const upstream = new URL(`${env.API_ORIGIN.replace(/\/$/, '')}/${path}${incoming.search}`);
 
   const headers = new Headers(request.headers);
-  // Let the API log the real client, not Cloudflare's edge
-  headers.set('CF-Connecting-IP', request.headers.get('CF-Connecting-IP') ?? '');
   headers.delete('Host');
+  // Let the API log the real client, not Cloudflare's edge. This cannot reuse CF-Connecting-IP:
+  // Cloudflare manages that header on outgoing subrequests and replaces whatever a Worker sets
+  // with the Worker's own egress address, so the API would record 162.x for every visitor.
+  // Both headers are deleted first, so a client cannot supply either one itself.
+  headers.delete('X-Client-IP');
+  const clientIP = request.headers.get('CF-Connecting-IP');
+  if (clientIP) {
+    headers.set('X-Client-IP', clientIP);
+  }
   // A client could otherwise send its own X-Edge-Token; only this proxy's value may reach the API
   headers.delete('X-Edge-Token');
   if (env.EDGE_TOKEN) {

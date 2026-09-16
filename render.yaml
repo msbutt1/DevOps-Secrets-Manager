@@ -23,10 +23,12 @@ services:
         value: /app/migrations
       - key: APP_PUBLIC_URL
         value: https://devops.msbutt.com
-      # Requests arrive through Cloudflare, then Render's router. Cloudflare writes the real
-      # client address into CF-Connecting-IP, which a client cannot prepend a fake hop to.
+      # Requests arrive through Cloudflare, then Render's router. The Pages Function copies
+      # CF-Connecting-IP into X-Client-IP and strips any value a client sent. It cannot pass
+      # CF-Connecting-IP through directly: Cloudflare manages that header on subrequests and
+      # overwrites it with the Worker's own egress address.
       - key: APP_CLIENT_IP_HEADER
-        value: CF-Connecting-IP
+        value: X-Client-IP
       - key: APP_TRUSTED_PROXIES
         value: 0.0.0.0/0,::/0
       # APP_SERVER_PORT is deliberately unset: Render sets PORT, and the API prefers it over the

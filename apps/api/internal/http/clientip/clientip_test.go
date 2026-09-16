@@ -78,6 +78,14 @@ func TestClientIPFromEdgeHeader(t *testing.T) {
 		t.Errorf("fallback to X-Forwarded-For failed: got %s", got)
 	}
 
+	// An IPv6 visitor is recorded as IPv6, not dropped for looking unlike an address
+	got = resolver.ClientIP(request("10.1.2.3:4567", map[string]string{
+		"CF-Connecting-IP": "2604:3d09:647a:eb00:4e12:6e11:22aa:33bb",
+	}))
+	if got != "2604:3d09:647a:eb00:4e12:6e11:22aa:33bb" {
+		t.Errorf("IPv6 client address mangled: got %s", got)
+	}
+
 	// Garbage in the header falls back rather than returning nonsense
 	got = resolver.ClientIP(request("10.1.2.3:4567", map[string]string{
 		"CF-Connecting-IP": "not-an-ip",

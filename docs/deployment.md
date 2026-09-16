@@ -25,7 +25,7 @@ browser ──TLS──> web (nginx, static files + /api proxy) ──> API (Go)
 | `APP_ENV` | no | Leave at `production`: it keeps the `Secure` cookie flag on and refuses to log email links |
 | `APP_PUBLIC_URL` | yes in practice | The web app's address; it goes into verification, invite and reset links |
 | `APP_TRUSTED_PROXIES` | yes behind a proxy | CIDRs of your load balancer, so rate limits and the audit log record real client IPs |
-| `APP_CLIENT_IP_HEADER` | behind a CDN | A single-address header the edge writes, e.g. `CF-Connecting-IP` or `Fly-Client-IP`. Preferred over `X-Forwarded-For`, which a client can prepend a fake hop to |
+| `APP_CLIENT_IP_HEADER` | behind a CDN | A single-address header the edge writes, e.g. `Fly-Client-IP`, or `X-Client-IP` written by our Cloudflare Pages Function. Preferred over `X-Forwarded-For`, which a client can prepend a fake hop to. Note that a Cloudflare Worker cannot forward `CF-Connecting-IP` itself: Cloudflare overwrites it on subrequests with the Worker's own address |
 | `PORT` | on Render/Koyeb | The platform sets it; the API listens there unless `APP_SERVER_PORT` says otherwise |
 | `APP_EDGE_TOKEN` | behind a CDN | Shared secret the edge proxy must send in `X-Edge-Token`. Without it the platform's own hostname (`*.onrender.com`, `*.fly.dev`) is a way around the CDN's rate limits and client IP header. `/health` stays exempt |
 | `APP_CORS_ALLOWED_ORIGINS` | only if split | Needed only when the web app is served from a different origin than the API |

@@ -117,8 +117,15 @@ is why it lives at `apps/web/functions`.
 Then add the custom domain `devops.msbutt.com` in the Pages project; Cloudflare creates the CNAME
 in the `msbutt.com` zone for you. Keep the record proxied (orange cloud).
 
-The Pages Function forwards `/api/*` to Render, passes `CF-Connecting-IP` through so the audit
-log records the visitor's address rather than Cloudflare's, and adds `X-Edge-Token`. Because the
+The Pages Function forwards `/api/*` to Render, copies the visitor's address into `X-Client-IP`
+so the audit log records them rather than Cloudflare, and adds `X-Edge-Token`.
+
+It cannot simply pass `CF-Connecting-IP` through. Cloudflare manages that header on outgoing
+subrequests and replaces whatever a Worker sets with the Worker's own egress address, so the
+API saw `162.x` for every visitor. The function reads `CF-Connecting-IP` from the incoming
+request, which is trustworthy, and writes it to a header Cloudflare leaves alone; Render sets
+`APP_CLIENT_IP_HEADER=X-Client-IP` to match, and both headers are stripped from the incoming
+request so a client cannot supply either. Because the
 console and the API share one origin, the refresh cookie stays `SameSite=Strict` and there is no
 CORS to configure — `APP_CORS_ALLOWED_ORIGINS` stays empty.
 
