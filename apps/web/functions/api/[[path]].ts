@@ -1,12 +1,16 @@
 /**
- * Cloudflare Pages Function: proxies /api/* to the API on Fly so the browser only ever talks to
+ * Cloudflare Pages Function: proxies /api/* to the API so the browser only ever talks to
  * devops.msbutt.com. One origin keeps the refresh cookie (SameSite=Strict, __Host- prefixed)
  * working and avoids CORS entirely.
  *
- * API_ORIGIN is set as a Pages environment variable, e.g. https://msbutt-secrets-api.fly.dev
+ * API_ORIGIN is a Pages environment variable, e.g. https://msbutt-secrets-api.onrender.com.
+ * EDGE_TOKEN is a Pages *secret* shared with the API's APP_EDGE_TOKEN: the platform's own
+ * hostname stays publicly reachable, and without it anyone could address the API directly and
+ * skip this proxy, Cloudflare's rate limits and the CF-Connecting-IP header below.
  */
 interface Env {
   API_ORIGIN: string;
+  EDGE_TOKEN?: string;
 }
 
 export const onRequest: PagesFunction<Env> = async ({ request, params, env }) => {
@@ -22,6 +26,11 @@ export const onRequest: PagesFunction<Env> = async ({ request, params, env }) =>
   // Let the API log the real client, not Cloudflare's edge
   headers.set('CF-Connecting-IP', request.headers.get('CF-Connecting-IP') ?? '');
   headers.delete('Host');
+  // A client could otherwise send its own X-Edge-Token; only this proxy's value may reach the API
+  headers.delete('X-Edge-Token');
+  if (env.EDGE_TOKEN) {
+    headers.set('X-Edge-Token', env.EDGE_TOKEN);
+  }
 
   const response = await fetch(
     new Request(upstream, {

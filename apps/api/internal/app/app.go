@@ -47,6 +47,10 @@ type Config struct {
 	DisableRateLimits bool
 	// CORSAllowedOrigins lists web app origins allowed to call the API from another origin.
 	CORSAllowedOrigins []string
+	// EdgeToken is a shared secret the edge proxy sends in X-Edge-Token. When set, requests
+	// without it are refused, so the hosting platform's public origin is not a way around the
+	// edge's rate limits and IP header. Empty leaves the API open to direct callers.
+	EdgeToken string
 	// InsecureCookies drops the Secure flag from the refresh token cookie; only for development over HTTP.
 	InsecureCookies bool
 }
@@ -132,6 +136,7 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 		ClientIP:           resolver,
 		DisableRateLimits:  cfg.DisableRateLimits,
 		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+		EdgeToken:          cfg.EdgeToken,
 		Logger:             cfg.Logger,
 	}), nil
 }

@@ -102,6 +102,10 @@ Only the latest release receives security fixes.
   every value.
 - **Terminate TLS** in front of the web app and API, and set `APP_ENV=production` (the default)
   so cookies are `Secure` and the development email fallback is off.
+- **Set `APP_EDGE_TOKEN`** when a CDN sits in front, and send the same value from the edge in
+  `X-Edge-Token`. The hosting platform's own hostname stays publicly reachable, so without it an
+  attacker can address the API directly and skip the edge's rate limiting and its client IP
+  header. Requests without the token are answered `404`.
 - **Set `APP_TRUSTED_PROXIES`** to your proxy's addresses so rate limits and audit records use
   real client IPs, and leave `APP_CORS_ALLOWED_ORIGINS` empty unless the web app is served from
   another origin.

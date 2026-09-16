@@ -19,6 +19,9 @@ type RouterOptions struct {
 	DisableRateLimits bool
 	// CORSAllowedOrigins lists browser origins allowed to call the API cross-origin.
 	CORSAllowedOrigins []string
+	// EdgeToken, when set, is required in X-Edge-Token on every request except /health, so the
+	// platform's public origin cannot be used to bypass the edge.
+	EdgeToken string
 	// Logger receives access logs and recovered panics (required).
 	Logger *slog.Logger
 }
@@ -35,6 +38,9 @@ func NewRouter(authHandlers *AuthHandlers, vaultHandlers *VaultHandlers, environ
 	// Middleware
 	r.Use(requestLogging(opts.Logger, opts.ClientIP))
 	r.Use(securityHeaders)
+	if opts.EdgeToken != "" {
+		r.Use(edgeAuth(opts.EdgeToken))
+	}
 	r.Use(corsMiddleware(opts.CORSAllowedOrigins))
 	r.Use(opts.ClientIP.Middleware)
 	r.Use(audit.RequestContext)

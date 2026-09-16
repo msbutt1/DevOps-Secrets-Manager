@@ -99,6 +99,7 @@ func main() {
 		TrustedProxies:        trustedProxies(),
 		ClientIPHeader:        viper.GetString("client_ip_header"),
 		CORSAllowedOrigins:    splitList(viper.GetString("cors_allowed_origins")),
+		EdgeToken:             viper.GetString("edge_token"),
 		InsecureCookies:       config.IsDevelopment(),
 	})
 	if err != nil {
