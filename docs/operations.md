@@ -86,6 +86,10 @@ The API serves `/health` without authentication:
  "started_at":"2026-09-15T08:18:32Z","uptime_seconds":842,"version":"v1.0.0","timestamp":"..."}
 ```
 
+`version` is the tag the image was built with. Where the platform builds the Dockerfile itself
+and cannot pass that in, the API falls back to `VERSION` or to the commit the host reports
+(`RENDER_GIT_COMMIT` and the like), so `/health` still says which build is answering.
+
 It returns 503 with `"status":"unavailable"` when the database cannot be reached, so it works as
 both a platform health check and an external monitor. `migration_dirty: true` means a migration
 failed half-way and needs looking at.

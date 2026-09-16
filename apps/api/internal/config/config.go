@@ -104,3 +104,22 @@ func ServerPort() int {
 	}
 	return 8080
 }
+
+// Version reports the build identifier for /health. buildVersion comes from
+// -ldflags "-X main.version=...", which a platform that builds the Dockerfile itself cannot
+// set, so fall back to VERSION and then to the commit a host tells us it deployed. Knowing
+// which build is running matters most in exactly that case.
+func Version(buildVersion string) string {
+	if buildVersion != "" && buildVersion != "dev" {
+		return buildVersion
+	}
+	for _, name := range []string{"VERSION", "RENDER_GIT_COMMIT", "FLY_MACHINE_VERSION", "KOYEB_GIT_SHA"} {
+		if raw := strings.TrimSpace(os.Getenv(name)); raw != "" {
+			if len(raw) > 12 {
+				raw = raw[:12]
+			}
+			return raw
+		}
+	}
+	return "dev"
+}
