@@ -238,6 +238,17 @@ export const RegisterPage = () => {
               />
             </div>
 
+            <p className="text-win-small pt-2">
+              By registering you accept the{' '}
+              {/* Underlined at rest, not only on hover: a link inside a sentence cannot rely
+                  on colour alone to be distinguishable (WCAG 1.4.1) */}
+              <Link to="/legal" className="text-info underline">
+                privacy notice and terms
+              </Link>
+              . In short: this is a personal project, the operator can decrypt what you store, and
+              secret names are not encrypted.
+            </p>
+
             <div className="flex justify-between items-center gap-2 pt-2 border-t border-border">
               <Link to="/login" className="text-win-small text-info hover:underline">
                 Already have an account?

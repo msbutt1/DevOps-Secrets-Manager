@@ -124,6 +124,12 @@ export const LoginPage = () => {
                 {isSubmitting ? 'Authenticating...' : 'Login'}
               </Button>
             </div>
+
+            <p className="text-win-small pt-2">
+              <Link to="/legal" className="text-info hover:underline">
+                Privacy and terms
+              </Link>
+            </p>
           </form>
         </div>
 

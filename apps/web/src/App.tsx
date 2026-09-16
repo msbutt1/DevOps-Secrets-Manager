@@ -13,6 +13,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import InvitePage from './pages/InvitePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import LegalPage from './pages/LegalPage';
 import DashboardPage from './pages/DashboardPage';
 import VaultsListPage from './pages/VaultsListPage';
 import VaultPage from './pages/VaultPage';
@@ -37,6 +38,10 @@ const App = () => (
               <Route path="/invite" element={<InvitePage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              {/* One page, reachable under the names people look for */}
+              <Route path="/legal" element={<LegalPage />} />
+              <Route path="/privacy" element={<LegalPage />} />
+              <Route path="/terms" element={<LegalPage />} />
               <Route
                 path="/"
                 element={

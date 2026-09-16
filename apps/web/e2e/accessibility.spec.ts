@@ -15,7 +15,13 @@ async function violations(page: Page) {
 }
 
 test('the signed-out pages have no accessibility violations', async ({ page }) => {
-  for (const path of ['/login', '/register', '/forgot-password', '/reset-password?token=x']) {
+  for (const path of [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password?token=x',
+    '/legal',
+  ]) {
     await page.goto(path);
     expect(await violations(page), `on ${path}`).toEqual([]);
   }
