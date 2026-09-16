@@ -287,7 +287,8 @@ These are half-built or missing, but a team would need them.
   - Also found: the vault header's Edit button had no handler at all; it now opens the vault form (`fix(web): make the vault Edit button work`).
 - [x] **Keyboard and accessibility.** Focus order, visible focus, labelled icon buttons, dialogs that trap and restore focus, checked with axe. Commit: `fix(web): accessibility pass`
 - [x] **Responsive layout.** The Windows 95 look breaks on narrow screens; make tables scroll and dialogs fit. Commit: `fix(web): responsive layout`
-- [ ] **Theme.** Keep the retro Windows 95 look (it's distinctive) but tidy it: consistent spacing, one icon set, and a modern theme toggle if wanted. Commit: `style(web): refine UI theme`
+- [x] **Theme.** Keep the retro Windows 95 look (it's distinctive) but tidy it: consistent spacing, one icon set, and a modern theme toggle if wanted. Commit: `style(web): refine UI theme`
+  - Kept the single Windows 95 palette (no dark mode: Windows 95 had none, and a second theme would be one more thing to keep in step) and removed the duplicated `.dark` block that repeated the light values. Also deleted 43 unused scaffold UI components and the 36 packages they pulled in; lucide-react is the only icon set.
 - [ ] **Favicon, page titles, metadata.** Commit: `feat(web): favicon and page titles`
 - [ ] **README.**
   - One-paragraph pitch, screenshots, a short demo GIF, an architecture diagram (Mermaid)

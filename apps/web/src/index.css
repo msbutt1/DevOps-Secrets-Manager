@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Windows 95 Design System - All colors in HSL */
+/* Windows 95 design system. One palette on purpose: the retro look is the point, and Windows 95
+   had no dark mode, so there is no second theme to keep in step. Colours are HSL triples used
+   through Tailwind tokens (bg-background, text-muted-foreground and so on) rather than literal
+   hex values in components. Text colours are chosen to reach 4.5:1 on the silver background. */
 
 @layer base {
   :root {
@@ -50,50 +53,6 @@
     --radius: 0px;
 
     /* Sidebar (if needed) */
-    --sidebar-background: 0 0% 75%;
-    --sidebar-foreground: 0 0% 0%;
-    --sidebar-primary: 240 100% 25%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 83%;
-    --sidebar-accent-foreground: 0 0% 0%;
-    --sidebar-border: 0 0% 50%;
-    --sidebar-ring: 240 100% 25%;
-  }
-
-  .dark {
-    /* Same as light - Win95 didn't have dark mode */
-    --background: 0 0% 75%;
-    --background-secondary: 0 0% 83%;
-    --foreground: 0 0% 0%;
-    --foreground-secondary: 0 0% 20%;
-    --win-title-active: 240 100% 25%;
-    --win-title-inactive: 0 0% 50%;
-    --win-title-text: 0 0% 100%;
-    --border: 0 0% 50%;
-    --border-strong: 0 0% 0%;
-    --border-light: 0 0% 87%;
-    --border-dark: 0 0% 25%;
-    --border-darkest: 0 0% 0%;
-    --info: 240 100% 25%;
-    --success: 120 100% 16%;
-    --warning: 0 100% 27%;
-    --disabled: 0 0% 63%;
-    --card: 0 0% 75%;
-    --card-foreground: 0 0% 0%;
-    --popover: 0 0% 75%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 240 100% 25%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 83%;
-    --secondary-foreground: 0 0% 0%;
-    --muted: 0 0% 63%;
-    --muted-foreground: 0 0% 27%; /* 4.5:1 on the silver background */
-    --accent: 0 0% 83%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 100% 27%;
-    --destructive-foreground: 0 0% 100%;
-    --input: 0 0% 100%;
-    --ring: 240 100% 25%;
     --sidebar-background: 0 0% 75%;
     --sidebar-foreground: 0 0% 0%;
     --sidebar-primary: 240 100% 25%;
