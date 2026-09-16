@@ -31,12 +31,34 @@ keeps the service warm so the first visitor does not meet a blank screen.
 ## 1. Database — Neon (**you**)
 
 Create a project on the free tier, PostgreSQL 17, in a US East region to match `region: virginia`
-in `render.yaml`. From the connection details keep: host, database, role, password. The API
-creates its own schema on first start, so nothing else is needed.
+in `render.yaml`.
 
-Neon's free tier suspends an idle database too, and wakes it in a second or so. It does not
-expire, unlike Render's own free PostgreSQL, which is deleted after 30 days — that is why the
-database lives here and not on Render.
+Neon shows the connection string as soon as the project exists: it is the **Connect** button at
+the top right of the project dashboard, or **Dashboard → Connection string**. Choose the
+**psql** or **Parameters only** tab; either gives you the same URI. Copy the whole thing — it
+already contains the user, the password, the host and the database name:
+
+```
+postgresql://neondb_owner:npg_xxxxxxxx@ep-cool-name-a1b2c3.us-east-1.aws.neon.tech/neondb?sslmode=require
+```
+
+That single string is all the API needs: it reads `DATABASE_URL` and prefers it over the
+separate `APP_DATABASE_*` variables. **Treat it as a password** — it contains one.
+
+Two things to get right in Neon's connection widget:
+
+- **Pick the direct endpoint, not the pooled one.** If the host ends in `-pooler`, switch the
+  *Connection pooling* toggle off. Migrations take a session-level advisory lock, and Neon's
+  pooler runs in transaction mode, where that lock does not hold.
+- **Keep `?sslmode=require`.** Neon refuses unencrypted connections, and with `DATABASE_URL`
+  set, `APP_DATABASE_SSLMODE` is not consulted — the URL carries it.
+
+The API creates its own schema on first start, so there is nothing to run against the database
+by hand.
+
+Neon's free tier suspends an idle database and wakes it in a second or so. It does not expire,
+unlike Render's own free PostgreSQL, which is deleted after 30 days — that is why the database
+lives here and not on Render.
 
 ## 2. API — Render (**you**, then me)
 
@@ -56,13 +78,11 @@ In the Render dashboard: **New → Blueprint**, point it at the GitHub repositor
 | Variable | Value |
 |---|---|
 | `MASTER_KEK`, `APP_JWT_SECRET`, `APP_EDGE_TOKEN` | the three above |
-| `APP_DATABASE_HOST` | `ep-xxx.us-east-1.aws.neon.tech` |
-| `APP_DATABASE_PORT` | `5432` |
-| `APP_DATABASE_USER`, `_PASSWORD`, `_NAME` | from Neon |
+| `DATABASE_URL` | the whole Neon connection string from step 1 |
 | `SMTP_*` | left blank for now; step 4 fills them in |
 
-`render.yaml` already sets `APP_ENV=production`, `APP_DATABASE_SSLMODE=require`,
-`APP_PUBLIC_URL`, `APP_CLIENT_IP_HEADER=CF-Connecting-IP` and the health check on `/health`.
+`render.yaml` already sets `APP_ENV=production`, `APP_PUBLIC_URL`,
+`APP_CLIENT_IP_HEADER=CF-Connecting-IP` and the health check on `/health`.
 It deliberately does not set `APP_SERVER_PORT`: Render sets `PORT`, and the API prefers it.
 
 Watch the first deploy's logs for the migrations, then check the service's own URL answers:

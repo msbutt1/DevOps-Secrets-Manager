@@ -20,7 +20,8 @@ browser ──TLS──> web (nginx, static files + /api proxy) ──> API (Go)
 |----------|----------|-------|
 | `MASTER_KEK` | yes | 64 hex characters. Generate with `openssl rand -hex 32`. Losing it means losing every secret |
 | `APP_JWT_SECRET` | yes | At least 32 random characters, different from `MASTER_KEK` |
-| `APP_DATABASE_HOST`, `_PORT`, `_USER`, `_PASSWORD`, `_NAME` | yes | Or `APP_DATABASE_SSLMODE=require` for a managed database |
+| `APP_DATABASE_HOST`, `_PORT`, `_USER`, `_PASSWORD`, `_NAME` | yes | With `APP_DATABASE_SSLMODE=require` for a managed database |
+| `DATABASE_URL` | instead of those | A whole connection string, as Neon, Railway and Fly hand it out. It takes precedence over the five above, and its own `?sslmode=` wins over `APP_DATABASE_SSLMODE`. Contains a password: treat it as a secret |
 | `APP_ENV` | no | Leave at `production`: it keeps the `Secure` cookie flag on and refuses to log email links |
 | `APP_PUBLIC_URL` | yes in practice | The web app's address; it goes into verification, invite and reset links |
 | `APP_TRUSTED_PROXIES` | yes behind a proxy | CIDRs of your load balancer, so rate limits and the audit log record real client IPs |
@@ -74,7 +75,10 @@ Two details the blueprint depends on:
   secret between the CDN and the API, the CDN's rate limits and `CF-Connecting-IP` are optional
   for an attacker. Set the same value as the Pages Function's `EDGE_TOKEN`.
 
-Do not use Render's own free PostgreSQL: it is deleted after 30 days. Pair it with Neon.
+Do not use Render's own free PostgreSQL: it is deleted after 30 days. Pair it with Neon, and
+paste Neon's connection string into `DATABASE_URL` rather than splitting it into five variables.
+Use Neon's direct endpoint, not the `-pooler` one: migrations take a session-level advisory lock,
+which transaction pooling does not hold.
 
 The full walkthrough with real hostnames is in
 [hosting-devops-msbutt-com.md](hosting-devops-msbutt-com.md).

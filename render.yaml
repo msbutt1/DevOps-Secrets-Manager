@@ -19,8 +19,6 @@ services:
     envVars:
       - key: APP_ENV
         value: production
-      - key: APP_DATABASE_SSLMODE
-        value: require # Neon refuses unencrypted connections
       - key: APP_DATABASE_MIGRATIONS_PATH
         value: /app/migrations
       - key: APP_PUBLIC_URL
@@ -44,15 +42,10 @@ services:
       # is a public way around Cloudflare's rate limits and the header above.
       - key: APP_EDGE_TOKEN
         sync: false
-      - key: APP_DATABASE_HOST
-        sync: false
-      - key: APP_DATABASE_PORT
-        sync: false
-      - key: APP_DATABASE_USER
-        sync: false
-      - key: APP_DATABASE_PASSWORD
-        sync: false
-      - key: APP_DATABASE_NAME
+      # Neon's connection string, pasted whole. It takes precedence over the APP_DATABASE_*
+      # fields and already carries sslmode=require. Use the direct endpoint, not the -pooler
+      # one: migrations take a session-level advisory lock, which transaction pooling breaks.
+      - key: DATABASE_URL
         sync: false
       - key: SMTP_HOST
         sync: false
