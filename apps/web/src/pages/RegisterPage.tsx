@@ -8,8 +8,10 @@ import { authApi, invitesApi } from '@/lib/api-client';
 import { passwordProblem } from '@/lib/password';
 import { PasswordStrengthHint } from '@/components/PasswordStrengthHint';
 import { ResendVerificationButton } from '@/components/ResendVerificationButton';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export const RegisterPage = () => {
+  useDocumentTitle('Create an account');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

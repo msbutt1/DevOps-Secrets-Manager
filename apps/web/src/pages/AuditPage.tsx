@@ -11,6 +11,7 @@ import type { AuditEvent, AuditAction } from '@/types/api';
 import { useAuditLogs } from '@/hooks/use-audit';
 import { useVaults } from '@/hooks/use-vaults';
 import { useCurrentOrganization } from '@/contexts/OrganizationContext';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const actionOptions: { value: string; label: string }[] = [
   { value: '', label: 'All Actions' },
@@ -89,6 +90,7 @@ const actionIcons: Record<string, string> = {
 };
 
 export const AuditPage = () => {
+  useDocumentTitle('Audit Log');
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({

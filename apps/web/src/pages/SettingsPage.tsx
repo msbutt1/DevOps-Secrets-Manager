@@ -9,8 +9,10 @@ import { PasswordStrengthHint } from '@/components/PasswordStrengthHint';
 import { InviteMemberDialog } from '@/components/InviteMemberDialog';
 import { SessionsPanel } from '@/components/SessionsPanel';
 import type { UserOrganization } from '@/types/api';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export const SettingsPage = () => {
+  useDocumentTitle('Settings');
   const { user } = useAuth();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [inviteOrg, setInviteOrg] = useState<UserOrganization | null>(null);

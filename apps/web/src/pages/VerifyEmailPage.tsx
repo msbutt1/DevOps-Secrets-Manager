@@ -3,8 +3,10 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button, Panel } from '@/components/win95';
 import { Shield, AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { authApi } from '@/lib/api-client';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export const VerifyEmailPage = () => {
+  useDocumentTitle('Verify email');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');

@@ -29,6 +29,7 @@ import {
 import { AUDIT_ACTIONS } from '@/types/api';
 import type { DashboardAlertType, VaultCreateRequest, VaultRole } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const actionLabels = new Map<string, string>(AUDIT_ACTIONS.map((a) => [a.value, a.label]));
 
@@ -67,6 +68,7 @@ function formatRelativeTime(timestamp: string): string {
 }
 
 export const DashboardPage = () => {
+  useDocumentTitle('Dashboard');
   const { user } = useAuth();
   const [showCreateVault, setShowCreateVault] = useState(false);
 

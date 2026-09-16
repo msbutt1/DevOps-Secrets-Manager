@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Vault Console">
+  <!-- A Windows 95 style window with a padlock, matching the app's palette -->
+  <rect width="32" height="32" fill="#c0c0c0"/>
+  <path d="M0 0h32v3H0z" fill="#ffffff"/>
+  <path d="M0 0h3v32H0z" fill="#ffffff"/>
+  <path d="M0 29h32v3H0z" fill="#404040"/>
+  <path d="M29 0h3v32h-3z" fill="#404040"/>
+  <rect x="4" y="4" width="24" height="6" fill="#000080"/>
+  <rect x="6" y="6" width="9" height="2" fill="#ffffff"/>
+  <path d="M12 19v-3a4 4 0 0 1 8 0v3" fill="none" stroke="#000080" stroke-width="2.5"/>
+  <rect x="9" y="18" width="14" height="9" fill="#000080"/>
+  <rect x="15" y="21" width="2" height="4" fill="#c0c0c0"/>
+</svg>

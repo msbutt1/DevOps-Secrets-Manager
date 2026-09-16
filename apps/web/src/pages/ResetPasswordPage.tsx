@@ -5,8 +5,10 @@ import { Shield, AlertTriangle, Check } from 'lucide-react';
 import { ApiRequestError, authApi } from '@/lib/api-client';
 import { passwordProblem } from '@/lib/password';
 import { PasswordStrengthHint } from '@/components/PasswordStrengthHint';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export const ResetPasswordPage = () => {
+  useDocumentTitle('Reset password');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   // Keep the token in memory and drop it from the address bar and history

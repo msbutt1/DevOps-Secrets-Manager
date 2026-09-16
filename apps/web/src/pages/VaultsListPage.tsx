@@ -14,8 +14,10 @@ import { useCurrentOrganization } from '@/contexts/OrganizationContext';
 import { canCreateVaults } from '@/lib/organizations';
 import { Database, Plus, ChevronRight, Search, Pencil, Trash2, Layers, Key } from 'lucide-react';
 import type { Vault, VaultCreateRequest, VaultUpdateRequest } from '@/types/api';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export const VaultsListPage = () => {
+  useDocumentTitle('Vaults');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editVault, setEditVault] = useState<Vault | null>(null);

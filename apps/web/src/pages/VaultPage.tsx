@@ -58,6 +58,7 @@ import type { Secret, Environment, EnvironmentName } from '@/types/api';
 import { ROLE_PERMISSIONS } from '@/types/api';
 import { isProductionEnvironment } from '@/lib/environments';
 import { useToast } from '@/hooks/use-toast';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -153,6 +154,7 @@ export const VaultPage = () => {
   const deleteSecretMutation = useDeleteSecret();
   const deleteEnvironmentMutation = useDeleteEnvironment();
   const updateVaultMutation = useUpdateVault();
+  useDocumentTitle(vault?.name);
   const { toast } = useToast();
   const revealMutation = useRevealSecret();
   const createSecretMutation = useCreateSecret();

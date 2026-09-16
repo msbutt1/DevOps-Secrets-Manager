@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { Button, Input, Panel } from '@/components/win95';
 import { Shield, AlertTriangle, Check } from 'lucide-react';
 import { authApi } from '@/lib/api-client';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export const ForgotPasswordPage = () => {
+  useDocumentTitle('Forgot password');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

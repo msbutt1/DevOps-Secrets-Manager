@@ -5,8 +5,10 @@ import { Button, Input, Panel } from '@/components/win95';
 import { Shield, AlertTriangle } from 'lucide-react';
 import { ApiRequestError } from '@/lib/api-client';
 import { ResendVerificationButton } from '@/components/ResendVerificationButton';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export const LoginPage = () => {
+  useDocumentTitle('Log in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

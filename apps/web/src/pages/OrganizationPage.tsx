@@ -20,6 +20,7 @@ import {
 } from '@/hooks/use-organizations';
 import { Building, Mail, Pencil, Plus, Trash2, Users, X } from 'lucide-react';
 import type { OrganizationMember, OrganizationRole } from '@/types/api';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const ROLE_OPTIONS: { value: OrganizationRole; label: string }[] = [
   { value: 'owner', label: 'Owner' },
@@ -35,6 +36,7 @@ const formatDate = (value: string | null) =>
 const describeError = (err: unknown) => (err instanceof Error ? err.message : 'An error occurred');
 
 export const OrganizationPage = () => {
+  useDocumentTitle('Organization');
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const { error } = useOrganizations();

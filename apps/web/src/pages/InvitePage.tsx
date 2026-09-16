@@ -6,9 +6,11 @@ import { AlertTriangle, Loader2, Mail, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { invitesApi } from '@/lib/api-client';
 import { RoleBadge } from '@/components/RoleBadge';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 /** Accept page for invitation links: /invite?token=... */
 export const InvitePage = () => {
+  useDocumentTitle('Invitation');
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const { user, isAuthenticated, isLoading: authLoading, logout, refreshUser } = useAuth();

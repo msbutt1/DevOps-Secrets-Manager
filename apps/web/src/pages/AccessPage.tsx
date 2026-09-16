@@ -16,6 +16,7 @@ import {
 } from '@/hooks/use-access';
 import { useVault } from '@/hooks/use-vaults';
 import type { VaultMember, VaultRole } from '@/types/api';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const roleOptions: { value: VaultRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },
@@ -33,6 +34,7 @@ const permissionLabels: Record<keyof VaultMember['permissions'], string> = {
 };
 
 export const AccessPage = () => {
+  useDocumentTitle('Vault members');
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { data: vault } = useVault(id || '');

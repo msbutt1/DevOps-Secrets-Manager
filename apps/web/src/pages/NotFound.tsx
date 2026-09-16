@@ -2,8 +2,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Button } from '@/components/win95';
 import { AlertTriangle } from 'lucide-react';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 const NotFound = () => {
+  useDocumentTitle('Page not found');
   const location = useLocation();
 
   useEffect(() => {
