@@ -3,12 +3,19 @@
 //
 // New accounts must verify their email before they can log in. Against a local API running
 // with APP_ENV=development and no SMTP, pass --log with the API's log file and the seed reads
-// the verification links from it. Elsewhere, verify the accounts by email and run it again.
+// the verification links from it.
+//
+// Against a real deployment neither works, and registering through the API would send
+// verification and invitation mail to addresses that do not exist; the bounces would damage the
+// sending domain's reputation. Pass --database-url there instead: the demo accounts are written
+// straight to the database, already verified and already in the organization, so no mail is
+// sent at all. Everything else still goes through the API.
 package main
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -19,6 +26,10 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type demoUser struct {
@@ -123,6 +134,7 @@ func demoVaults() []demoVault {
 func main() {
 	apiURL := flag.String("api-url", envOr("SEED_API_URL", "http://localhost:8080"), "API base URL")
 	logPath := flag.String("log", os.Getenv("SEED_API_LOG"), "API log file to read development verification links from")
+	dbURL := flag.String("database-url", os.Getenv("SEED_DATABASE_URL"), "create the demo accounts directly in this database, verified and in the organization, instead of registering them through the API (sends no email)")
 	password := flag.String("password", envOr("SEED_PASSWORD", "Demo-Passw0rd!2026"), "password for every demo account")
 	flag.Parse()
 
@@ -131,6 +143,18 @@ func main() {
 		logPath:  *logPath,
 		password: *password,
 		http:     &http.Client{Timeout: 15 * time.Second},
+	}
+
+	if *dbURL != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		pool, err := pgxpool.New(ctx, *dbURL)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "seed: connect to the database: %v\n", err)
+			os.Exit(1)
+		}
+		defer pool.Close()
+		s.db = pool
 	}
 
 	if err := s.run(); err != nil {
@@ -151,11 +175,19 @@ type seeder struct {
 	logPath  string
 	password string
 	http     *http.Client
+	// db, when set, provisions the demo accounts directly instead of registering them.
+	db *pgxpool.Pool
 }
 
 func (s *seeder) run() error {
 	if _, err := s.call(http.MethodGet, "/health", "", nil, nil); err != nil {
 		return fmt.Errorf("API not reachable at %s: %w", s.api, err)
+	}
+
+	if s.db != nil {
+		if err := s.provisionAccounts(context.Background()); err != nil {
+			return err
+		}
 	}
 
 	ownerToken, err := s.ensureUser(owner)
@@ -170,8 +202,12 @@ func (s *seeder) run() error {
 		}
 		teammateTokens[u.Email] = token
 	}
-	if err := s.ensureTeam(ownerToken, teammateTokens); err != nil {
-		return err
+	// With --database-url the teammates are already in the organization, and inviting them
+	// would email addresses that do not exist.
+	if s.db == nil {
+		if err := s.ensureTeam(ownerToken, teammateTokens); err != nil {
+			return err
+		}
 	}
 
 	var vaults []struct {
@@ -312,6 +348,85 @@ func (s *seeder) ensureTeam(ownerToken string, teammateTokens map[string]string)
 		fmt.Printf("%s joined the organization as %s\n", u.Email, u.OrgRole)
 	}
 	return nil
+}
+
+// provisionAccounts writes the demo accounts straight to the database: verified, sharing one
+// organization, with the same password as the API-driven path. It replaces registration and
+// invitation, both of which send mail, and is idempotent so a nightly reset can call it.
+func (s *seeder) provisionAccounts(ctx context.Context) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(s.password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash the demo password: %w", err)
+	}
+
+	ownerID, err := s.upsertUser(ctx, owner, string(hash))
+	if err != nil {
+		return err
+	}
+	orgID, err := s.ensureOwnedOrg(ctx, ownerID, owner.Name+"'s Organization")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("provisioned %s as owner\n", owner.Email)
+
+	for _, u := range teammates {
+		id, err := s.upsertUser(ctx, u, string(hash))
+		if err != nil {
+			return err
+		}
+		if _, err := s.db.Exec(ctx, `
+			INSERT INTO user_organizations (user_id, organization_id, role, created_at)
+			VALUES ($1, $2, $3, now())
+			ON CONFLICT (user_id, organization_id) DO UPDATE SET role = EXCLUDED.role
+		`, id, orgID, u.OrgRole); err != nil {
+			return fmt.Errorf("add %s to the organization: %w", u.Email, err)
+		}
+		fmt.Printf("provisioned %s as %s\n", u.Email, u.OrgRole)
+	}
+	return nil
+}
+
+// upsertUser creates the account if it is missing and makes sure it is verified and uses the
+// seed password, so a half-finished run or a changed password does not leave it unusable.
+func (s *seeder) upsertUser(ctx context.Context, u demoUser, passwordHash string) (string, error) {
+	var id string
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO users (id, email, password_hash, name, email_verified, created_at, updated_at)
+		VALUES ($1, lower($2), $3, $4, true, now(), now())
+		ON CONFLICT (lower(email)) DO UPDATE
+			SET password_hash = EXCLUDED.password_hash, email_verified = true, updated_at = now()
+		RETURNING id
+	`, uuid.New(), u.Email, passwordHash, u.Name).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("create %s: %w", u.Email, err)
+	}
+	return id, nil
+}
+
+// ensureOwnedOrg returns the organization the user already owns, or creates one, matching what
+// registration does for a new account.
+func (s *seeder) ensureOwnedOrg(ctx context.Context, userID, name string) (string, error) {
+	var orgID string
+	err := s.db.QueryRow(ctx, `
+		SELECT organization_id FROM user_organizations WHERE user_id = $1 AND role = 'owner' LIMIT 1
+	`, userID).Scan(&orgID)
+	if err == nil {
+		return orgID, nil
+	}
+
+	orgID = uuid.New().String()
+	if _, err := s.db.Exec(ctx, `
+		INSERT INTO organizations (id, name, created_at, updated_at) VALUES ($1, $2, now(), now())
+	`, orgID, name); err != nil {
+		return "", fmt.Errorf("create the demo organization: %w", err)
+	}
+	if _, err := s.db.Exec(ctx, `
+		INSERT INTO user_organizations (user_id, organization_id, role, created_at)
+		VALUES ($1, $2, 'owner', now())
+	`, userID, orgID); err != nil {
+		return "", fmt.Errorf("make %s the owner: %w", name, err)
+	}
+	return orgID, nil
 }
 
 // ensureVaultMembers adds teammates to a vault with the given roles.
