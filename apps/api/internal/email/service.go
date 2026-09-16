@@ -83,7 +83,23 @@ func NewEmailServiceFromEnv(options Options, logger *slog.Logger) EmailService {
 		config.From = "noreply@devops-secrets.local"
 	}
 
-	return NewEmailService(config, options, logger)
+	service := NewEmailService(config, options, logger)
+
+	// Say at startup whether mail can be sent at all. Sends happen in the background so a
+	// failure only reaches an error log nobody is watching, which makes a misconfigured
+	// deployment look like it is working until someone cannot verify their account.
+	switch {
+	case config.Configured():
+		logger.Info("Email delivery configured",
+			slog.String("host", config.Host), slog.String("port", config.Port),
+			slog.String("from", config.From))
+	case options.Development:
+		logger.Warn("SMTP is not configured; verification links will be written to this log (development only)")
+	default:
+		logger.Error("SMTP is not configured and this is not development: verification, invite and password reset emails will fail. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD and SMTP_FROM")
+	}
+
+	return service
 }
 
 // Configured reports whether SMTP delivery is set up.

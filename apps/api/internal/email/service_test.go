@@ -71,3 +71,41 @@ func TestBuildMessageStripsHeaderInjection(t *testing.T) {
 		t.Fatalf("header injection not neutralised: %q", msg)
 	}
 }
+
+func TestStartupReportsWhetherEmailCanBeSent(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		host, port  string
+		development bool
+		wantLevel   slog.Level
+		wantPhrase  string
+	}{
+		{"configured", "smtp.resend.com", "2587", false, slog.LevelInfo, "Email delivery configured"},
+		{"missing in development", "", "", true, slog.LevelWarn, "written to this log"},
+		{"missing in production", "", "", false, slog.LevelError, "will fail"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("SMTP_HOST", tc.host)
+			t.Setenv("SMTP_PORT", tc.port)
+			t.Setenv("SMTP_USER", "resend")
+			t.Setenv("SMTP_PASSWORD", "re_sentinel_value_must_not_be_logged")
+			t.Setenv("SMTP_FROM", "")
+
+			var buf bytes.Buffer
+			logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+			NewEmailServiceFromEnv(Options{PublicURL: "https://example.test", Development: tc.development}, logger)
+
+			out := buf.String()
+			if !strings.Contains(out, tc.wantPhrase) {
+				t.Errorf("log = %q, want it to mention %q", out, tc.wantPhrase)
+			}
+			if !strings.Contains(out, "level="+tc.wantLevel.String()) {
+				t.Errorf("log = %q, want level %s", out, tc.wantLevel)
+			}
+			// Naming the variable is fine; printing its value is not.
+			if strings.Contains(out, "re_sentinel_value_must_not_be_logged") {
+				t.Errorf("log leaked the SMTP password: %q", out)
+			}
+		})
+	}
+}

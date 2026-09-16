@@ -85,7 +85,9 @@ In the Render dashboard: **New → Blueprint**, point it at the GitHub repositor
 `APP_CLIENT_IP_HEADER=CF-Connecting-IP` and the health check on `/health`.
 It deliberately does not set `APP_SERVER_PORT`: Render sets `PORT`, and the API prefers it.
 
-Watch the first deploy's logs for the migrations, then check the service's own URL answers:
+Watch the first deploy's logs. They say whether the migrations ran and whether mail can be sent
+at all — `Email delivery configured` with the host and port, or an error naming the missing
+variables. Then check the service's own URL answers:
 
 ```fish
 curl -s https://msbutt-secrets-api.onrender.com/health | jq
@@ -143,14 +145,20 @@ One consequence: **the CLI must go through the public hostname too.** Use
 | Variable | Value |
 |---|---|
 | `SMTP_HOST` | `smtp.resend.com` |
-| `SMTP_PORT` | `587` |
+| `SMTP_PORT` | `2587` |
 | `SMTP_USER` | `resend` |
 | `SMTP_PASSWORD` | `re_your_api_key` |
 | `SMTP_FROM` | `Vault Console <noreply@msbutt.com>` |
 
-Port 587 matters: the API uses Go's `smtp.SendMail`, which upgrades to TLS with STARTTLS and
-refuses to send credentials over an unencrypted connection. Implicit TLS on port 465 would not
-work without a code change.
+**Port 2587, not 587.** Render blocks outbound SMTP on the standard ports (25, 465 and 587) to
+keep spam off its free instances, and the block is a silent drop: the API waits and then logs
+`dial tcp …:587: connect: connection timed out`, long after the browser was told the account
+was created. Resend also listens on 2465 and 2587 for exactly this case. Use 2587, which is
+STARTTLS like 587 — the API uses Go's `smtp.SendMail`, which upgrades with STARTTLS and refuses
+to send credentials in the clear, so implicit TLS on 465 or 2465 would need a code change.
+
+If a platform blocks the alternative ports too, SMTP is the wrong transport there and Resend's
+HTTPS API is the way out; that is not implemented here.
 
 The `SMTP_FROM` address must be on the domain you verified, or Resend will reject the message.
 

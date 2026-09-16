@@ -29,7 +29,7 @@ browser ──TLS──> web (nginx, static files + /api proxy) ──> API (Go)
 | `PORT` | on Render/Koyeb | The platform sets it; the API listens there unless `APP_SERVER_PORT` says otherwise |
 | `APP_EDGE_TOKEN` | behind a CDN | Shared secret the edge proxy must send in `X-Edge-Token`. Without it the platform's own hostname (`*.onrender.com`, `*.fly.dev`) is a way around the CDN's rate limits and client IP header. `/health` stays exempt |
 | `APP_CORS_ALLOWED_ORIGINS` | only if split | Needed only when the web app is served from a different origin than the API |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | yes | Without them, production refuses to send invitations and resets |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | yes | Without them, production refuses to send invitations and resets, and says so at startup. Note that some platforms (Render) block outbound ports 25, 465 and 587 |
 | `MASTER_KEK_VERSION`, `MASTER_KEK_PREVIOUS` | during rotation | See [Rotating the master key](../README.md#rotating-the-master-key) |
 
 The API applies migrations at startup and serves `/health`, which reports the database state and
