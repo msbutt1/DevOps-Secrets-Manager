@@ -4,6 +4,25 @@ All notable changes to this project are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Hosting the instance at `devops.msbutt.com` on Render, Neon, Resend and Cloudflare Pages.
+
+### Added
+
+- `render.yaml`, a Render blueprint for the API, and a runbook for the deployment in
+  `docs/hosting-devops-msbutt-com.md`, including keeping a free instance warm
+- The API listens on `PORT` when the platform sets one, after `APP_SERVER_PORT`
+
+### Security
+
+- `APP_EDGE_TOKEN`: behind a CDN, requests must carry the shared secret in `X-Edge-Token` or be
+  answered `404`. The hosting platform's own hostname stays publicly reachable, so without it
+  the CDN's rate limits and its `CF-Connecting-IP` header could be skipped entirely
+- `APP_CLIENT_IP_HEADER`: the audit log and per-IP rate limits can be told to read a
+  single-address header written by the edge, instead of `X-Forwarded-For`, which a client can
+  prepend a fake hop to
+
 ## [1.0.0] - 2026-09-16
 
 First release: the API, web console and CLI are feature complete, tested and documented.
