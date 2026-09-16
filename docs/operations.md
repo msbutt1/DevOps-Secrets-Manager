@@ -90,8 +90,10 @@ It returns 503 with `"status":"unavailable"` when the database cannot be reached
 both a platform health check and an external monitor. `migration_dirty: true` means a migration
 failed half-way and needs looking at.
 
-Point an uptime service (UptimeRobot, Better Stack, Healthchecks.io — all have free tiers) at
-`https://your-host/api/health` every minute and alert on two consecutive failures. Most of them
+Point an uptime service (cron-job.org, UptimeRobot, Better Stack — all free, none needs a card)
+at `https://your-host/api/health` and alert on two consecutive failures. On a free host that
+sleeps when idle, the same check keeps it awake: see
+[the keep-warm step](hosting-devops-msbutt-com.md#6-keeping-it-warm-you). Most of them
 give you a status badge; add it at the top of the README once a monitor exists, rather than
 linking to one that does not:
 

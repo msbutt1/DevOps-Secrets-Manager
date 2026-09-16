@@ -34,7 +34,8 @@ browser ──TLS──> web (nginx, static files + /api proxy) ──> API (Go)
 The API applies migrations at startup and serves `/health`, which reports the database state and
 the schema version — use it as the platform's health check.
 
-Our own instance is at `devops.msbutt.com`; its exact steps, DNS records and secrets are in
+Our own instance is at `devops.msbutt.com`, on Render, Neon and Cloudflare Pages; its exact
+steps, DNS records and secrets are in
 [hosting-devops-msbutt-com.md](hosting-devops-msbutt-com.md).
 
 ## Docker Compose (one host)
@@ -54,6 +55,29 @@ docker compose logs -f api        # watch the migrations run
 waits for the database health check before starting the API. Put a TLS terminator (Caddy,
 nginx, or your platform's load balancer) in front of the web container on port 3000, and set
 `APP_TRUSTED_PROXIES` to its address so client IPs are not recorded as the proxy's.
+
+## Render + Neon + Cloudflare Pages (no card, no bill)
+
+`render.yaml` in the repository root is a Render blueprint for the API: Docker build from
+`apps/api/Dockerfile`, health check on `/health`, and every credential as a `sync: false`
+variable Render asks for on first apply. **New → Blueprint** in the Render dashboard reads it.
+
+The free plan is the point: over its limits Render stops or throttles the service rather than
+charging, so no card needs to be on file. In exchange the service sleeps after 15 minutes idle
+and takes about 50 seconds to wake, which a ping every 10 minutes avoids.
+
+Two details the blueprint depends on:
+
+- **`PORT`.** Render tells the container where to listen. Leave `APP_SERVER_PORT` unset so the
+  API uses it.
+- **`APP_EDGE_TOKEN`.** `your-api.onrender.com` stays publicly reachable, so without a shared
+  secret between the CDN and the API, the CDN's rate limits and `CF-Connecting-IP` are optional
+  for an attacker. Set the same value as the Pages Function's `EDGE_TOKEN`.
+
+Do not use Render's own free PostgreSQL: it is deleted after 30 days. Pair it with Neon.
+
+The full walkthrough with real hostnames is in
+[hosting-devops-msbutt-com.md](hosting-devops-msbutt-com.md).
 
 ## Fly.io + Neon + Cloudflare Pages (free tiers)
 
@@ -148,6 +172,7 @@ image also ships the `keys` command, which is how you check master key versions 
 ```bash
 docker compose exec api ./keys status          # Compose: master key versions in use
 fly ssh console -C "/app/keys status"          # Fly: the image ships the keys command too
+./keys status                                  # Render: from the service's shell tab
 ```
 
 Rolling a migration back is not something the running image does for you: check out the matching

@@ -16,18 +16,18 @@ concurrency:
 
 jobs:
   api:
-    name: API (Fly.io)
+    name: API (Render)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # Render builds the image itself from render.yaml; the hook starts a deploy of this commit.
       - name: Deploy
-        run: flyctl deploy --remote-only --build-arg VERSION=${{ github.ref_name }}
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}&ref=${{ github.sha }}" > /dev/null
       - name: Wait for the new version to answer
         run: |
-          for attempt in $(seq 1 30); do
+          # A free instance cold-starts, and a fresh image has to build first: allow ten minutes.
+          for attempt in $(seq 1 120); do
             if curl -fsS "https://${{ vars.API_HOST }}/health" | grep -q '"database":"ok"'; then
               echo "API is healthy"
               exit 0
