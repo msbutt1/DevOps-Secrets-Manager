@@ -25,6 +25,7 @@ browser ──TLS──> web (nginx, static files + /api proxy) ──> API (Go)
 | `APP_PUBLIC_URL` | yes in practice | The web app's address; it goes into verification, invite and reset links |
 | `APP_TRUSTED_PROXIES` | yes behind a proxy | CIDRs of your load balancer, so rate limits and the audit log record real client IPs |
 | `APP_CLIENT_IP_HEADER` | behind a CDN | A single-address header the edge writes, e.g. `CF-Connecting-IP` or `Fly-Client-IP`. Preferred over `X-Forwarded-For`, which a client can prepend a fake hop to |
+| `PORT` | on Render/Koyeb | The platform sets it; the API listens there unless `APP_SERVER_PORT` says otherwise |
 | `APP_CORS_ALLOWED_ORIGINS` | only if split | Needed only when the web app is served from a different origin than the API |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | yes | Without them, production refuses to send invitations and resets |
 | `MASTER_KEK_VERSION`, `MASTER_KEK_PREVIOUS` | during rotation | See [Rotating the master key](../README.md#rotating-the-master-key) |

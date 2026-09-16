@@ -338,6 +338,7 @@ and environment variables. Nested settings use the `APP_` prefix (`database.host
 | `APP_CORS_ALLOWED_ORIGINS` | none | Comma-separated web app origins allowed to call the API from another origin (not needed with the `/api` proxy) |
 | `APP_TRUSTED_PROXIES` | loopback and private ranges | Comma-separated CIDRs whose `X-Forwarded-For` is trusted when working out client IPs for rate limits and the audit log |
 | `APP_CLIENT_IP_HEADER` | none | A single-address header written by a CDN (`CF-Connecting-IP`, `Fly-Client-IP`) to use instead of `X-Forwarded-For`; read only from trusted proxies |
+| `PORT` | | Set by hosts such as Render and Koyeb; used when `APP_SERVER_PORT` is not set |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | | Outgoing email |
 
 The API refuses to start when `MASTER_KEK` or `APP_JWT_SECRET` is missing, too short, a

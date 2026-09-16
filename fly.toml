@@ -23,12 +23,21 @@ primary_region = "iad"
   auto_start_machines = true
   min_machines_running = 0
 
+  # Shed load rather than starting more machines: an abusive burst gets 503s, not a bill.
+  # Machine count is capped separately with: fly scale count 1 --max-per-region 1
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 50
+    hard_limit = 100
+
   [[http_service.checks]]
     path = "/health"
     interval = "30s"
     timeout = "5s"
     grace_period = "10s"
 
+# One small shared machine, no volume (state lives in Neon) and no dedicated IPv4, which are
+# the three things that bill whether or not anyone visits.
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"

@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -85,4 +86,21 @@ func IsDevelopment() bool {
 // PublicURL returns APP_PUBLIC_URL, the web app's base URL used in emailed links.
 func PublicURL() string {
 	return viper.GetString("public_url")
+}
+
+// ServerPort is the port to listen on. APP_SERVER_PORT comes first, then PORT, which platforms
+// such as Render, Koyeb and Railway set to tell the process where to listen, then the config
+// file, then 8080.
+func ServerPort() int {
+	for _, name := range []string{"APP_SERVER_PORT", "PORT"} {
+		if raw := strings.TrimSpace(os.Getenv(name)); raw != "" {
+			if port, err := strconv.Atoi(raw); err == nil && port > 0 && port < 65536 {
+				return port
+			}
+		}
+	}
+	if port := viper.GetInt("server.port"); port > 0 {
+		return port
+	}
+	return 8080
 }

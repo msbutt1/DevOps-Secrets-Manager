@@ -106,10 +106,7 @@ func main() {
 	}
 
 	// Configure HTTP server
-	port := viper.GetInt("server.port")
-	if port == 0 {
-		port = 8080
-	}
+	port := config.ServerPort()
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
