@@ -1,0 +1,13 @@
+# Cloudflare Pages serves static files without security headers of its own, so these mirror
+# apps/web/nginx-security-headers.conf. Keep the two in step.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# Hashed assets never change under the same name
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

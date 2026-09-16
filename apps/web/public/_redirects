@@ -1,0 +1,3 @@
+# Client-side routing: every unknown path is the app, which reads the URL itself.
+# /api/* is handled by functions/api/[[path]].ts and must not fall through to index.html.
+/*  /index.html  200
