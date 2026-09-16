@@ -3,6 +3,11 @@
 // X-Forwarded-For is only honoured when the connection comes from a trusted proxy, and it is
 // read from the right: the first address that is not itself a trusted proxy is the client.
 // Headers from untrusted peers are ignored, so clients cannot choose their own address.
+//
+// Behind a CDN that writes the client address into its own header (Cloudflare's
+// CF-Connecting-IP, Fly's Fly-Client-IP), set that header name instead: it holds one address
+// the edge wrote itself, so a client cannot prepend a fake entry the way it can with
+// X-Forwarded-For. It is still only read from trusted peers.
 package clientip
 
 import (
@@ -23,11 +28,19 @@ var DefaultTrustedProxies = []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "17
 // Resolver finds client addresses.
 type Resolver struct {
 	trusted []netip.Prefix
+	// header, when set, is a single-address header written by the edge (e.g. CF-Connecting-IP)
+	// and is preferred over X-Forwarded-For.
+	header string
 }
 
 // NewResolver parses CIDR ranges (or single addresses) of trusted proxies.
 func NewResolver(trusted []string) (*Resolver, error) {
-	r := &Resolver{}
+	return NewResolverWithHeader(trusted, "")
+}
+
+// NewResolverWithHeader is NewResolver with a single-address client IP header to prefer.
+func NewResolverWithHeader(trusted []string, header string) (*Resolver, error) {
+	r := &Resolver{header: http.CanonicalHeaderKey(strings.TrimSpace(header))}
 	for _, raw := range trusted {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
@@ -72,6 +85,13 @@ func (r *Resolver) ClientIP(req *http.Request) string {
 	peer = peer.Unmap()
 	if !r.isTrusted(peer) {
 		return peer.String()
+	}
+
+	// A single-address header from the edge, when one is configured
+	if r.header != "" {
+		if addr, err := netip.ParseAddr(strings.TrimSpace(req.Header.Get(r.header))); err == nil {
+			return addr.Unmap().String()
+		}
 	}
 
 	// Walk X-Forwarded-For from the nearest hop back towards the client

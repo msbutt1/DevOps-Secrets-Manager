@@ -337,6 +337,7 @@ and environment variables. Nested settings use the `APP_` prefix (`database.host
 | `APP_REVEAL_AUTO_HIDE_SECONDS` | `30` | How long the web app shows a revealed value (5-600) |
 | `APP_CORS_ALLOWED_ORIGINS` | none | Comma-separated web app origins allowed to call the API from another origin (not needed with the `/api` proxy) |
 | `APP_TRUSTED_PROXIES` | loopback and private ranges | Comma-separated CIDRs whose `X-Forwarded-For` is trusted when working out client IPs for rate limits and the audit log |
+| `APP_CLIENT_IP_HEADER` | none | A single-address header written by a CDN (`CF-Connecting-IP`, `Fly-Client-IP`) to use instead of `X-Forwarded-For`; read only from trusted proxies |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | | Outgoing email |
 
 The API refuses to start when `MASTER_KEK` or `APP_JWT_SECRET` is missing, too short, a
@@ -396,6 +397,10 @@ line (`GOTOOLCHAIN=go1.25.14 make audit-api`). Dependabot opens weekly update pu
 Go modules, npm packages, crates, GitHub Actions and Docker base images.
 
 ## Deployment
+
+[docs/hosting-devops-msbutt-com.md](docs/hosting-devops-msbutt-com.md) is the runbook for the
+instance at `devops.msbutt.com`: Cloudflare Pages in front, the API on Fly.io, PostgreSQL on Neon
+and mail through Resend, with the DNS records and secrets each step needs.
 
 [docs/deployment.md](docs/deployment.md) walks through Docker Compose on one host and a free-tier
 setup (Fly.io for the API, Neon for PostgreSQL, Cloudflare Pages for the web app), with every

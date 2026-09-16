@@ -24,12 +24,16 @@ browser ──TLS──> web (nginx, static files + /api proxy) ──> API (Go)
 | `APP_ENV` | no | Leave at `production`: it keeps the `Secure` cookie flag on and refuses to log email links |
 | `APP_PUBLIC_URL` | yes in practice | The web app's address; it goes into verification, invite and reset links |
 | `APP_TRUSTED_PROXIES` | yes behind a proxy | CIDRs of your load balancer, so rate limits and the audit log record real client IPs |
+| `APP_CLIENT_IP_HEADER` | behind a CDN | A single-address header the edge writes, e.g. `CF-Connecting-IP` or `Fly-Client-IP`. Preferred over `X-Forwarded-For`, which a client can prepend a fake hop to |
 | `APP_CORS_ALLOWED_ORIGINS` | only if split | Needed only when the web app is served from a different origin than the API |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | yes | Without them, production refuses to send invitations and resets |
 | `MASTER_KEK_VERSION`, `MASTER_KEK_PREVIOUS` | during rotation | See [Rotating the master key](../README.md#rotating-the-master-key) |
 
 The API applies migrations at startup and serves `/health`, which reports the database state and
 the schema version — use it as the platform's health check.
+
+Our own instance is at `devops.msbutt.com`; its exact steps, DNS records and secrets are in
+[hosting-devops-msbutt-com.md](hosting-devops-msbutt-com.md).
 
 ## Docker Compose (one host)
 

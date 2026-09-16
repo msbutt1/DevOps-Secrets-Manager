@@ -40,6 +40,9 @@ type Config struct {
 	Version string
 	// TrustedProxies are CIDR ranges whose X-Forwarded-For is believed (default: loopback and private ranges).
 	TrustedProxies []string
+	// ClientIPHeader is a single-address header written by a CDN (e.g. CF-Connecting-IP) that is
+	// preferred over X-Forwarded-For when the request comes from a trusted proxy.
+	ClientIPHeader string
 	// DisableRateLimits turns rate limiting off; only for tests.
 	DisableRateLimits bool
 	// CORSAllowedOrigins lists web app origins allowed to call the API from another origin.
@@ -119,7 +122,7 @@ func New(pool *pgxpool.Pool, cfg Config) (http.Handler, error) {
 	if cfg.TrustedProxies == nil {
 		cfg.TrustedProxies = clientip.DefaultTrustedProxies
 	}
-	resolver, err := clientip.NewResolver(cfg.TrustedProxies)
+	resolver, err := clientip.NewResolverWithHeader(cfg.TrustedProxies, cfg.ClientIPHeader)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package clientip
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -39,5 +40,50 @@ func TestClientIP(t *testing.T) {
 
 	if _, err := NewResolver([]string{"nonsense"}); err == nil {
 		t.Fatal("invalid proxy range should be rejected")
+	}
+}
+
+func TestClientIPFromEdgeHeader(t *testing.T) {
+	resolver, err := NewResolverWithHeader([]string{"10.0.0.0/8"}, "CF-Connecting-IP")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := func(remote string, headers map[string]string) *http.Request {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.RemoteAddr = remote
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+		return req
+	}
+
+	// From a trusted proxy the edge header wins, even when the client prepends a fake hop
+	got := resolver.ClientIP(request("10.1.2.3:4567", map[string]string{
+		"CF-Connecting-IP": "203.0.113.9",
+		"X-Forwarded-For":  "1.2.3.4, 203.0.113.9",
+	}))
+	if got != "203.0.113.9" {
+		t.Errorf("edge header ignored: got %s", got)
+	}
+
+	// A spoofed edge header from an untrusted peer is ignored
+	got = resolver.ClientIP(request("198.51.100.7:1234", map[string]string{"CF-Connecting-IP": "1.2.3.4"}))
+	if got != "198.51.100.7" {
+		t.Errorf("untrusted peer chose its own address: got %s", got)
+	}
+
+	// Without the header, X-Forwarded-For is still used
+	got = resolver.ClientIP(request("10.1.2.3:4567", map[string]string{"X-Forwarded-For": "203.0.113.10"}))
+	if got != "203.0.113.10" {
+		t.Errorf("fallback to X-Forwarded-For failed: got %s", got)
+	}
+
+	// Garbage in the header falls back rather than returning nonsense
+	got = resolver.ClientIP(request("10.1.2.3:4567", map[string]string{
+		"CF-Connecting-IP": "not-an-ip",
+		"X-Forwarded-For":  "203.0.113.11",
+	}))
+	if got != "203.0.113.11" {
+		t.Errorf("invalid edge header not ignored: got %s", got)
 	}
 }

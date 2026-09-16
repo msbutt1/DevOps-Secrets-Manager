@@ -97,6 +97,7 @@ func main() {
 		RevealAutoHideSeconds: viper.GetInt("reveal_auto_hide_seconds"),
 		Version:               version,
 		TrustedProxies:        trustedProxies(),
+		ClientIPHeader:        viper.GetString("client_ip_header"),
 		CORSAllowedOrigins:    splitList(viper.GetString("cors_allowed_origins")),
 		InsecureCookies:       config.IsDevelopment(),
 	})
