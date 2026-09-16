@@ -100,11 +100,17 @@ Create a Pages project connected to the GitHub repository.
 
 | Setting | Value |
 |---|---|
-| Build command | `npm ci && npm run build` |
-| Build output directory | `apps/web/dist` |
+| Framework preset | None |
 | Root directory | `apps/web` |
+| Build command | `npm ci && npm run build` |
+| Build output directory | `dist` |
 | Environment variable | `API_ORIGIN = https://msbutt-secrets-api.onrender.com` |
 | Environment **secret** | `EDGE_TOKEN` = the same value as `APP_EDGE_TOKEN` |
+
+The build output directory is resolved inside the root directory, so it is `dist` and not
+`apps/web/dist`. If a build fails with "output directory not found", that pair is why. The
+Pages Function is found the same way: `functions/` has to sit under the root directory, which
+is why it lives at `apps/web/functions`.
 
 Then add the custom domain `devops.msbutt.com` in the Pages project; Cloudflare creates the CNAME
 in the `msbutt.com` zone for you. Keep the record proxied (orange cloud).
