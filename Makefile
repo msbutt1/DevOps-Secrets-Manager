@@ -131,7 +131,7 @@ test-cli: ## CLI tests
 
 .PHONY: test-e2e
 test-e2e: web-deps ## Browser tests against a running stack (start it with make dev; E2E_BASE_URL overrides)
-	cd apps/web && npx playwright test
+	cd apps/web && E2E_API_LOG=$(abspath $(API_LOG)) npx playwright test
 
 .PHONY: lint lint-api lint-web lint-cli
 lint: lint-api lint-web lint-cli ## Run all linters, formatters (check mode) and type checks

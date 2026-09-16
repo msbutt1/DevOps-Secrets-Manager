@@ -297,7 +297,7 @@ These are half-built or missing, but a team would need them.
   - Commit: `docs: rewrite README`
   - No demo GIF: the screenshots and the CLI capture cover the same ground without a large binary in the repository.
 - [x] **Screenshots.** Recapture them after the fixes (dashboard, vault, reveal dialog, audit log, members, CLI in a terminal) into `docs/images/`, then update the portfolio screenshot and write-up (the "where it falls short" section changes once Phase 1 is done). Commit: `docs: update screenshots`
-- [ ] **Changelog and version.** Add `CHANGELOG.md` and tag `v1.0.0` once Phases 0–2 are done. Commit: `chore: release v1.0.0`
+- [x] **Changelog and version.** Add `CHANGELOG.md` and tag `v1.0.0` once Phases 0–2 are done. Commit: `chore: release v1.0.0`
 
 ---
 
