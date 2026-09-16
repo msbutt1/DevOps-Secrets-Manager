@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"net/smtp"
 	"net/url"
 	"os"
@@ -243,9 +244,11 @@ func (s *emailService) sendSMTP(to, subject, body string) error {
 		auth = smtp.PlainAuth("", s.config.User, s.config.Password, s.config.Host)
 	}
 
-	// Send email
+	// Send email. The envelope sender must be a bare address: SMTP_FROM is usually written
+	// "Vault Console <noreply@example.com>", which belongs in the From: header but makes
+	// MAIL FROM malformed, and the relay answers 501 Bad sender address syntax.
 	addr := fmt.Sprintf("%s:%s", s.config.Host, s.config.Port)
-	if err := smtp.SendMail(addr, auth, s.config.From, []string{to}, []byte(msg)); err != nil {
+	if err := smtp.SendMail(addr, auth, envelopeAddress(s.config.From), []string{to}, []byte(msg)); err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
@@ -255,6 +258,16 @@ func (s *emailService) sendSMTP(to, subject, body string) error {
 	)
 
 	return nil
+}
+
+// envelopeAddress extracts the bare address from a From value that may carry a display name.
+// An unparseable value is returned unchanged, so the relay's own error is what surfaces rather
+// than a silently rewritten sender.
+func envelopeAddress(from string) string {
+	if parsed, err := mail.ParseAddress(from); err == nil {
+		return parsed.Address
+	}
+	return from
 }
 
 // buildMessage constructs the email message

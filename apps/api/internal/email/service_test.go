@@ -109,3 +109,20 @@ func TestStartupReportsWhetherEmailCanBeSent(t *testing.T) {
 		})
 	}
 }
+
+func TestEnvelopeAddress(t *testing.T) {
+	// The envelope sender goes into MAIL FROM, which takes a bare address; a display name
+	// there is answered with "501 Bad sender address syntax".
+	for _, tc := range []struct{ from, want string }{
+		{"Vault Console <noreply@msbutt.com>", "noreply@msbutt.com"},
+		{"<noreply@msbutt.com>", "noreply@msbutt.com"},
+		{"noreply@msbutt.com", "noreply@msbutt.com"},
+		{"  noreply@msbutt.com  ", "noreply@msbutt.com"},
+		{`"Vault Console, Ltd" <noreply@msbutt.com>`, "noreply@msbutt.com"},
+		{"not an address", "not an address"}, // unchanged, so the relay reports it
+	} {
+		if got := envelopeAddress(tc.from); got != tc.want {
+			t.Errorf("envelopeAddress(%q) = %q, want %q", tc.from, got, tc.want)
+		}
+	}
+}
