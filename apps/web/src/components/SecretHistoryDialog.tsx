@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { History, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/win95';
 import { useRestoreSecretVersion, useSecretVersions } from '@/hooks/use-secrets';
@@ -19,6 +20,7 @@ export const SecretHistoryDialog = ({
   canRestore,
   onClose,
 }: SecretHistoryDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose);
   const { data: versions = [], isLoading, error } = useSecretVersions(secret.id);
   const restore = useRestoreSecretVersion();
   const [revealed, setRevealed] = useState<{ version: number; value: string } | null>(null);
@@ -53,8 +55,10 @@ export const SecretHistoryDialog = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
       <div
-        className="relative win-border-raised bg-background w-full max-w-[560px]"
+        ref={dialogRef}
         role="dialog"
+        aria-modal="true"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[560px]"
         aria-labelledby="secret-history-title"
       >
         <div className="win-title-bar">

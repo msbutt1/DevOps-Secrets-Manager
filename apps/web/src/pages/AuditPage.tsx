@@ -183,8 +183,11 @@ export const AuditPage = () => {
             <Panel className="mb-win-sm">
               <div className="flex items-end gap-2 flex-wrap">
                 <div>
-                  <label className="block text-win-body mb-1">Vault:</label>
+                  <label htmlFor="audit-vault" className="block text-win-body mb-1">
+                    Vault:
+                  </label>
                   <Select
+                    id="audit-vault"
                     value={filters.vault}
                     onChange={(e) => setFilters({ ...filters, vault: e.target.value })}
                     options={vaultOptions}
@@ -192,8 +195,11 @@ export const AuditPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-win-body mb-1">Action:</label>
+                  <label htmlFor="audit-action" className="block text-win-body mb-1">
+                    Action:
+                  </label>
                   <Select
+                    id="audit-action"
                     value={filters.action}
                     onChange={(e) => setFilters({ ...filters, action: e.target.value })}
                     options={actionOptions}
@@ -201,8 +207,11 @@ export const AuditPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-win-body mb-1">User:</label>
+                  <label htmlFor="audit-user" className="block text-win-body mb-1">
+                    User:
+                  </label>
                   <Input
+                    id="audit-user"
                     value={filters.user}
                     onChange={(e) => setFilters({ ...filters, user: e.target.value })}
                     placeholder="Search user..."
@@ -210,8 +219,11 @@ export const AuditPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-win-body mb-1">From:</label>
+                  <label htmlFor="audit-from" className="block text-win-body mb-1">
+                    From:
+                  </label>
                   <Input
+                    id="audit-from"
                     type="date"
                     value={filters.startDate}
                     onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
@@ -219,8 +231,11 @@ export const AuditPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-win-body mb-1">To:</label>
+                  <label htmlFor="audit-to" className="block text-win-body mb-1">
+                    To:
+                  </label>
                   <Input
+                    id="audit-to"
                     type="date"
                     value={filters.endDate}
                     onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
@@ -285,9 +300,7 @@ export const AuditPage = () => {
                           <span className="font-semibold text-win-small">
                             {actionIcons[event.action] || 'ACTION'}
                           </span>
-                          <div className="text-win-small opacity-80">
-                            {event.action.split('.')[0]}
-                          </div>
+                          <div className="text-win-small">{event.action.split('.')[0]}</div>
                         </td>
                         <td className="px-2 py-1 font-mono">{event.targetName || '—'}</td>
                         <td className="px-2 py-1">{event.userEmail}</td>
@@ -320,6 +333,7 @@ export const AuditPage = () => {
                   className="!min-w-0 !px-2"
                   disabled={currentPage === 1 || isLoading}
                   onClick={() => setCurrentPage((p) => p - 1)}
+                  aria-label="Previous page"
                 >
                   <ChevronLeft size={12} />
                 </Button>
@@ -330,6 +344,7 @@ export const AuditPage = () => {
                   className="!min-w-0 !px-2"
                   disabled={currentPage >= totalPages || isLoading}
                   onClick={() => setCurrentPage((p) => p + 1)}
+                  aria-label="Next page"
                 >
                   <ChevronRight size={12} />
                 </Button>

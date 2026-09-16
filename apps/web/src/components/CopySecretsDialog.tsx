@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { Copy, AlertTriangle } from 'lucide-react';
 import { Button, Select } from '@/components/win95';
@@ -20,6 +21,7 @@ export const CopySecretsDialog = ({
   targetName,
   onClose,
 }: CopySecretsDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose);
   const queryClient = useQueryClient();
   const sources = environments.filter((e) => e.id !== targetEnvId);
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? '');
@@ -68,8 +70,10 @@ export const CopySecretsDialog = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
       <div
-        className="relative win-border-raised bg-background w-full max-w-[520px]"
+        ref={dialogRef}
         role="dialog"
+        aria-modal="true"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[520px]"
         aria-labelledby="copy-secrets-title"
       >
         <div className="win-title-bar">

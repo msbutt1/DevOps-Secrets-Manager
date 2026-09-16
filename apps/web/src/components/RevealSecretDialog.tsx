@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { Button, Panel } from '@/components/win95';
 import { Eye, Copy, Check, AlertTriangle } from 'lucide-react';
 import { expiryStatus } from '@/lib/expiry';
@@ -26,6 +27,7 @@ export const RevealSecretDialog = ({
   onClose,
   onReveal,
 }: RevealSecretDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(isOpen, onClose);
   const [copied, setCopied] = useState(false);
   const [countdown, setCountdown] = useState(expiresIn);
   const [hasRevealed, setHasRevealed] = useState(false);
@@ -83,7 +85,12 @@ export const RevealSecretDialog = ({
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative win-border-raised bg-background w-full max-w-[480px] animate-win-open">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[480px] animate-win-open"
+      >
         {/* Title Bar */}
         <div className="win-title-bar">
           <div className="flex items-center gap-2">

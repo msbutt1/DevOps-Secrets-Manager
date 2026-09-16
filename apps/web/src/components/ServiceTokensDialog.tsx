@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { Button, Input, Panel, Select } from '@/components/win95';
 import { CopyButton } from '@/components/CopyButton';
 import { AlertTriangle, KeyRound, Trash2 } from 'lucide-react';
@@ -35,6 +36,7 @@ export const ServiceTokensDialog = ({
   environmentName,
   onClose,
 }: ServiceTokensDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(isOpen, onClose);
   const { toast } = useToast();
   const { data: tokens = [], isLoading } = useServiceTokens(environmentId, isOpen);
   const createToken = useCreateServiceToken(environmentId);
@@ -92,7 +94,8 @@ export const ServiceTokensDialog = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="service-tokens-title"
-        className="relative win-border-raised bg-background w-full max-w-[640px] max-h-[90vh] overflow-auto animate-win-open"
+        ref={dialogRef}
+        className="relative z-10 win-border-raised bg-background w-full max-w-[640px] max-h-[90vh] overflow-auto animate-win-open"
       >
         <div className="win-title-bar">
           <div className="flex items-center gap-2">

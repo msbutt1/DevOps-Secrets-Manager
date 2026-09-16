@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { AlertTriangle, XCircle, Info } from 'lucide-react';
 import { Button, Input } from '@/components/win95';
 
@@ -35,6 +36,7 @@ export const ConfirmDialog = ({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(isOpen, onCancel);
   const [typed, setTyped] = useState('');
 
   // Start empty every time the dialog opens, so a previous answer cannot carry over
@@ -53,7 +55,12 @@ export const ConfirmDialog = ({
       <div className="absolute inset-0 bg-foreground/20" onClick={onCancel} />
 
       {/* Dialog */}
-      <div className="relative win-border-raised bg-background w-full max-w-[340px] animate-win-open">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[340px] animate-win-open"
+      >
         {/* Title Bar */}
         <div className="win-title-bar">
           <span>{title}</span>

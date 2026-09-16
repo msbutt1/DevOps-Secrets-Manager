@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { Button, Input, Panel } from '@/components/win95';
 import { Database } from 'lucide-react';
 import type { Vault, VaultCreateRequest, VaultUpdateRequest } from '@/types/api';
@@ -11,6 +12,7 @@ interface VaultFormDialogProps {
 }
 
 export const VaultFormDialog = ({ isOpen, vault, onClose, onSave }: VaultFormDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(isOpen, onClose);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,7 +52,12 @@ export const VaultFormDialog = ({ isOpen, vault, onClose, onSave }: VaultFormDia
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative win-border-raised bg-background w-full max-w-[420px] animate-win-open">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[420px] animate-win-open"
+      >
         {/* Title Bar */}
         <div className="win-title-bar">
           <div className="flex items-center gap-2">
@@ -71,10 +78,11 @@ export const VaultFormDialog = ({ isOpen, vault, onClose, onSave }: VaultFormDia
 
           {/* Name Field */}
           <div>
-            <label className="block text-win-body mb-1">
+            <label htmlFor="vault-name" className="block text-win-body mb-1">
               Vault Name: <span className="text-warning">*</span>
             </label>
             <Input
+              id="vault-name"
               value={name}
               onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
               placeholder="e.g., production-secrets"
@@ -88,8 +96,11 @@ export const VaultFormDialog = ({ isOpen, vault, onClose, onSave }: VaultFormDia
 
           {/* Description Field */}
           <div>
-            <label className="block text-win-body mb-1">Description:</label>
+            <label htmlFor="vault-description" className="block text-win-body mb-1">
+              Description:
+            </label>
             <textarea
+              id="vault-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="win-input w-full h-[60px] resize-none"

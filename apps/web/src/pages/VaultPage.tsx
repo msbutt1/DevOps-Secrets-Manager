@@ -581,6 +581,7 @@ export const VaultPage = () => {
                             checked={selectedSecrets.size === secrets.length && secrets.length > 0}
                             onChange={toggleAllSecrets}
                             className="win-checkbox"
+                            aria-label="Select all secrets in this environment"
                           />
                         </th>
                         <th className="text-left px-2 py-1 font-semibold">Name</th>
@@ -612,6 +613,7 @@ export const VaultPage = () => {
                                 checked={selectedSecrets.has(secret.id)}
                                 onChange={() => toggleSecretSelection(secret.id)}
                                 className="win-checkbox"
+                                aria-label={`Select ${secret.keyName}`}
                               />
                             </td>
                             <td className="px-2 py-1">

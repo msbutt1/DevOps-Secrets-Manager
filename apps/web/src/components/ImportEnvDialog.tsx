@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { Upload, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/win95';
@@ -15,6 +16,7 @@ interface ImportEnvDialogProps {
 
 /** Paste or upload a .env file, preview what happens to each key, then import. */
 export const ImportEnvDialog = ({ envId, environmentName, onClose }: ImportEnvDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(true, onClose);
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [overwrite, setOverwrite] = useState(false);
@@ -90,8 +92,10 @@ export const ImportEnvDialog = ({ envId, environmentName, onClose }: ImportEnvDi
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
       <div
-        className="relative win-border-raised bg-background w-full max-w-[560px]"
+        ref={dialogRef}
         role="dialog"
+        aria-modal="true"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[560px]"
         aria-labelledby="import-env-title"
       >
         <div className="win-title-bar">

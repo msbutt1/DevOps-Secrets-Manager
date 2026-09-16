@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useDialog } from '@/hooks/use-dialog';
 import { Button, Input, Panel } from '@/components/win95';
 import { AlertTriangle, Plus, X, Key } from 'lucide-react';
 import type { Secret, SecretCreateRequest } from '@/types/api';
@@ -11,6 +12,7 @@ interface SecretFormDialogProps {
 }
 
 export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretFormDialogProps) => {
+  const dialogRef = useDialog<HTMLDivElement>(isOpen, onClose);
   const [name, setName] = useState('');
   const [value, setValue] = useState('');
   const [description, setDescription] = useState('');
@@ -98,7 +100,12 @@ export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretForm
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative win-border-raised bg-background w-full max-w-[520px] animate-win-open">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[520px] animate-win-open"
+      >
         {/* Title Bar */}
         <div className="win-title-bar">
           <div className="flex items-center gap-2">
@@ -125,25 +132,30 @@ export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretForm
 
           {/* Name Field */}
           <div>
-            <label className="block text-win-body mb-1">
+            <label htmlFor="secret-name" className="block text-win-body mb-1">
               Secret Name: <span className="text-warning">*</span>
             </label>
             <Input
+              id="secret-name"
+              aria-describedby="secret-name-help"
               value={name}
               onChange={(e) => setName(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
               placeholder="e.g., DATABASE_URL"
               required
               disabled={isEditing || isSubmitting}
             />
-            <p className="text-win-small text-muted-foreground mt-1">
+            <p id="secret-name-help" className="text-win-small text-muted-foreground mt-1">
               Use UPPER_SNAKE_CASE format. Cannot be changed after creation.
             </p>
           </div>
 
           {/* Description Field */}
           <div>
-            <label className="block text-win-body mb-1">Description:</label>
+            <label htmlFor="secret-description" className="block text-win-body mb-1">
+              Description:
+            </label>
             <Input
+              id="secret-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Human-readable description of this secret"
@@ -154,11 +166,12 @@ export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretForm
 
           {/* Value Field */}
           <div>
-            <label className="block text-win-body mb-1">
+            <label htmlFor="secret-value" className="block text-win-body mb-1">
               Secret Value: <span className="text-warning">*</span>
             </label>
             <div className="relative">
               <textarea
+                id="secret-value"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 className="win-input w-full h-[80px] font-mono resize-none pr-16"
@@ -192,8 +205,11 @@ export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretForm
 
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-win-body mb-1">Rotation Interval (days):</label>
+                <label htmlFor="secret-rotation" className="block text-win-body mb-1">
+                  Rotation Interval (days):
+                </label>
                 <Input
+                  id="secret-rotation"
                   type="number"
                   value={rotationInterval}
                   onChange={(e) => setRotationInterval(e.target.value)}
@@ -208,8 +224,11 @@ export const SecretFormDialog = ({ isOpen, secret, onClose, onSave }: SecretForm
               </div>
 
               <div className="flex-1">
-                <label className="block text-win-body mb-1">Expiration Date:</label>
+                <label htmlFor="secret-expires" className="block text-win-body mb-1">
+                  Expiration Date:
+                </label>
                 <Input
+                  id="secret-expires"
                   type="date"
                   value={expiresAt}
                   onChange={(e) => setExpiresAt(e.target.value)}

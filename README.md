@@ -329,6 +329,7 @@ make test       # Go, web and CLI tests
 make lint       # gofmt, go vet, ESLint, Prettier, TypeScript, rustfmt and clippy
 make build      # API, web bundle and CLI release binary
 make audit      # govulncheck, npm audit and cargo audit
+make test-e2e   # browser tests, including an axe accessibility scan (needs make dev)
 ```
 
 Go integration tests create a throwaway database per test on the server named by

@@ -26,7 +26,7 @@
 
     /* Status colors */
     --info: 240 100% 25%; /* #000080 - navy */
-    --success: 120 100% 20%; /* #006400 - dark green */
+    --success: 120 100% 16%; /* #005200 - dark green, 4.5:1 on the silver background */
     --warning: 0 100% 27%; /* #8b0000 - dark red */
     --disabled: 0 0% 63%; /* #a0a0a0 */
 
@@ -40,7 +40,7 @@
     --secondary: 0 0% 83%;
     --secondary-foreground: 0 0% 0%;
     --muted: 0 0% 63%;
-    --muted-foreground: 0 0% 35%;
+    --muted-foreground: 0 0% 27%; /* 4.5:1 on the silver background */
     --accent: 0 0% 83%;
     --accent-foreground: 0 0% 0%;
     --destructive: 0 100% 27%;
@@ -75,7 +75,7 @@
     --border-dark: 0 0% 25%;
     --border-darkest: 0 0% 0%;
     --info: 240 100% 25%;
-    --success: 120 100% 20%;
+    --success: 120 100% 16%;
     --warning: 0 100% 27%;
     --disabled: 0 0% 63%;
     --card: 0 0% 75%;
@@ -87,7 +87,7 @@
     --secondary: 0 0% 83%;
     --secondary-foreground: 0 0% 0%;
     --muted: 0 0% 63%;
-    --muted-foreground: 0 0% 35%;
+    --muted-foreground: 0 0% 27%; /* 4.5:1 on the silver background */
     --accent: 0 0% 83%;
     --accent-foreground: 0 0% 0%;
     --destructive: 0 100% 27%;
@@ -220,6 +220,19 @@
     outline: none;
   }
 
+  /* Keyboard users need to see where they are; the sunken border alone is not enough */
+  .win-input:focus-visible {
+    outline: 2px solid hsl(var(--info));
+    outline-offset: -2px;
+  }
+
+  .win-checkbox:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid hsl(var(--info));
+    outline-offset: 1px;
+  }
+
   /* Checkbox and radio */
   .win-checkbox {
     width: 13px;
@@ -325,6 +338,18 @@
     @apply win-border-raised;
     width: 16px;
     height: 16px;
+  }
+}
+
+/* Respect the system setting: no opening or closing animations when motion is reduced */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
