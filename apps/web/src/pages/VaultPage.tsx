@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Panel, Button, Input } from '@/components/win95';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SecretFormDialog } from '@/components/SecretFormDialog';
+import { VaultFormDialog } from '@/components/VaultFormDialog';
 import { EnvironmentFormDialog } from '@/components/EnvironmentFormDialog';
 import { RevealSecretDialog } from '@/components/RevealSecretDialog';
 import { ExpiryBadge } from '@/components/ExpiryBadge';
@@ -20,7 +21,7 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { PermissionGate, usePermission } from '@/components/PermissionGate';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorMessage } from '@/components/ErrorMessage';
-import { useVault } from '@/hooks/use-vaults';
+import { useVault, useUpdateVault } from '@/hooks/use-vaults';
 import {
   useEnvironments,
   useCreateEnvironment,
@@ -97,6 +98,7 @@ export const VaultPage = () => {
   const [editSecret, setEditSecret] = useState<Secret | null>(null);
   const [showCreateSecret, setShowCreateSecret] = useState(false);
   const [showCreateEnv, setShowCreateEnv] = useState(false);
+  const [showEditVault, setShowEditVault] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showCopy, setShowCopy] = useState(false);
@@ -150,6 +152,7 @@ export const VaultPage = () => {
   const createEnvMutation = useCreateEnvironment();
   const deleteSecretMutation = useDeleteSecret();
   const deleteEnvironmentMutation = useDeleteEnvironment();
+  const updateVaultMutation = useUpdateVault();
   const { toast } = useToast();
   const revealMutation = useRevealSecret();
   const createSecretMutation = useCreateSecret();
@@ -379,7 +382,10 @@ export const VaultPage = () => {
                 </Link>
               </PermissionGate>
               <PermissionGate permission="canWrite" userRole={vault.userRole}>
-                <Button className="!min-w-0 flex items-center gap-1">
+                <Button
+                  className="!min-w-0 flex items-center gap-1"
+                  onClick={() => setShowEditVault(true)}
+                >
                   <Pencil size={12} strokeWidth={1.5} />
                   Edit
                 </Button>
@@ -744,6 +750,27 @@ export const VaultPage = () => {
       </div>
 
       {/* Reveal Secret Dialog */}
+      <VaultFormDialog
+        isOpen={showEditVault}
+        vault={vault}
+        onClose={() => setShowEditVault(false)}
+        onSave={(data) => {
+          if (!id) return;
+          updateVaultMutation.mutate(
+            { id, data },
+            {
+              onSuccess: () => setShowEditVault(false),
+              onError: (error) =>
+                toast({
+                  title: 'Could not save the vault',
+                  description: error instanceof Error ? error.message : 'Please try again',
+                  variant: 'destructive',
+                }),
+            },
+          );
+        }}
+      />
+
       {showCopy && currentEnvId && (
         <CopySecretsDialog
           environments={environments}
