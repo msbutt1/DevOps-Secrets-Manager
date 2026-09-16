@@ -290,11 +290,12 @@ These are half-built or missing, but a team would need them.
 - [x] **Theme.** Keep the retro Windows 95 look (it's distinctive) but tidy it: consistent spacing, one icon set, and a modern theme toggle if wanted. Commit: `style(web): refine UI theme`
   - Kept the single Windows 95 palette (no dark mode: Windows 95 had none, and a second theme would be one more thing to keep in step) and removed the duplicated `.dark` block that repeated the light values. Also deleted 43 unused scaffold UI components and the 36 packages they pulled in; lucide-react is the only icon set.
 - [x] **Favicon, page titles, metadata.** Commit: `feat(web): favicon and page titles`
-- [ ] **README.**
+- [x] **README.**
   - One-paragraph pitch, screenshots, a short demo GIF, an architecture diagram (Mermaid)
   - Quick start in 3 commands, feature list, security model
   - A roadmap section linking to this file
   - Commit: `docs: rewrite README`
+  - No demo GIF: the screenshots and the CLI capture cover the same ground without a large binary in the repository.
 - [x] **Screenshots.** Recapture them after the fixes (dashboard, vault, reveal dialog, audit log, members, CLI in a terminal) into `docs/images/`, then update the portfolio screenshot and write-up (the "where it falls short" section changes once Phase 1 is done). Commit: `docs: update screenshots`
 - [ ] **Changelog and version.** Add `CHANGELOG.md` and tag `v1.0.0` once Phases 0–2 are done. Commit: `chore: release v1.0.0`
 

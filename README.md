@@ -1,50 +1,21 @@
 # DevOps Secrets Manager
 
-A complete secrets management platform for DevOps teams featuring end-to-end encryption, role-based access control, and seamless CI/CD integration.
+A self-hosted place for a small team to keep the credentials their services need: API keys,
+database URLs, signing keys. Secrets are encrypted with a per-vault data key, each vault has its
+own members and roles, every reveal and export is written to an audit log, and pipelines read
+what they need through a scoped token instead of a person's account. It comes as a web console,
+a REST API and a single-binary CLI.
 
-## Architecture
+![The dashboard: counts, alerts and recent activity](docs/images/dashboard.png)
 
-```
-+------------------+     +------------------+     +------------------+
-|                  |     |                  |     |                  |
-|   React Web UI   |---->|    Go REST API   |---->|   PostgreSQL DB  |
-|   (TypeScript)   |     |   (Chi Router)   |     |   (Encrypted)    |
-|                  |     |                  |     |                  |
-+------------------+     +------------------+     +------------------+
-                               ^
-                               |
-+------------------+           |
-|                  |           |
-|    Rust CLI      |-----------+
-|   (secrets)      |
-|                  |
-+------------------+
-```
+## Contents
 
-## Features
+- [Quick start](#quick-start) · [Screenshots](#screenshots) · [Architecture](#architecture)
+- [Features](#features) · [User guide](#user-guide) · [API endpoints](#api-endpoints)
+- [Security model](#security-model) · [Configuration](#configuration) · [Development](#development)
+- [Deployment](#deployment) · [Roadmap](#roadmap)
 
-- **End-to-End Encryption**: AES-256-GCM envelope encryption with master KEK and per-vault DEKs
-- **Role-Based Access Control**: 5 roles (Owner, Admin, Developer, Oncall, Viewer) with granular permissions
-- **Vault-Level Membership**: Fine-grained access control per vault, not just organization-wide
-- **Audit Log**: Every reveal and change is recorded with who, where and when
-- **Environment Injection**: Run any command with secrets injected as environment variables
-- **JWT Authentication**: HS256-signed access tokens with refresh token rotation; the web app's refresh token lives in an `HttpOnly`, `SameSite=Strict` cookie that page scripts cannot read
-- **Multi-Environment Support**: Organize secrets by environment (dev, staging, production)
-
-## Tech Stack
-
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **API** | Go 1.21+, Chi Router | REST API server |
-| **Web** | React 18, TypeScript, Vite | User interface |
-| **CLI** | Rust 1.70+ | Command-line tool |
-| **Database** | PostgreSQL 17 | Persistent storage |
-| **Auth** | JWT (HS256) | Authentication |
-| **Encryption** | AES-256-GCM | Secret encryption |
-
-## Quick Start
-
-### Local development (no Docker)
+## Quick start
 
 Requires Go 1.25, Node.js 22, PostgreSQL 17 client and server binaries (`pg_ctl`, `initdb`,
 `psql`) and, for the CLI, Rust.
@@ -55,15 +26,97 @@ cd DevOps-Secrets-Manager
 make db && make migrate-up && make seed && make dev
 ```
 
+The web app is then on <http://localhost:5173> and the API on <http://localhost:8080>. Log in as
+`salaar@demo.dev` with the password `Demo-Passw0rd!2026`. `make help` lists every target.
+
 - `make db` initialises and starts PostgreSQL on port 5433 under `~/.local/share/devops-secrets-manager`
 - `make migrate-up` writes `apps/api/.env` with generated keys (if missing) and applies migrations
 - `make seed` creates demo users, vaults, environments and secrets through the API
-- `make dev` runs the API on http://localhost:8080 and the web app on http://localhost:5173
+- `make dev` runs the API and the web app together
 
-Log in as `salaar@demo.dev` with the password `Demo-Passw0rd!2026`. `make help` lists every
-target, including `make test`, `make lint` and `make cli`.
+## Screenshots
 
-### Docker Compose
+| | |
+|---|---|
+| ![A vault with its environments, rotation and expiry badges](docs/images/vault.png) **A vault**: environments as tabs, rotation due dates and expiry badges | ![The reveal dialog with its auto-hide countdown](docs/images/reveal.png) **Revealing a value**: audited, and hidden again after 30 seconds |
+| ![The history of a secret with restore buttons](docs/images/history.png) **History**: every past value, restorable as a new version | ![The audit log with filters and an event selected](docs/images/audit.png) **Audit log**: filter by vault, action, person or date |
+| ![Vault members and their permissions](docs/images/members.png) **Members**: per-vault roles, not just organization-wide | ![Signed-in sessions in settings](docs/images/sessions.png) **Sessions**: see where you are signed in and sign out a device |
+
+The CLI reads the same secrets for scripts and pipelines:
+
+![The CLI listing secrets and injecting them into a command](docs/images/cli.png)
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Clients
+    web["Web console<br/>React + TypeScript"]
+    cli["CLI<br/>Rust, single binary"]
+    ci["CI pipeline<br/>service token"]
+  end
+
+  api["REST API<br/>Go, chi"]
+  db[("PostgreSQL 17<br/>ciphertext only")]
+  kek(["Master key<br/>MASTER_KEK, env var"])
+
+  web -- "JWT in memory,<br/>refresh in HttpOnly cookie" --> api
+  cli -- "JWT from the OS keyring" --> api
+  ci -- "dsm_st_… token,<br/>one environment" --> api
+  api --> db
+  kek -. "unwraps each vault's<br/>data key in memory" .-> api
+```
+
+Every secret value is encrypted with its vault's data key (AES-256-GCM); that data key is itself
+encrypted with the master key, which lives only in the API's environment. The database holds
+ciphertext, so a stolen dump or backup is not enough to read anything. Both keys can be rotated
+without downtime — see [Security model](#security-model).
+
+## Features
+
+**Secrets**
+- Envelope encryption: every value is sealed with its vault's AES-256-GCM data key, which is
+  itself sealed with the master key; the database only ever holds ciphertext
+- Environments per vault (dev, staging, production), with production flagged in the interface
+- Version history: every value a secret has had, restorable as a new version
+- Expiry and rotation dates, shown as badges, dashboard alerts and CLI warnings
+- Import and export a whole environment as a `.env` file, and copy keys between environments
+- Search key names across every vault you can read
+
+**People and access**
+- Organizations with email invitations, and five vault roles: owner, admin, developer, on-call, viewer
+- Membership is per vault, so being in the organization is not the same as seeing every secret
+- Resources you cannot see return 404 rather than 403, so IDs cannot be probed
+- Sessions you can review and sign out, password reset by email, and a password policy checked
+  against the 10,000 most common passwords
+
+**Machines**
+- Service tokens scoped to one environment, stored as hashes, shown once, revocable, and audited
+  as `token:<name>`
+- `secrets run -- ./deploy.sh` injects values as environment variables and never writes them to disk
+- `secrets pull --out .env` writes a file only the runner can read (mode 0600)
+
+**Operations**
+- An audit log of every reveal, export, change, key rotation, login and lockout, filterable by
+  vault, action, person and date
+- A dashboard built from real counts: secrets, expiring values, overdue rotations, active users
+- Master key and per-vault data key rotation with no downtime
+- Rate limits, account lockout, security headers, structured JSON logs with request IDs, and
+  dependency scanning in CI
+
+## Tech stack
+
+| Component | Technology | Notes |
+|-----------|------------|-------|
+| API | Go 1.25, chi, pgx | REST, no ORM; integration tests run against a real database |
+| Web | React 18, TypeScript, Vite 8, TanStack Query | Types generated from `docs/openapi.yaml` |
+| CLI | Rust, clap, reqwest | Single static binary |
+| Database | PostgreSQL 17 | Numbered SQL migrations, each with a down file |
+| Auth | JWT HS256 + rotating refresh tokens | Refresh token in an HttpOnly cookie for the web app |
+| Encryption | AES-256-GCM envelope encryption | Master key in the environment, data key per vault |
+
+## Running with Docker
+
 
 ```bash
 cp .env.example .env
@@ -75,16 +128,16 @@ The web app is served on http://localhost:3000 and the API on http://localhost:8
 `APP_ENV=development` and no SMTP settings, the verification link for a new account is printed
 in the API logs (`docker compose logs api`).
 
-### CLI
+### Installing the CLI
 
 ```bash
 make cli                       # builds apps/cli/target/release/secrets
 cargo install --path apps/cli  # optional: puts `secrets` on your PATH
 ```
 
-## User Guide
+## User guide
 
-### Web Interface
+### Web interface
 
 1. **Register and verify**: Create an account at `http://localhost:5173` and open the verification link (logged by the API in development)
 2. **Organization**: Registration creates your own organization, where you are the owner
@@ -92,7 +145,7 @@ cargo install --path apps/cli  # optional: puts `secrets` on your PATH
 4. **Add secrets**: Store key-value pairs with optional description, rotation interval, expiry and labels. Expired and soon-to-expire secrets are flagged in the vault, on reveal, on the dashboard, and by `secrets run`, `pull` and `list`; expired values still work so a deploy is not broken without warning
 5. **Manage members**: Give people in your organization a role on the vault
 
-### CLI Commands
+### CLI commands
 
 The CLI talks to `http://localhost:8080` by default. Point it elsewhere with `--api-url`, the
 `SECRETS_API_URL` variable, or `secrets login --api-url https://secrets.example.com`, which
@@ -127,7 +180,7 @@ Service tokens give pipelines read-only access to one environment: create one fr
 page, store it as `SECRETS_TOKEN`, and run `secrets run -- ./deploy.sh`. See
 [docs/ci-github-actions.md](docs/ci-github-actions.md) for a GitHub Actions workflow.
 
-### API Endpoints
+## API endpoints
 
 The API has no path prefix; the web app reaches it through `/api` (proxied by Vite in
 development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
@@ -168,12 +221,12 @@ development and nginx in Docker). `docs/openapi.yaml` describes every endpoint.
 | GET | `/stats`, `/alerts` | Dashboard counts and alerts |
 | GET | `/health` | Database, schema version and uptime |
 
-## Security Model
+## Security model
 
 The threat model, operating advice, key rotation procedures and how to report a vulnerability
 are in [SECURITY.md](SECURITY.md).
 
-### Encryption Architecture
+### Encryption architecture
 
 ```
 Master KEK (environment variable)
@@ -195,7 +248,7 @@ Secret Values (stored encrypted)
 - **Vault DEK**: Generated per-vault, encrypted with Master KEK
 - **Secrets**: Encrypted with Vault DEK using AES-256-GCM
 
-### Rotating the Master Key
+### Rotating the master key
 
 Each vault records the master key version that wrapped its data key (`kek_version`), so the
 master key can be replaced without downtime and without re-encrypting secret values:
@@ -212,7 +265,7 @@ master key can be replaced without downtime and without re-encrypting secret val
 The API refuses to start if any vault uses a version that is not configured, so a key cannot be
 dropped too early.
 
-### Rotating a Vault's Data Key
+### Rotating a vault's data key
 
 If a vault's data may have been exposed (for example a database backup leaked together with the
 master key), an owner or admin can give the vault a new data key with
@@ -220,7 +273,7 @@ master key), an owner or admin can give the vault a new data key with
 re-encrypted in one transaction and the old key is discarded. Writes that race with the rotation
 wait for it and retry under the new key. The rotation is recorded as `vault.key_rotated`.
 
-### Sessions and Tokens
+### Sessions and tokens
 
 Access tokens are JWTs signed with HS256 and live for 15 minutes. HS256 was chosen over RS256
 because only this API issues and checks the tokens: there is no second service that needs a
@@ -240,7 +293,7 @@ Passwords must be 12 to 72 bytes and are checked against the 10,000 most common 
 user's own name and email. There are no composition rules, following NIST SP 800-63B; the
 register and change-password forms show a strength hint while typing.
 
-### Role Permissions
+### Role permissions
 
 Roles are set per vault. Organization owners and admins have that role on every vault in the
 organization; everyone else needs to be added to a vault.
@@ -257,7 +310,7 @@ Only owners can grant or remove the owner role, and a vault always keeps at leas
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
 The API reads an optional `.env` file in its working directory, an optional `config.yaml`,
 and environment variables. Nested settings use the `APP_` prefix (`database.host` becomes
@@ -303,7 +356,7 @@ duration and client IP. Headers, query strings and bodies are never logged, so t
 passwords and secret values stay out of the logs; `TestLogsNeverContainCredentials` checks this.
 The one exception is the development-only email fallback below.
 
-### Email in Development
+### Email in development
 
 Registration sends a verification link, and login is blocked until the address is verified.
 When `SMTP_HOST` is not set and `APP_ENV=development`, the API does not send mail; it logs
@@ -313,7 +366,7 @@ only runs when `APP_ENV=development` (set by `make env` and `.env.example`; the 
 defaults to `production`). Without SMTP, a production server reports an error instead of
 logging the link, because the link is a one-time credential.
 
-### Generate Encryption Key
+### Generating keys
 
 ```bash
 # Generate a secure 32-byte key
@@ -322,7 +375,7 @@ openssl rand -hex 32
 
 ## Development
 
-### Running Tests
+### Running tests
 
 ```bash
 make test       # Go, web and CLI tests
@@ -344,7 +397,7 @@ Go modules, npm packages, crates, GitHub Actions and Docker base images.
 
 ## Deployment
 
-### Fly.io + Neon (Free Tier)
+### Fly.io + Neon (free tier)
 
 1. **Create Neon Database**
    - Sign up at neon.tech
@@ -369,7 +422,7 @@ Go modules, npm packages, crates, GitHub Actions and Docker base images.
    # Set VITE_API_BASE_URL to your Fly.io API URL
    ```
 
-## Project Structure
+## Project structure
 
 ```
 devops-secrets-manager/
@@ -405,7 +458,7 @@ devops-secrets-manager/
 
 ## Troubleshooting
 
-### Common Issues
+### Common issues
 
 **Port already in use**
 Compose publishes PostgreSQL on 5433, the API on 8080 and the web app on 3000; `make db` also
@@ -434,6 +487,13 @@ secrets login
 - Only owners, admins and on-call members can reveal values; developers can write but not read them
 - Check your role on that vault (the Members page shows it)
 
+## Roadmap
+
+[PLAN.md](PLAN.md) is the working plan this project was finished against: each item says what was
+wrong, what was done and which commit did it, including the bugs found along the way. What is
+still open there is the optional Phase 6 (a hosted demo, nightly backups, an uptime check) and
+anything marked `[-]`.
+
 ## Contributing
 
 1. Fork the repository
@@ -442,7 +502,7 @@ secrets login
 4. Push to branch: `git push origin feature/my-feature`
 5. Open a Pull Request
 
-### Commit Convention
+### Commit convention
 
 - `feat:` New feature
 - `fix:` Bug fix
@@ -457,4 +517,4 @@ MIT License - see LICENSE file for details.
 
 ---
 
-Built with Go, React, and Rust.
+Built with Go, React and Rust. Security reporting: [SECURITY.md](SECURITY.md).
