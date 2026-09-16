@@ -295,7 +295,7 @@ These are half-built or missing, but a team would need them.
   - Quick start in 3 commands, feature list, security model
   - A roadmap section linking to this file
   - Commit: `docs: rewrite README`
-- [ ] **Screenshots.** Recapture them after the fixes (dashboard, vault, reveal dialog, audit log, members, CLI in a terminal) into `docs/images/`, then update the portfolio screenshot and write-up (the "where it falls short" section changes once Phase 1 is done). Commit: `docs: update screenshots`
+- [x] **Screenshots.** Recapture them after the fixes (dashboard, vault, reveal dialog, audit log, members, CLI in a terminal) into `docs/images/`, then update the portfolio screenshot and write-up (the "where it falls short" section changes once Phase 1 is done). Commit: `docs: update screenshots`
 - [ ] **Changelog and version.** Add `CHANGELOG.md` and tag `v1.0.0` once Phases 0–2 are done. Commit: `chore: release v1.0.0`
 
 ---
