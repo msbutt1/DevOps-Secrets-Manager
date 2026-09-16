@@ -4,7 +4,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/win95';
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { GlobalSearch } from '@/components/GlobalSearch';
-import { Shield, Database, Building, FileText, LogOut, Home, Settings } from 'lucide-react';
+import {
+  Shield,
+  Database,
+  Building,
+  FileText,
+  LogOut,
+  Home,
+  Settings,
+  AlertTriangle,
+} from 'lucide-react';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -17,6 +26,8 @@ const navItems = [
   { path: '/organization', label: 'Organization', icon: Building },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
+
+const demoBanner = import.meta.env.VITE_DEMO_BANNER;
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const { user, logout } = useAuth();
@@ -76,6 +87,17 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
           <span>Logout</span>
         </Button>
       </nav>
+
+      {/* A demo deployment says so: see docs/operations.md */}
+      {demoBanner && (
+        <div
+          role="status"
+          className="win-border-raised border-t-0 bg-warning/15 px-2 py-1 text-win-small flex items-center gap-2"
+        >
+          <AlertTriangle size={12} className="text-warning shrink-0" strokeWidth={1.5} />
+          <span>{demoBanner}</span>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 w-full min-w-0 p-win-sm overflow-auto">{children}</main>

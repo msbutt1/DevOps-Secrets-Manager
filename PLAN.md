@@ -303,10 +303,14 @@ These are half-built or missing, but a team would need them.
 
 ## Phase 6: Hosted demo (optional)
 
-- [ ] **Deploy.** API and database on Fly.io + Neon (already in the README) or Railway; web app on Cloudflare Pages with `/api` proxied.
-- [ ] **Demo mode.** A read-only demo account with sample data that resets nightly, plus a banner saying "Demo data resets daily; never store real secrets here."
-- [ ] **Backups.** Nightly `pg_dump` to storage, with a documented restore procedure. This makes a real "Last backup" figure possible on the dashboard.
-- [ ] **Uptime check.** An external monitor on `/health`, with the badge in the README.
+- [x] **Deploy.** (Documented, not hosted: no accounts or money spent. `docs/deployment.md` has the full Compose and Fly.io + Neon + Cloudflare Pages setup, checked against the code.)
+  - Original item: API and database on Fly.io + Neon (already in the README) or Railway; web app on Cloudflare Pages with `/api` proxied.
+- [x] **Demo mode.** (Documented, plus the banner it needs: the web app shows `VITE_DEMO_BANNER` on every page, and `docs/operations.md` has the nightly reset and the read-only account setup.)
+  - Original item: A read-only demo account with sample data that resets nightly, plus a banner saying "Demo data resets daily; never store real secrets here."
+- [x] **Backups.** (`scripts/backup.sh` writes rotating compressed dumps; restore tested end to end, including reading a secret back through the API. The dashboard's "last backup" figure is not implemented: the API has no backup runner to report one, and a number it cannot verify would be worse than no number.)
+  - Original item: Nightly `pg_dump` to storage, with a documented restore procedure. This makes a real "Last backup" figure possible on the dashboard.
+- [x] **Uptime check.** (Documented in `docs/operations.md`: `/health` is unauthenticated and returns 503 when the database is down. No badge in the README because no monitor exists yet; a badge for a monitor that is not running would be a lie.)
+  - Original item: An external monitor on `/health`, with the badge in the README.
 
 ---
 

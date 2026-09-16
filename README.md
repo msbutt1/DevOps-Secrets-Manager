@@ -397,30 +397,14 @@ Go modules, npm packages, crates, GitHub Actions and Docker base images.
 
 ## Deployment
 
-### Fly.io + Neon (free tier)
+[docs/deployment.md](docs/deployment.md) walks through Docker Compose on one host and a free-tier
+setup (Fly.io for the API, Neon for PostgreSQL, Cloudflare Pages for the web app), with every
+environment variable the API needs and what happens on upgrade.
 
-1. **Create Neon Database**
-   - Sign up at neon.tech
-   - Create PostgreSQL 17 database
-   - Copy connection string
-
-2. **Deploy API to Fly.io**
-   ```bash
-   cd apps/api
-   fly launch
-   fly secrets set DATABASE_URL="postgresql://..."
-   fly secrets set APP_JWT_SECRET="$(openssl rand -hex 32)"
-   fly secrets set MASTER_KEK="$(openssl rand -hex 32)"
-   fly deploy
-   ```
-
-3. **Deploy Web to Cloudflare Pages**
-   ```bash
-   cd apps/web
-   npm run build
-   # Connect GitHub repo to Cloudflare Pages
-   # Set VITE_API_BASE_URL to your Fly.io API URL
-   ```
+[docs/operations.md](docs/operations.md) covers the rest of running it: nightly `pg_dump` backups
+with `scripts/backup.sh`, a restore procedure that has been tested end to end, what to monitor
+(`/health`, plus the audit events worth alerting on), and how to run a public demo that resets
+itself and says so in a banner.
 
 ## Project structure
 
