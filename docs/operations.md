@@ -116,13 +116,33 @@ Worth watching beyond uptime:
 
 If you put a public demo online, treat it as a throwaway:
 
-- Seed it with `make seed` (or `go run ./apps/api/cmd/seed --api-url https://demo.example.com`),
-  which creates four vaults, four people and sixteen fake secrets, none of them real.
-- Reset it on a schedule so anything visitors add disappears:
+- Seed it with `make seed` locally, or against a real deployment with `--database-url`:
 
-  ```cron
-  0 4 * * * cd /srv/app && dropdb -U postgres secrets_db && createdb -U postgres -O secrets_user secrets_db && ./scripts/seed.sh >> /var/log/secrets-demo-reset.log 2>&1
+  ```bash
+  go run ./apps/api/cmd/seed --api-url https://demo.example.com/api --database-url "$DATABASE_URL"
   ```
+
+  That creates four vaults, four people and sixteen fake secrets, none of them real. Use
+  `--database-url` for anything hosted: without it the seed registers the demo users through
+  the API, which emails verification and invitation links to four addresses that do not exist,
+  and the bounces damage the sending domain's reputation for real users. With it the accounts
+  are written to the database already verified, and no mail is sent.
+
+- Reset it on a schedule so anything visitors add disappears. `scripts/demo-reset.sh` truncates
+  every table except `schema_migrations` and seeds again. It is irreversible, so it refuses to
+  run unless told plainly:
+
+  ```bash
+  DEMO_RESET_CONFIRM=yes DATABASE_URL=... API_URL=https://demo.example.com/api scripts/demo-reset.sh
+  ```
+
+  On a host with cron, run that nightly. On a platform without a scheduler, such as Render's
+  free plan, `.github/workflows/demo-reset.yml` does it from GitHub Actions at 09:00 UTC; set
+  the `DEMO_DATABASE_URL` secret and the `DEMO_API_URL` variable to switch it on. Two things to
+  know about that route: scheduled workflows are delayed when GitHub is busy, which does not
+  matter nightly, and **GitHub disables them after 60 days with no commits to the repository**,
+  so a dormant project quietly stops resetting. Check it occasionally, or run it by hand from
+  the Actions tab.
 
 - Say so in the interface. The web app shows a banner when it is built with
   `VITE_DEMO_BANNER` set:

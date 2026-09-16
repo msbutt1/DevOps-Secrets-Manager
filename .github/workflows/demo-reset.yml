@@ -1,0 +1,56 @@
+name: Reset the demo
+
+# The demo at devops.msbutt.com is public and anyone can sign up, so whatever visitors leave
+# behind is wiped nightly and the sample data put back. Render's free plan has no scheduler,
+# which is why this runs here.
+#
+# Needs the DEMO_DATABASE_URL secret (the demo's connection string) and the DEMO_API_URL
+# variable (e.g. https://devops.msbutt.com/api). It does nothing without them, so a fork or a
+# clone cannot delete anything.
+on:
+  schedule:
+    - cron: '0 9 * * *' # 09:00 UTC, the middle of the night in North America
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-reset
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    name: Wipe and seed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check it is configured
+        id: configured
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "${{ vars.DEMO_API_URL }}" ]; then
+            echo "DEMO_DATABASE_URL or DEMO_API_URL is not set; nothing to reset" >&2
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reset
+        if: steps.configured.outputs.run == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+          API_URL: ${{ vars.DEMO_API_URL }}
+          DEMO_RESET_CONFIRM: 'yes'
+        run: ./scripts/demo-reset.sh
+
+      - name: Check the demo answers afterwards
+        if: steps.configured.outputs.run == 'true'
+        run: |
+          curl -fsS "${{ vars.DEMO_API_URL }}/health" | grep -q '"database":"ok"'

@@ -455,6 +455,16 @@ func (s *seeder) ensureVaultMembers(ownerToken, vaultID string, roles map[string
 // ensureUser registers the user if needed, verifies the email when a development link is
 // available, and returns an access token.
 func (s *seeder) ensureUser(u demoUser) (string, error) {
+	// Already provisioned directly, and verified: registering would only spend the endpoint's
+	// rate limit on a request that can answer nothing but 409.
+	if s.db != nil {
+		token, _, err := s.login(u.Email)
+		if err != nil {
+			return "", fmt.Errorf("log in as %s: %w", u.Email, err)
+		}
+		return token, nil
+	}
+
 	status, err := s.call(http.MethodPost, "/auth/register", "", map[string]any{
 		"email": u.Email, "password": s.password, "name": u.Name,
 	}, nil)
