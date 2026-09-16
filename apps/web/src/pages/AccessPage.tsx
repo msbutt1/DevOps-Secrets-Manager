@@ -205,7 +205,7 @@ export const AccessPage = () => {
                 />
               ) : (
                 <div className="win-border-sunken bg-input overflow-x-auto">
-                  <table className="w-full text-win-body">
+                  <table className="w-full min-w-[620px] text-win-body">
                     <thead>
                       <tr className="bg-secondary border-b border-border">
                         <th className="text-left px-2 py-1 font-semibold">Email</th>

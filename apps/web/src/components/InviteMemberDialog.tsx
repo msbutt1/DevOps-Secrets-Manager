@@ -69,14 +69,14 @@ export const InviteMemberDialog = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="invite-dialog-title"
         ref={dialogRef}
-        className="relative z-10 win-border-raised bg-background w-full max-w-[400px] animate-win-open"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[400px] max-h-[90vh] overflow-auto animate-win-open"
       >
         <div className="win-title-bar">
           <div className="flex items-center gap-2">

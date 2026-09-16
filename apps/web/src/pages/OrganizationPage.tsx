@@ -207,7 +207,7 @@ export const OrganizationPage = () => {
             {membersLoading ? (
               <LoadingState type="inline" message="Loading members..." />
             ) : (
-              <table className="w-full text-win-body">
+              <table className="w-full min-w-[560px] text-win-body">
                 <thead>
                   <tr className="bg-secondary border-b border-border">
                     <th className="text-left px-2 py-1 font-semibold">Member</th>
@@ -282,7 +282,7 @@ export const OrganizationPage = () => {
                   No pending invitations
                 </div>
               ) : (
-                <table className="w-full text-win-body">
+                <table className="w-full min-w-[560px] text-win-body">
                   <thead>
                     <tr className="bg-secondary border-b border-border">
                       <th className="text-left px-2 py-1 font-semibold">Email</th>

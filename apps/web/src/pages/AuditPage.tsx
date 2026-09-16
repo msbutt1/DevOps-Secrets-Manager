@@ -72,6 +72,20 @@ const actionIcons: Record<string, string> = {
   'login.success': 'LOGIN',
   'login.failure': 'FAIL',
   'user.password_changed': 'PASSWORD',
+  'user.password_reset': 'PASSWORD',
+  'user.sessions_revoked': 'SIGN OUT',
+  'secret.restored': 'RESTORE',
+  'env.imported': 'IMPORT',
+  'env.exported': 'EXPORT',
+  'token.created': 'TOKEN',
+  'token.revoked': 'TOKEN',
+  'invite.created': 'INVITE',
+  'invite.revoked': 'INVITE',
+  'invite.accepted': 'INVITE',
+  'org.updated': 'UPDATE',
+  'org.member_role_changed': 'ROLE',
+  'org.member_removed': 'REMOVE',
+  'login.locked': 'LOCKED',
 };
 
 export const AuditPage = () => {
@@ -176,9 +190,9 @@ export const AuditPage = () => {
           </Button>
         </div>
 
-        <div className="flex gap-win-sm flex-1 min-h-0">
+        <div className="flex flex-col lg:flex-row gap-win-sm flex-1 min-h-0">
           {/* Main Panel */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 min-w-0 flex flex-col">
             {/* Filters */}
             <Panel className="mb-win-sm">
               <div className="flex items-end gap-2 flex-wrap">
@@ -265,7 +279,7 @@ export const AuditPage = () => {
               <EmptyState type="audit" />
             ) : (
               <div className="flex-1 win-border-sunken bg-input overflow-auto">
-                <table className="w-full text-win-body">
+                <table className="w-full min-w-[720px] text-win-body">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-secondary border-b border-border">
                       <th className="text-left px-2 py-1 font-semibold w-[160px]">Timestamp</th>
@@ -353,7 +367,7 @@ export const AuditPage = () => {
           </div>
 
           {/* Detail Panel */}
-          <div className="w-[320px]">
+          <div className="w-full lg:w-[320px] shrink-0">
             <Panel className="h-full">
               <div className="flex items-center gap-2 mb-2">
                 <FileText size={14} strokeWidth={1.5} />

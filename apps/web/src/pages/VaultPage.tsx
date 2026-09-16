@@ -364,7 +364,7 @@ export const VaultPage = () => {
             <RoleBadge role={vault.userRole} size="sm" />
           </div>
 
-          <div className="flex items-start justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-win-body text-muted-foreground">{vault.description}</p>
               <p className="text-win-small text-muted-foreground mt-1">
@@ -375,7 +375,7 @@ export const VaultPage = () => {
             <div className="flex gap-1">
               <PermissionGate permission="canManageMembers" userRole={vault.userRole}>
                 <Link to={`/vaults/${id}/access`}>
-                  <Button className="!min-w-0 flex items-center gap-1">
+                  <Button className="!min-w-0 shrink-0 flex items-center gap-1">
                     <Users size={12} strokeWidth={1.5} />
                     Members
                   </Button>
@@ -383,7 +383,7 @@ export const VaultPage = () => {
               </PermissionGate>
               <PermissionGate permission="canWrite" userRole={vault.userRole}>
                 <Button
-                  className="!min-w-0 flex items-center gap-1"
+                  className="!min-w-0 shrink-0 flex items-center gap-1"
                   onClick={() => setShowEditVault(true)}
                 >
                   <Pencil size={12} strokeWidth={1.5} />
@@ -406,12 +406,12 @@ export const VaultPage = () => {
             </div>
           ) : (
             <>
-              <div className="flex border-b border-border">
+              <div className="flex border-b border-border overflow-x-auto">
                 {environments.map((env) => (
                   <button
                     key={env.id}
                     onClick={() => setActiveEnv(env.name)}
-                    className={`px-4 py-2 text-win-body border-r border-border flex items-center gap-2 ${
+                    className={`px-4 py-2 text-win-body border-r border-border flex shrink-0 items-center gap-2 ${
                       activeEnv === env.name
                         ? 'bg-background font-semibold border-b-2 border-b-primary'
                         : 'bg-secondary hover:bg-background'
@@ -459,12 +459,13 @@ export const VaultPage = () => {
               )}
 
               {/* Toolbar */}
-              <div className="p-2 flex items-center gap-2 border-b border-border">
+              <div className="p-2 flex flex-wrap items-center gap-2 border-b border-border">
                 <Input
                   placeholder="Filter secrets..."
+                  aria-label="Filter secrets by name"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
-                  className="w-[200px]"
+                  className="w-full sm:w-[200px]"
                 />
 
                 {selectedSecrets.size > 0 && (
@@ -488,7 +489,7 @@ export const VaultPage = () => {
 
                 <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
                   <Button
-                    className="!min-w-0 flex items-center gap-1"
+                    className="!min-w-0 shrink-0 flex items-center gap-1"
                     onClick={() => setShowImport(true)}
                     disabled={!currentEnvId}
                   >
@@ -500,7 +501,7 @@ export const VaultPage = () => {
                 {ROLE_PERMISSIONS[vault?.userRole ?? 'viewer'].canWrite && (
                   <PermissionGate permission="canReveal" userRole={vault?.userRole || 'viewer'}>
                     <Button
-                      className="!min-w-0 flex items-center gap-1"
+                      className="!min-w-0 shrink-0 flex items-center gap-1"
                       onClick={() => setShowCopy(true)}
                       disabled={!currentEnvId || environments.length < 2}
                       title="Copy values from another environment of this vault"
@@ -513,7 +514,7 @@ export const VaultPage = () => {
 
                 <PermissionGate permission="canReveal" userRole={vault?.userRole || 'viewer'}>
                   <Button
-                    className="!min-w-0 flex items-center gap-1"
+                    className="!min-w-0 shrink-0 flex items-center gap-1"
                     onClick={handleExport}
                     disabled={!currentEnvId || exporting || secrets.length === 0}
                     title="Download every value in this environment as a .env file (audited)"
@@ -528,7 +529,7 @@ export const VaultPage = () => {
                   userRole={vault?.userRole || 'viewer'}
                 >
                   <Button
-                    className="!min-w-0 flex items-center gap-1"
+                    className="!min-w-0 shrink-0 flex items-center gap-1"
                     onClick={() => setShowTokens(true)}
                     disabled={!currentEnvId}
                   >
@@ -539,7 +540,7 @@ export const VaultPage = () => {
 
                 <PermissionGate permission="canWrite" userRole={vault?.userRole || 'viewer'}>
                   <Button
-                    className="!min-w-0 flex items-center gap-1"
+                    className="!min-w-0 shrink-0 flex items-center gap-1"
                     onClick={() => setShowCreateSecret(true)}
                     disabled={!currentEnvId}
                   >
@@ -571,8 +572,8 @@ export const VaultPage = () => {
                   )}
                 </div>
               ) : (
-                <div className="win-border-sunken bg-input m-2">
-                  <table className="w-full text-win-body">
+                <div className="win-border-sunken bg-input m-2 overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-win-body">
                     <thead>
                       <tr className="bg-secondary border-b border-border">
                         <th className="w-[30px] px-2 py-1">

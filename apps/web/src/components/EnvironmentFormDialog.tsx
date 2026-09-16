@@ -54,7 +54,7 @@ export const EnvironmentFormDialog = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-foreground/20" onClick={onClose} />
 
@@ -63,7 +63,7 @@ export const EnvironmentFormDialog = ({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        className="relative z-10 win-border-raised bg-background w-full max-w-[380px] animate-win-open"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[380px] max-h-[90vh] overflow-auto animate-win-open"
       >
         {/* Title Bar */}
         <div className="win-title-bar">

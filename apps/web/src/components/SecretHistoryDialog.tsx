@@ -58,7 +58,7 @@ export const SecretHistoryDialog = ({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        className="relative z-10 win-border-raised bg-background w-full max-w-[560px]"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[560px] max-h-[90vh] overflow-auto"
         aria-labelledby="secret-history-title"
       >
         <div className="win-title-bar">

@@ -83,9 +83,9 @@ export const SettingsPage = () => {
           <p className="text-win-body text-muted-foreground">Account information and preferences</p>
         </div>
 
-        <div className="flex gap-win-sm">
+        <div className="flex flex-col lg:flex-row gap-win-sm">
           {/* Profile Panel */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <Panel>
               <div className="flex items-center gap-2 mb-3">
                 <User size={14} strokeWidth={1.5} />
@@ -121,7 +121,7 @@ export const SettingsPage = () => {
           </div>
 
           {/* Security & Organizations */}
-          <div className="w-[320px] space-y-win-sm">
+          <div className="w-full lg:w-[320px] shrink-0 space-y-win-sm">
             {/* Security Panel */}
             <Panel>
               <div className="flex items-center gap-2 mb-3">

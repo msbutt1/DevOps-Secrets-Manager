@@ -143,7 +143,7 @@ export const DashboardPage = () => {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-6 gap-win-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-win-sm">
           <Panel className="!p-2 text-center">
             <Key size={16} className="mx-auto mb-1 text-info" strokeWidth={1.5} />
             <div className="text-win-title font-semibold">{stats.secrets}</div>
@@ -200,9 +200,9 @@ export const DashboardPage = () => {
           </Panel>
         </div>
 
-        <div className="flex gap-win-sm">
+        <div className="flex flex-col lg:flex-row gap-win-sm">
           {/* Left Column - Vaults */}
-          <div className="flex-1 space-y-win-sm">
+          <div className="flex-1 min-w-0 space-y-win-sm">
             {/* Vaults Panel */}
             <Panel>
               <div className="flex items-center justify-between mb-2">

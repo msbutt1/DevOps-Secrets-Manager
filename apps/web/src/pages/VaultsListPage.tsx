@@ -174,8 +174,8 @@ export const VaultsListPage = () => {
               <h2 className="text-win-section font-semibold">Available Vaults</h2>
             </div>
 
-            <div className="win-border-sunken bg-input">
-              <table className="w-full text-win-body">
+            <div className="win-border-sunken bg-input overflow-x-auto">
+              <table className="w-full min-w-[640px] text-win-body">
                 <thead>
                   <tr className="bg-secondary border-b border-border">
                     <th className="text-left px-2 py-1 font-semibold">Vault Name</th>

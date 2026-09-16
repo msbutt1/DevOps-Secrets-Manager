@@ -73,7 +73,7 @@ export const CopySecretsDialog = ({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        className="relative z-10 win-border-raised bg-background w-full max-w-[520px]"
+        className="relative z-10 win-border-raised bg-background w-full max-w-[520px] max-h-[90vh] overflow-auto"
         aria-labelledby="copy-secrets-title"
       >
         <div className="win-title-bar">
