@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w -X main.version=
     CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o keys ./apps/api/cmd/keys
 
 # Stage 2: Create minimal runtime image
-FROM alpine:3.24.1
+FROM alpine:3.24.2
 
 # Install CA certificates for HTTPS
 RUN apk --no-cache add ca-certificates
