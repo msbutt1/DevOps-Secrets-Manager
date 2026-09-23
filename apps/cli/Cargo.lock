@@ -2093,7 +2093,7 @@ dependencies = [
  "comfy-table",
  "dirs",
  "keyring",
- "rand 0.8.8",
+ "rand 0.10.2",
  "reqwest",
  "rpassword",
  "serde",
