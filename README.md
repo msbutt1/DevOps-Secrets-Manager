@@ -6,7 +6,7 @@ own members and roles, every reveal and export is written to an audit log, and p
 what they need through a scoped token instead of a person's account. It comes as a web console,
 a REST API and a single-binary CLI.
 
-[WebApp Deployment](#quick-start)
+[WebApp Deployment](https://devops.msbutt.com/)
 
 
 ![The dashboard: counts, alerts and recent activity](docs/images/dashboard.png)
