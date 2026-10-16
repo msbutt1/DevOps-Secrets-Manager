@@ -19,7 +19,7 @@ keyring = "2.3"
 anyhow = "1.0"
 thiserror = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
-comfy-table = "7.1"
+comfy-table = "8.0"
 rpassword = "7.3"
 dirs = "5.0"
 aes-gcm = "0.10"
